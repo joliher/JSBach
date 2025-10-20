@@ -9,3 +9,5 @@ fi
 echo "Deshabilitando NetworkManager..."
 systemctl stop NetworkManager && systemctl disable NetworkManager &>/dev/null
 
+# Paquetes adicionales
+apt install curl
