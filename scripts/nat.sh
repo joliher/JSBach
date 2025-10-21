@@ -1,0 +1,53 @@
+#!/bin/bash
+# Equivalente a "enrutar.sh"
+
+###############
+# PREPARACION #
+###############
+
+if [ $(whoami) != "root" ]; then
+	echo "Necesitas ser root"
+	exit 1
+fi
+
+#conf_file="/usr/local/JSBach/config/nat.conf"
+#[ -f $conf_file ] || touch $conf_file
+#source $conf_file
+source /usr/local/JSBach/config/ifwan.conf
+
+########
+# MAIN #
+########
+
+! [ -z $IFWAN ] || { echo "Se debe configurar \$IFWAN en /usr/local/JSBach/config/ifwan.conf" && exit 1; }
+
+case $1 in
+	--start)
+		if iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE &>/dev/null; then
+			echo "El NAT ya está activado"
+			exit 1
+		fi
+		echo 1 > /proc/sys/net/ipv4/ip_forward
+		iptables -t nat -A POSTROUTING -o $IFWAN -j MASQUERADE
+		;;	
+	--stop)
+		echo 0 > /proc/sys/net/ipv4/ip_forward
+		iptables -t nat -D POSTROUTING -o $IFWAN -j MASQUERADE
+		;;
+
+	--status)
+		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE; then
+			echo "NAT ACTIVADO"
+		else
+			echo "NAT DESACTIVADO"
+		fi
+		;;
+
+	*)
+		echo "Argumento no válido."
+		echo "Uso: ./nat.sh --[start|stop|config|status]"
+		exit 1
+		;;
+esac
+
+exit 0

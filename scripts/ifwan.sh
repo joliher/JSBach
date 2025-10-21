@@ -35,8 +35,6 @@ function del_conf_param () {
 ########
 # MAIN #
 ########
-
-
 case $1 in
 	--start)
 		{ ! [ -z $IFWAN ] && ! [ -z $MODE ]; } || { echo "WARN: Se debe hacer una configuración inicial del script." && exit 1; }
@@ -133,9 +131,17 @@ case $1 in
 		;;
 
 	--status)
-		{ ! [ -z $IFWAN ] && ! [ -z $MODE ]; } || { echo "WARN: Se debe hacer una configuración inicial del script." && exit 1; }
+		if [ -z $IFWAN ] || [ -z $MODE ]; then
+		       echo "WARN: Se debe hacer una configuración inicial del script."
+		       exit 1
+		fi
 
-		{ curl https://www.google.com &>/dev/null && echo "Tarjeta WAN ACTIVADA"; } || echo "Tarjeta WAN DESACTIVADA"
+		if curl https://www.google.com &>/dev/null; then
+			echo "WAN ACTIVADA"
+		else
+		       	echo "WAN DESACTIVADA"
+		fi
+
 		;;
 
 	*)
