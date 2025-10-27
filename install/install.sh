@@ -7,7 +7,7 @@ fi
 
 
 # Paquetes adicionales
-apt install curl net-tools apache2
+apt install curl net-tools apache2 expect socat
 
 a2enmod cgi
 

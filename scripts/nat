@@ -26,17 +26,20 @@ case $1 in
 		if iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE &>/dev/null; then
 			echo "El NAT ya está activado"
 			exit 1
+		else
+			echo "Activando NAT..."
 		fi
 		echo 1 > /proc/sys/net/ipv4/ip_forward
 		iptables -t nat -A POSTROUTING -o $IFWAN -j MASQUERADE
 		;;	
 	--stop)
 		echo 0 > /proc/sys/net/ipv4/ip_forward
-		iptables -t nat -D POSTROUTING -o $IFWAN -j MASQUERADE
+		iptables -t nat -D POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null
+		echo "Apagando NAT..."
 		;;
 
 	--status)
-		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE; then
+		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE 2>/dev/null; then
 			echo "NAT ACTIVADO"
 		else
 			echo "NAT DESACTIVADO"

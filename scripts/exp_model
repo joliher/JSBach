@@ -1,0 +1,12 @@
+#!/usr/bin/expect -f
+
+set timeout 10
+
+spawn nc -N 127.0.0.1 1234
+
+expect -re "CLI>"
+send "nat --status\r"
+
+expect -re "CLI>"
+send "exit\r"
+

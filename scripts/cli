@@ -1,12 +1,18 @@
 #!/bin/bash
 
+if [ $(whoami) != "root" ]; then
+	echo "Debes de ser root"
+	exit 1
+fi
+
 while true; do
 	
 	SCRIPTS_PATH=/usr/local/JSBach/scripts/
+	cd $SCRIPTS_PATH
 
-	echo "CLI>"	
+	echo -n "CLI>"
 	read iline
-	
+
 	read -a args <<< "$iline"
 
 	if [ -z "${args[0]}" ]; then
@@ -15,7 +21,7 @@ while true; do
 
 	if ! [ -x "${args[0]}" ]; then
 		if [ "${args[0]}" == "?" ]; then
-			ls $SCRIPTS_PATH | sed 's/\.sh//'
+			ls $SCRIPTS_PATH # | sed 's/\.sh//'
 		elif [ "${args[0]}" == "exit" ]; then
 			exit 0
 		else

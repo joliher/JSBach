@@ -1,6 +1,12 @@
 #!/bin/bash
 
-trap "rm -f /tmp/f; echo 'Tubería eliminada.'" EXIT
+if [ $(whoami) != "root" ]; then
+	echo "Debes de ser root"
+	exit 1
+fi
 
-mkfifo /tmp/f
-cat /tmp/f | /usr/local/JSBach/scripts/cli.sh 2>&1 | nc -kl 127.0.0.1 1234 > /tmp/f
+while true; do
+	socat TCP-LISTEN:1234,reuseaddr,bind=127.0.0.1 EXEC:/usr/local/JSBach/scripts/cli
+	echo "Cliente desconectado, reiniciando escucha"
+	sleep 1
+done
