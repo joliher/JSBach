@@ -1,14 +1,11 @@
 #!/bin/bash
 
+source /usr/local/JSBach/conf/variables.txt
+
 /bin/cat << EOM
 
 <html>
 <head>
-
-EOM
-echo '<title>Administracio de '$HOSTNAME'</title>'
-/bin/cat << EOM
-
 <meta http-equiv=Content-Type content="text/html; charset=windows-1252">
 <meta content="MSHTML 6.00.2900.3660" name=GENERATOR> 
 
@@ -29,19 +26,15 @@ echo '<title>Administracio de '$HOSTNAME'</title>'
 .Estilo2 {color: #000000}
 -->
 </style>
-</head> 
-<frameset rows="18%,82%" frameborder="1">
-<frame src="/cgi-bin-JSBach/cabecera-main.cgi" name="menu-general" noresize="noresize">
-<frameset cols="20%,80%">
-<frame src="/cgi-bin-JSBach/<patata>.cgi" name="menu" noresize="noresize">
-<frame src="/cgi-bin-JSBach/<patata>.cgi" name="body" noresize="noresize">
-</frameset>
-</frameset>
-<noframes>
-<body>Tu browser no soporta frames!</body>
-</noframes>
-
+</head>
+<body>
+  <h4><a href="./config-ifwan.cgi?comand=--start&" target="body">IFWAN START</a></h4>
+  <h4><a href="./config-ifwan.cgi?comand=--stop&" target="body">IFWAN STOP</a></h4>
+  <h4><a href="./config-ifwan.cgi?comand=--status&" target="body">IFWAN STATUS</a></h4>
+  <h4><a href="./info-ifwan.cgi?" target="body">IFWAN CONFIG</a></h4>
+</body>
 </html>
 
 EOM
+
 

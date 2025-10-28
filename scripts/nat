@@ -10,10 +10,8 @@ if [ $(whoami) != "root" ]; then
 	exit 1
 fi
 
-#conf_file="/usr/local/JSBach/config/nat.conf"
-#[ -f $conf_file ] || touch $conf_file
-#source $conf_file
-source /usr/local/JSBach/config/ifwan.conf
+source "/usr/local/JSBach/config/variables.conf"
+source "$DIR$PROYECTO$DIR_CONF/$CONF_IFWAN"
 
 ########
 # MAIN #
@@ -23,7 +21,7 @@ source /usr/local/JSBach/config/ifwan.conf
 
 case $1 in
 	--start)
-		if iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE &>/dev/null; then
+		if iptables -t nat -C POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null; then
 			echo "El NAT ya está activado"
 			exit 1
 		else
@@ -39,7 +37,7 @@ case $1 in
 		;;
 
 	--status)
-		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o eno1 -j MASQUERADE 2>/dev/null; then
+		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o $IFWAN -j MASQUERADE 2>/dev/null; then
 			echo "NAT ACTIVADO"
 		else
 			echo "NAT DESACTIVADO"
@@ -48,7 +46,7 @@ case $1 in
 
 	*)
 		echo "Argumento no válido."
-		echo "Uso: ./nat.sh --[start|stop|config|status]"
+		echo "Uso: nat --[start|stop|config|status]" 
 		exit 1
 		;;
 esac

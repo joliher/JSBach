@@ -36,17 +36,17 @@ th {
 
 
 EOM
-echo "<h1 align="center">Administrant el Router "$HOSTNAME" amb "$PROMPT"</h1>"
+echo "<h1 align="center">Administrando el Router <u>"$HOSTNAME"</u> con <u>"$PROMPT"</u></h1>"
 /bin/cat << EOM
 
 <script>
 function wan(){
-window.top.frames['menu'].location.href='/cgi-bin-JSBach/menu-ifwan.cgi';
-window.top.frames['body'].location.href='/cgi-bin-JSBach/ifwan.cgi';
+window.top.frames['menu'].location.href='/cgi-bin-JSBach/ifwan/menu-ifwan.cgi';
+window.top.frames['body'].location.href='/cgi-bin-JSBach/ifwan/config-ifwan.cgi?comand=--status';
 }
 function enrutar(){
-window.top.frames['menu'].location.href='/cgi-bin-JSBach/menu-enrutar.cgi';
-window.top.frames['body'].location.href='/cgi-bin-JSBach/enrutar.cgi';
+window.top.frames['menu'].location.href='/cgi-bin-JSBach/nat/menu-nat.cgi';
+window.top.frames['body'].location.href='/cgi-bin-JSBach/nat/info-nat.cgi';
 }
 </script>
 

@@ -9,7 +9,9 @@ if [ $(whoami) != "root" ]; then
 	exit 1
 fi
 
-conf_file="/usr/local/JSBach/config/ifwan.conf"
+source "/usr/local/JSBach/config/variables.conf"
+conf_file="$DIR$PROYECTO$DIR_CONF/$CONF_IFWAN"
+
 [ -f $conf_file ] || touch $conf_file
 source $conf_file
 
@@ -39,7 +41,7 @@ case $1 in
 	--start)
 		{ ! [ -z $IFWAN ] && ! [ -z $MODE ]; } || { echo "WARN: Se debe hacer una configuración inicial del script." && exit 1; }
 
-		if $(curl https://www.google.com &>/dev/null); then
+		if $(curl -m 5 https://www.google.com &>/dev/null); then
 			echo "ERROR: La tarjeta $IFWAN ya está activada."
 			exit 1
 		fi	
@@ -90,6 +92,9 @@ case $1 in
 					echo "Uso: ./ifwan.sh --config dhcp <ifwan>"
 					exit 1
 				else
+					echo "Configurando los siguientes parámetros:"
+					echo "MODO=dhcp"
+					echo "IFWAN=$1"
 					mod_conf_param MODE dhcp
 					mod_conf_param IFWAN $1
 
@@ -112,6 +117,14 @@ case $1 in
 					PE=$3
 					DNS=$4
 
+					echo "Configurando los siguientes parámetros:"
+					echo "MODO=manual"
+					echo "IFWAN=$IFWAN"
+					echo "IP=$IP"
+					echo "MASC=$MASC"
+					echo "PE=$PE"
+					echo "DNS=$DNS"
+
 					mod_conf_param MODE manual
 					mod_conf_param IFWAN $IFWAN
 					mod_conf_param IP $IP
@@ -124,7 +137,7 @@ case $1 in
 
 			*)
 				echo "Argumento no válido."
-				echo "Uso: ./ifwan.sh --config [dhcp|manual]"
+				echo "Uso: ifwan --config [dhcp|manual]"
 				exit 1
 				;;
 		esac
@@ -136,7 +149,7 @@ case $1 in
 		       exit 1
 		fi
 
-		if curl https://www.google.com &>/dev/null; then
+		if curl -m 5 https://www.google.com &>/dev/null; then
 			echo "WAN ACTIVADA"
 		else
 		       	echo "WAN DESACTIVADA"
@@ -146,7 +159,7 @@ case $1 in
 
 	*)
 		echo "Argumento no válido."
-		echo "Uso: ./ifwan.sh --[start|stop|config|status]"
+		echo "Uso: ifwan --[start|stop|config|status]"
 		exit 1
 		;;
 esac

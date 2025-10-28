@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /usr/local/JSBach/conf/variables.txt
+source /usr/local/JSBach/conf/variables.conf
 
 /bin/cat << EOM
 
@@ -28,9 +28,9 @@ source /usr/local/JSBach/conf/variables.txt
 </style>
 </head>
 <body>
-<h4><a href="/cgi-bin-JSBach/enrutar.cgi?comand=--start&" target="body">START NAT</a></h4>
-<h4><a href="/cgi-bin-JSBach/enrutar.cgi?comand=--stop&" target="body">STOP NAT</a></h4>
-<h4><a href="/cgi-bin-JSBach/enrutar.cgi?comand=--status&" target="body">STATUS NAT</a></h4>
+<h4><a href="/cgi-bin-JSBach/info-nat.cgi?comand=--start&" target="body">START NAT</a></h4>
+<h4><a href="/cgi-bin-JSBach/info-nat.cgi?comand=--stop&" target="body">STOP NAT</a></h4>
+<h4><a href="/cgi-bin-JSBach/info-nat.cgi?comand=--status&" target="body">STATUS NAT</a></h4>
 </body>
 </html>
 

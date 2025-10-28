@@ -7,14 +7,23 @@ echo ""
 <head>
   <meta charset="utf-8">
   <title>Hola món CGI</title>
+  <style>
+body {
+  font-family: Arial, sans-serif;
+  background-color: #eef3f8;
+  color: #333;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+  </style>
 </head>
 <body>
-<pre>
 EOM
 
 comand=$(echo "$QUERY_STRING" | sed -n 's/^.*comand=\([^&]*\).*$/\1/p')
 
-echo "Configuració ENRUTAMENT <br>"
+echo "<h3>Configuració ENRUTAMENT</h3><br>"
+echo "<pre>"
 
 {
 	echo "nat $comand"
