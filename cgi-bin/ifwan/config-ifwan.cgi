@@ -1,46 +1,85 @@
 #!/bin/bash
+
+source /usr/local/JSBach/config/variables.conf
+
 echo "Content-type: text/html; charset=utf-8"
 echo ""
 
+interfaces=$(ls /sys/class/net)
+interfaces_filtradas=()
+
+for iface in $interfaces; do
+  if [[ "$iface" == "lo" ]]; then
+    continue  
+  fi
+  if [[ -d "/sys/class/net/$iface/wireless" ]]; then
+    continue  
+  fi
+  interfaces_filtradas+=("$iface")
+done
+
 /bin/cat << EOM
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Hola món CGI</title>
-   <style>
-body {
-  font-family: Arial, sans-serif;
-  background-color: #eef3f8;
-  color: #333;
-  margin-bottom: 10px;
-  padding: 10px;
+  <head>
+    <meta charset="utf-8">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #eef3f8;
+        color: #333;
+        margin-bottom: 10px;
+        padding: 10px;
+      }
 
-}
-  </style>
-</head>
-<body>
+      .hidden-fields {
+        display: none; /* Ocultos por defecto */
+        margin-top: 10px;
+      }
+    </style>
+    <script>
+      function toggleManualFields() {
+        var manualSelected = document.getElementById('manual').checked;
+        var fields = document.getElementById('manualFields');
+        fields.style.display = manualSelected ? 'block' : 'none';
+      }
+    </script>
+  </head>
+  <body>
+    <h3>Configuración IFWAN</h3>
+
+    <h4>Modo de la Interfaz WAN</h4>
+
+    <form action="./action-ifwan.cgi" method="get">
+      <input type="radio" id="dhcp" name="mode" value="dhcp" checked onclick="toggleManualFields()">
+      <label for="dhcp">DHCP</label><br>
+
+      <input type="radio" id="manual" name="mode" value="manual" onclick="toggleManualFields()">
+      <label for="manual">Manual</label><br><br>
+
+      <h4>Nombre de la Interfaz WAN</h4>
 EOM
 
-QUERY_STRING_DECODED=$(echo "$QUERY_STRING" | sed 's/+/ /g; s/%/\\x/g' | xargs -0 printf "%b")
+for iface in "${interfaces_filtradas[@]}"; do
+  echo "<input type=\"radio\" id=\"$iface\" name=\"interface\" value=\"$iface\">"
+  echo "<label for=\"$iface\">$iface</label><br>"
+done
+echo "<br>"
 
-comand=$(echo "$QUERY_STRING_DECODED" | sed -n 's/.*comand=\([^&]*\).*/\1/p')
-mode=$(echo "$QUERY_STRING_DECODED" | sed -n 's/.*mode=\([^&]*\).*/\1/p')
-interfaz=$(echo "$QUERY_STRING_DECODED" | sed -n 's/.*interface=\([^&]*\).*/\1/p')
-ipmask=$(echo "$QUERY_STRING_DECODED" | sed -n 's/.*ipmask=\([^&]*\).*/\1/p')
-gtw=$(echo "$QUERY_STRING_DECODED" | sed -n 's/.*gtw=\([^&]*\).*/\1/p')
-dns=$(echo "$QUERY_STRING_DECODED" | sed -n 's/.*dns=\([^&]*\).*/\1/p')
+cat << EOM
+      <div id="manualFields" class="hidden-fields">
+        <h4>Dirección IP y máscara</h4>
+        <input type="text" name="ipmask" placeholder="Ej: 192.168.0.100/24"><br><br>
+        <br>
+        <h4>Dirección de Gateway</h4>
+        <input type="text" name="gtw" placeholder="Ej: 192.168.0.1"><br><br>
+        <br>
+        <h4>Dirección de Servidor DNS</h4>
+        <input type="text" name="dns" placeholder="Ej: 1.1.1.1"><br><br>
+        <br>
+      </div>
 
-echo "<h3>Configuración WAN</h3><br><b>"
-echo "<pre>"
-{
-  echo "ifwan $comand $mode $interfaz $ipmask $gtw $dns"
-  echo "exit"
-} | nc 127.0.0.1 1234 | sed 's/CLI>//g'
-
-
-/bin/cat << EOM
-</pre>
-</body>
+      <button type="submit" name="param" value="--config">Aplicar configuración</button>
+    </form>
+  </body>
 </html>
 EOM
-

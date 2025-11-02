@@ -5,8 +5,8 @@
 ###############
 
 if [ $(whoami) != "root" ]; then
-	echo "Necesitas ser root"
-	exit 1
+  echo "Necesitas ser root"
+  exit 1
 fi
 
 source "/usr/local/JSBach/config/variables.conf"
@@ -38,130 +38,155 @@ function del_conf_param () {
 # MAIN #
 ########
 case $1 in
-	--start)
-		{ ! [ -z $IFWAN ] && ! [ -z $MODE ]; } || { echo "WARN: Se debe hacer una configuración inicial del script." && exit 1; }
+  --start)
+	if [ -z $IFWAN ] || [ -z $MODE ]; then
+		echo "WARN: No hay una intefaz de red configurada." &&
+		echo "Configúrela y vuelva a intentarlo."
+	  	exit 1; 
+	fi
 
-		if $(curl -m 5 https://www.google.com &>/dev/null); then
-			echo "ERROR: La tarjeta $IFWAN ya está activada."
-			exit 1
-		fi	
-		case $MODE in
-			dhcp)
-				{ dhcpcd $IFWAN &>/dev/null  && echo "DHCP activo"; } || echo "La configuración DHCP en $IFWAN ha fallado."
-				;;
-			manual)
-				ip l s dev $IFWAN up &>/dev/null && echo "Tarjeta UP"
-				ip a a $IP/$MASC dev $IFWAN &>/dev/null && echo "IP configurada"
-				ip r a default via $PE &>/dev/null && echo "Ruta DEFAULT configurada"
+	if $(curl -m 5 https://www.google.com &>/dev/null); then
+		echo "ERROR: La tarjeta $IFWAN ya está activada."
+		exit 1
+	fi
 
-				if grep -q "^#DNS=" /etc/systemd/resolved.conf; then
-					sed -i "s/^#DNS=.*/DNS=$DNS/" /etc/systemd/resolved.conf
-				elif grep -q "^DNS=" /etc/systemd/resolved.conf; then
-					sed -i "s/^DNS=.*/DNS=$DNS/" /etc/systemd/resolved.conf
-				else
-					echo "DNS=$DNS" >> /etc/systemd/resolved.conf
-				fi
+	case $MODE in
+		dhcp)
+			{ dhcpcd $IFWAN &>/dev/null  && echo "DHCP activo"; } ||
+			echo "La configuración DHCP en $IFWAN ha fallado."
+			;;
+		manual)
+			ip l s dev $IFWAN up &>/dev/null && echo "Tarjeta UP"
+			ip a a $IP/$MASC dev $IFWAN &>/dev/null && echo "IP configurada"
+			ip r a default via $PE &>/dev/null && echo "Ruta DEFAULT configurada"
 
-				systemctl restart systemd-resolved
-				;;
+			if grep -q "^#DNS=" /etc/systemd/resolved.conf; then
+				sed -i "s/^#DNS=.*/DNS=$DNS/" /etc/systemd/resolved.conf
+			elif grep -q "^DNS=" /etc/systemd/resolved.conf; then
+				sed -i "s/^DNS=.*/DNS=$DNS/" /etc/systemd/resolved.conf
+			else
+				echo "DNS=$DNS" >> /etc/systemd/resolved.conf
+			fi
 
-		esac
-		;;
+			systemctl restart systemd-resolved
+			;;
 
-	--stop)
-		{ ! [ -z $IFWAN ] && ! [ -z $MODE ]; } || { echo "WARN: Se debe hacer una configuración inicial del script." && exit 1; }
-
-		{
-			{ dhcpcd -k $IFWAN &>/dev/null && echo "DHCP parado"; } || {
-			       { 
-				       ip a d $IP/$MASC dev $IFWAN &>/dev/null && echo "IP eliminada"; 
-			       } && {
-				       ip l s dev $IFWAN down &>/dev/null && echo "Tarjeta parada"; 
-			       }; 
-			}; 
-		} || echo "ERROR: La interfaz $IFWAN ya se encuentra parada."
+	esac
 	;;
 
-	--config)
-		MODE=$2
-		shift 2
-		case $MODE in
-			dhcp)
-				if [ $# -ne 1 ]; then
-					echo "Cantidad de argumentos incorrecta."
-					echo "Uso: ./ifwan.sh --config dhcp <ifwan>"
-					exit 1
-				else
-					echo "Configurando los siguientes parámetros:"
-					echo "MODO=dhcp"
-					echo "IFWAN=$1"
-					mod_conf_param MODE dhcp
-					mod_conf_param IFWAN $1
+  --stop)
+	if [ -z $IFWAN ] || [ -z $MODE ]; then
+		echo "WARN: No hay una intefaz de red configurada." &&
+		echo "Configúrela y vuelva a intentarlo."
+	  	exit 1; 
+	fi
 
-					del_conf_param IP
-					del_conf_param MASC
-					del_conf_param PE
-					del_conf_param DNS
-				fi
-				;;
+	{
+		{ dhcpcd -k $IFWAN &>/dev/null && echo "DHCP parado en $IFWAN"; } || {
+		       echo "Deteniendo $IFWAN..."
+		       ip a d $IP/$MASC dev $IFWAN &>/dev/null && echo "IP eliminada" 
+		       ip l s dev $IFWAN down &>/dev/null && echo "Tarjeta detenida"; 
+		}; 
+	} || echo "ERROR: La interfaz $IFWAN ya se encuentra parada."
+	;;
+
+  --restart)
+          if [ -z $IFWAN ] || [ -z $MODE ]; then
+		echo "WARN: No hay una intefaz de red configurada." &&
+		echo "Configúrela y vuelva a intentarlo."
+	  	exit 1; 
+	  fi
+	  bash ./ifwan --stop && bash ./ifwan --start
+	  ;;
+  --config)
+	MODE=$2
+	shift 2
+	case $MODE in
+		dhcp)
+			if [ $# -ne 1 ]; then
+				echo "Cantidad de argumentos incorrecta."
+				echo "Uso: ifwan --config dhcp <ifwan>"
+				exit 1
+			else
+				echo "Se ha guardado la siguiente configuración:"
+				echo "MODE=dhcp"
+				echo "IFWAN=$1"
+				echo ""
+				echo "A continuación, puede aplicar la configuración con <a href="./action-ifwan.cgi?param=--start">IFWAN START</a>"
+					
+				mod_conf_param MODE dhcp
+				mod_conf_param IFWAN $1
+
+				del_conf_param IP
+				del_conf_param MASC
+				del_conf_param PE
+				del_conf_param DNS
+			fi
+			;;
 			
-			manual)
-				if [ $# -ne 4 ]; then
-					echo "Cantidad de argumentos incorrecta."
-					echo "Uso: ./ifwan.sh --config manual <ifwan> <ip>/<mascara> <pe> <dns>"
+		manual)
+			if [ $# -ne 4 ]; then
+				echo "Cantidad de argumentos incorrecta."
+				echo "Uso: ifwan --config manual <ifwan> <ip>/<mascara> <pe> <dns>"
+				exit 1
+			else
+				IFWAN=$1
+				IP=$(echo $2 | cut -d "/" -f 1)
+				MASC=$(echo $2 | cut -d "/" -f 2)
+				PE=$3
+				DNS=$4
+
+				if [ -z $IP ] || [ -z $MASC ]; then
+					echo "No ha introducido una IP válida."
+					echo "Ejemplo: 192.168.0.10/24"
 					exit 1
 				else
-					IFWAN=$1
-					IP=$(echo $2 | cut -d "/" -f 1)
-					MASC=$(echo $2 | cut -d "/" -f 2)
-					PE=$3
-					DNS=$4
-
-					echo "Configurando los siguientes parámetros:"
-					echo "MODO=manual"
+					echo "Se ha guardado la siguiente configuración:"
+					echo "MODE=manual"
 					echo "IFWAN=$IFWAN"
 					echo "IP=$IP"
 					echo "MASC=$MASC"
 					echo "PE=$PE"
 					echo "DNS=$DNS"
-
-					mod_conf_param MODE manual
-					mod_conf_param IFWAN $IFWAN
-					mod_conf_param IP $IP
-					mod_conf_param MASC $MASC
-					mod_conf_param PE $PE
-					mod_conf_param DNS $DNS
-
+					echo ""
+					echo "A continuación, puede aplicar la configuración con <a href="./action-ifwan.cgi?param=--start">IFWAN START</a>"
 				fi
-				;;
 
-			*)
-				echo "Argumento no válido."
-				echo "Uso: ifwan --config [dhcp|manual]"
-				exit 1
-				;;
+				mod_conf_param MODE manual
+				mod_conf_param IFWAN $IFWAN
+				mod_conf_param IP $IP
+				mod_conf_param MASC $MASC
+				mod_conf_param PE $PE
+				mod_conf_param DNS $DNS
+
+			fi
+			;;
+
+		*)
+			echo "Uso: ifwan --config [dhcp|manual]"
+			exit 1
+			;;
 		esac
-		;;
+	;;
 
-	--status)
-		if [ -z $IFWAN ] || [ -z $MODE ]; then
-		       echo "WARN: Se debe hacer una configuración inicial del script."
-		       exit 1
-		fi
+  --status)
+	if [ -z $IFWAN ] || [ -z $MODE ]; then
+		echo "WARN: No hay una intefaz de red configurada." &&
+		echo "Configúrela y vuelva a intentarlo."
+	  	exit 1; 
+	fi
 
-		if curl -m 5 https://www.google.com &>/dev/null; then
-			echo "WAN ACTIVADA"
-		else
-		       	echo "WAN DESACTIVADA"
-		fi
+	if curl --interface $IFWAN -m 5 https://www.google.com &>/dev/null ; then
+		echo "WAN ACTIVADA en $IFWAN"
+	else
+	       	echo "WAN DESACTIVADA en $IFWAN"
+	fi
 
-		;;
+	;;
 
-	*)
-		echo "Argumento no válido."
-		echo "Uso: ifwan --[start|stop|config|status]"
-		exit 1
-		;;
+  *)
+	echo "Uso: ifwan --[start|stop|restart|config|status]"
+	exit 1
+	;;
 esac
-
 exit 0

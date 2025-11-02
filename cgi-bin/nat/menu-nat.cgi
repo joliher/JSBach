@@ -5,11 +5,11 @@ source /usr/local/JSBach/conf/variables.conf
 /bin/cat << EOM
 
 <html>
-<head>
-<meta http-equiv=Content-Type content="text/html; charset=windows-1252">
-<meta content="MSHTML 6.00.2900.3660" name=GENERATOR> 
+  <head>
+    <meta http-equiv=Content-Type content="text/html; charset=windows-1252">
+    <meta content="MSHTML 6.00.2900.3660" name=GENERATOR> 
 
-<style type="text/css">
+    <style type="text/css">
 <!--
 .estado {
 	font-size: 18px;
@@ -25,13 +25,13 @@ source /usr/local/JSBach/conf/variables.conf
 .Estilo1 {color: #FF00FF}
 .Estilo2 {color: #000000}
 -->
-</style>
-</head>
-<body>
-<h4><a href="/cgi-bin-JSBach/info-nat.cgi?comand=--start&" target="body">START NAT</a></h4>
-<h4><a href="/cgi-bin-JSBach/info-nat.cgi?comand=--stop&" target="body">STOP NAT</a></h4>
-<h4><a href="/cgi-bin-JSBach/info-nat.cgi?comand=--status&" target="body">STATUS NAT</a></h4>
-</body>
+    </style>
+  </head>
+  <body>
+    <h4><a href="/cgi-bin-JSBach/nat/action-nat.cgi?param=--start&" target="body">START NAT</a></h4>
+    <h4><a href="/cgi-bin-JSBach/nat/action-nat.cgi?param=--stop&" target="body">STOP NAT</a></h4>
+    <h4><a href="/cgi-bin-JSBach/nat/action-nat.cgi?param=--status&" target="body">STATUS NAT</a></h4>
+  </body>
 </html>
 
 EOM

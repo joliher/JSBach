@@ -17,30 +17,38 @@ source "$DIR$PROYECTO$DIR_CONF/$CONF_IFWAN"
 # MAIN #
 ########
 
-! [ -z $IFWAN ] || { echo "Se debe configurar \$IFWAN en /usr/local/JSBach/config/ifwan.conf" && exit 1; }
+! [ -z $IFWAN ] || {
+       	echo "Parámetro IFWAN vacío en $DIR$PROYECTO$DIR_CONF/$CONF_IFWAN" &&
+	#echo "Realize un <a href=\"/cgi-bin-JSBach/ifwan/config-ifwan.cgi\">IFWAN CONFIG</a> y vuelva a intentarlo." &&
+	exit 1; 
+}
 
 case $1 in
 	--start)
 		if iptables -t nat -C POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null; then
-			echo "El NAT ya está activado"
-			exit 1
-		else
-			echo "Activando NAT..."
+			echo "El NAT ya está activado en la interfaz $IFWAN"
+			exit 0
 		fi
-		echo 1 > /proc/sys/net/ipv4/ip_forward
-		iptables -t nat -A POSTROUTING -o $IFWAN -j MASQUERADE
+		
+		echo "Activando NAT..."
+		{
+			echo 1 > /proc/sys/net/ipv4/ip_forward &&
+			iptables -t nat -A POSTROUTING -o $IFWAN -j MASQUERADE
+		} && echo "NAT activado en la interfaz $IFWAN"
 		;;	
 	--stop)
-		echo 0 > /proc/sys/net/ipv4/ip_forward
-		iptables -t nat -D POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null
-		echo "Apagando NAT..."
+		echo "Desactivando NAT..."
+		{
+			echo 0 > /proc/sys/net/ipv4/ip_forward &&
+			iptables -t nat -D POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null;
+		} && echo "NAT desactivado en la intefaz $IFWAN"
 		;;
 
 	--status)
 		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o $IFWAN -j MASQUERADE 2>/dev/null; then
-			echo "NAT ACTIVADO"
+			echo "NAT ACTIVADO en la interfaz $IFWAN"
 		else
-			echo "NAT DESACTIVADO"
+			echo "NAT DESACTIVADO en la interfaz $IFWAN"
 		fi
 		;;
 
