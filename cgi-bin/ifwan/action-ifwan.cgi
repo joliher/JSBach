@@ -6,7 +6,6 @@ echo ""
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Hola món CGI</title>
     <style>
       body {
         font-family: Arial, sans-serif;

@@ -22,7 +22,6 @@ echo ""
 EOM
 
 param=$(echo "$QUERY_STRING" | sed -n 's/^.*param=\([^&]*\).*$/\1/p')
-
 {
 	echo "nat $param"
 	echo "exit" 

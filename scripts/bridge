@@ -1,0 +1,108 @@
+#!/bin/bash
+
+###############
+# PREPARACION #
+###############
+
+if [ $(whoami) != "root" ]; then
+	echo "Necesitas ser root"
+	exit 1
+fi
+
+source /usr/local/JSBach/config/variables.conf
+vlan_conf_file="$DIR/$PROYECTO/$DIR_CONF/$CONF_BRIDGE"
+if_conf_file="$DIR/$PROYECTO/$DIR_CONF/$CONF_IFBRIDGE"
+
+[ -f $vlan_conf_file ] || cat << EOF > $vlan_conf_file
+#vlan_nom;vlan_id;vlan_ip;vlan_pe;
+vlan_Admin;1;10.0.1.0/24;10.0.1.1/24;
+vlan_DMZ;2;10.0.2.0/24;10.0.2.1/24;
+vlan_Local;3;10.0.3.0/24;10.0.3.1/24;
+EOF
+
+[ -f $if_conf_file ] || cat << EOF > $if_conf_file
+#nom_if;vlan_id_untag;vlan_id_tag;
+enxc84d4426b4ab;1;
+enxc84d4426b729;2;
+enxc84d44295146;;3,4;
+enxc84d44206f87;;
+EOF
+
+########
+# MAIN #
+########
+case $1 in
+	--start)
+		# Crea br0
+		if ! ls /sys/class/net/ | grep -q br0; then
+			ip l a name br0 type bridge vlan_filtering 1
+		fi
+		ip l s br0 up
+
+		# Se crean subinterfaces con IP
+		for line in $(cat "$vlan_conf_file" | grep -v '^#'); do
+			VLAN_ID=$(echo $line | cut -d ";" -f2)
+			VLAN_IP=$(echo $line | cut -d ";" -f4)
+			if ! ls /sys/class/net/ | grep -q br0.$VLAN_ID; then	
+				ip l a l br0 name br0.$VLAN_ID type vlan id $VLAN_ID
+			fi
+			ip l s br0.$VLAN_ID up
+			ip a a dev br0.$VLAN_ID $VLAN_IP
+		done
+
+		# Se elimina br0 de la VLAN 1
+		bridge vlan del dev br0 vid 1 pvid untagged self
+
+		# Se asigna TAG/UNTAG a cada interfaz
+		for line in $(cat "$if_conf_file" | grep -v '^#'); do
+			NOM_IF=$(echo $line | cut -d ";" -f1)
+			VLAN_UNTAG=$(echo $line | cut -d ";" -f2)
+			VLAN_TAG=$(echo $line | cut -d ";" -f3)
+			ip l s dev $NOM_IF master br0
+			ip l s $NOM_IF up
+
+			# Se eliminan las interfaces de la VLAN 1
+			bridge vlan del dev $NOM_IF vid 1 pvid untagged
+
+			# Se le asigna a cada interfaz TAG/UNTAG
+			if ! [ -z $VLAN_UNTAG ]; then
+				bridge vlan add dev $NOM_IF vid $VLAN_UNTAG pvid untagged
+				bridge vlan add dev br0 vid $VLAN_UNTAG self
+			fi
+			if ! [ -z $VLAN_TAG ]; then
+				for VLAN in ${VLAN_TAG//,/ }; do
+					bridge vlan add dev $NOM_IF vid $VLAN
+					bridge vlan add dev br0 vid $VLAN self
+				done
+			fi
+		done
+		;;	
+	--stop)
+		# Se detiene el bridge
+		ip l d dev br0
+		;;
+
+	--config)
+		case $1 in
+			dhcp)
+				;;
+			
+			manual)
+				;;
+
+			*)
+				;;
+		esac
+		;;
+
+	--status)
+		;;
+
+	*)
+		echo "Argumento no válido."
+		echo "Uso: ./bridge --[start|stop|config|status]"
+		exit 1
+		;;
+esac
+
+exit 0

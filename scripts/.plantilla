@@ -9,7 +9,8 @@ if [ $(whoami) != "root" ]; then
 	exit 1
 fi
 
-conf_file="/usr/local/JSBach/config/plantilla.conf"
+source /usr/local/JSBach/config/variables.txt
+conf_file="$DIR$PROYECTO$DIR_CONF/plantilla.conf"
 [ -f $conf_file ] || touch $conf_file
 source $conf_file
 

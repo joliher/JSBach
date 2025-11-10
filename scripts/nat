@@ -7,48 +7,48 @@
 
 if [ $(whoami) != "root" ]; then
 	echo "Necesitas ser root"
-	exit 1
+ 	exit 1
 fi
 
 source "/usr/local/JSBach/config/variables.conf"
-source "$DIR$PROYECTO$DIR_CONF/$CONF_IFWAN"
+source "$DIR/$PROYECTO/$DIR_CONF/$CONF_IFWAN"
 
 ########
 # MAIN #
 ########
 
-! [ -z $IFWAN ] || {
-       	echo "Parámetro IFWAN vacío en $DIR$PROYECTO$DIR_CONF/$CONF_IFWAN" &&
+! [ -z $IFW_IFWAN ] || {
+       	echo "Parámetro IFW_IFWAN vacío en $DIR/$PROYECTO/$DIR_CONF/$CONF_IFWAN" &&
 	#echo "Realize un <a href=\"/cgi-bin-JSBach/ifwan/config-ifwan.cgi\">IFWAN CONFIG</a> y vuelva a intentarlo." &&
 	exit 1; 
 }
 
 case $1 in
 	--start)
-		if iptables -t nat -C POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null; then
-			echo "El NAT ya está activado en la interfaz $IFWAN"
+		if iptables -t nat -C POSTROUTING -o $IFW_IFWAN -j MASQUERADE &>/dev/null; then
+			echo "El NAT ya está activado en la interfaz $IFW_IFWAN"
 			exit 0
 		fi
 		
 		echo "Activando NAT..."
 		{
 			echo 1 > /proc/sys/net/ipv4/ip_forward &&
-			iptables -t nat -A POSTROUTING -o $IFWAN -j MASQUERADE
-		} && echo "NAT activado en la interfaz $IFWAN"
+			iptables -t nat -A POSTROUTING -o $IFW_IFWAN -j MASQUERADE
+		} && echo "NAT activado en la interfaz $IFW_IFWAN"
 		;;	
 	--stop)
 		echo "Desactivando NAT..."
 		{
 			echo 0 > /proc/sys/net/ipv4/ip_forward &&
-			iptables -t nat -D POSTROUTING -o $IFWAN -j MASQUERADE &>/dev/null;
-		} && echo "NAT desactivado en la intefaz $IFWAN"
+			iptables -t nat -D POSTROUTING -o $IFW_IFWAN -j MASQUERADE &>/dev/null;
+		} && echo "NAT desactivado en la intefaz $IFW_IFWAN"
 		;;
 
 	--status)
-		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o $IFWAN -j MASQUERADE 2>/dev/null; then
-			echo "NAT ACTIVADO en la interfaz $IFWAN"
+		if [ $(cat /proc/sys/net/ipv4/ip_forward) -eq 1 ] && iptables -t nat -C POSTROUTING -o $IFW_IFWAN -j MASQUERADE 2>/dev/null; then
+			echo "NAT ACTIVADO en la interfaz $IFW_IFWAN"
 		else
-			echo "NAT DESACTIVADO en la interfaz $IFWAN"
+			echo "NAT DESACTIVADO en la interfaz $IFW_IFWAN"
 		fi
 		;;
 

@@ -10,7 +10,7 @@ if [ $(whoami) != "root" ]; then
 fi
 
 source "/usr/local/JSBach/config/variables.conf"
-conf_file="$DIR$PROYECTO$DIR_CONF/$CONF_IFWAN"
+conf_file="$DIR/$PROYECTO/$DIR_CONF/$CONF_IFWAN"
 
 [ -f $conf_file ] || touch $conf_file
 source $conf_file
@@ -39,33 +39,33 @@ function del_conf_param () {
 ########
 case $1 in
   --start)
-	if [ -z $IFWAN ] || [ -z $MODE ]; then
+	if [ -z $IFW_IFWAN ] || [ -z $IFW_MODE ]; then
 		echo "WARN: No hay una intefaz de red configurada." &&
 		echo "Configúrela y vuelva a intentarlo."
 	  	exit 1; 
 	fi
 
 	if $(curl -m 5 https://www.google.com &>/dev/null); then
-		echo "ERROR: La tarjeta $IFWAN ya está activada."
+		echo "ERROR: La tarjeta $IFW_IFWAN ya está activada."
 		exit 1
 	fi
 
-	case $MODE in
-		dhcp)
-			{ dhcpcd $IFWAN &>/dev/null  && echo "DHCP activo"; } ||
-			echo "La configuración DHCP en $IFWAN ha fallado."
+	case $IFW_MODE in
+	dhcp)
+			{ dhcpcd $IFW_IFWAN &>/dev/null  && echo "DHCP activo"; } ||
+			echo "La configuración DHCP en $IFW_IFWAN ha fallado."
 			;;
 		manual)
-			ip l s dev $IFWAN up &>/dev/null && echo "Tarjeta UP"
-			ip a a $IP/$MASC dev $IFWAN &>/dev/null && echo "IP configurada"
-			ip r a default via $PE &>/dev/null && echo "Ruta DEFAULT configurada"
+			ip l s dev $IFW_IFWAN up &>/dev/null && echo "Tarjeta UP"
+			ip a a $IFW_IP/$IFW_MASC dev $IFW_IFWAN &>/dev/null && echo "IP configurada"
+			ip r a default via $IFW_PE &>/dev/null && echo "Ruta DEFAULT configurada"
 
 			if grep -q "^#DNS=" /etc/systemd/resolved.conf; then
-				sed -i "s/^#DNS=.*/DNS=$DNS/" /etc/systemd/resolved.conf
+				sed -i "s/^#DNS=.*/DNS=$IFW_DNS/" /etc/systemd/resolved.conf
 			elif grep -q "^DNS=" /etc/systemd/resolved.conf; then
-				sed -i "s/^DNS=.*/DNS=$DNS/" /etc/systemd/resolved.conf
+				sed -i "s/^DNS=.*/DNS=$IFW_DNS/" /etc/systemd/resolved.conf
 			else
-				echo "DNS=$DNS" >> /etc/systemd/resolved.conf
+				echo "DNS=$IFW_DNS" >> /etc/systemd/resolved.conf
 			fi
 
 			systemctl restart systemd-resolved
@@ -75,23 +75,23 @@ case $1 in
 	;;
 
   --stop)
-	if [ -z $IFWAN ] || [ -z $MODE ]; then
+	if [ -z $IFW_IFWAN ] || [ -z $IFW_MODE ]; then
 		echo "WARN: No hay una intefaz de red configurada." &&
 		echo "Configúrela y vuelva a intentarlo."
 	  	exit 1; 
 	fi
 
 	{
-		{ dhcpcd -k $IFWAN &>/dev/null && echo "DHCP parado en $IFWAN"; } || {
-		       echo "Deteniendo $IFWAN..."
-		       ip a d $IP/$MASC dev $IFWAN &>/dev/null && echo "IP eliminada" 
-		       ip l s dev $IFWAN down &>/dev/null && echo "Tarjeta detenida"; 
+		{ dhcpcd -k $IFW_IFWAN &>/dev/null && echo "DHCP parado en $IFW_IFWAN"; } || {
+		       echo "Deteniendo $IFW_IFWAN..."
+		       ip a d $IFW_IP/$IFW_MASC dev $IFW_IFWAN &>/dev/null && echo "IP eliminada" 
+		       ip l s dev $IFW_IFWAN down &>/dev/null && echo "Tarjeta detenida"; 
 		}; 
-	} || echo "ERROR: La interfaz $IFWAN ya se encuentra parada."
+	} || echo "ERROR: La interfaz $IFW_IFWAN ya se encuentra parada."
 	;;
 
   --restart)
-          if [ -z $IFWAN ] || [ -z $MODE ]; then
+          if [ -z $IFW_IFWAN ] || [ -z $IFW_MODE ]; then
 		echo "WARN: No hay una intefaz de red configurada." &&
 		echo "Configúrela y vuelva a intentarlo."
 	  	exit 1; 
@@ -99,9 +99,9 @@ case $1 in
 	  bash ./ifwan --stop && bash ./ifwan --start
 	  ;;
   --config)
-	MODE=$2
+	IFW_MODE=$2
 	shift 2
-	case $MODE in
+	case $IFW_MODE in
 		dhcp)
 			if [ $# -ne 1 ]; then
 				echo "Cantidad de argumentos incorrecta."
@@ -109,18 +109,18 @@ case $1 in
 				exit 1
 			else
 				echo "Se ha guardado la siguiente configuración:"
-				echo "MODE=dhcp"
-				echo "IFWAN=$1"
+				echo "IFW_MODE=dhcp"
+				echo "IFW_IFWAN=$1"
 				echo ""
 				echo "A continuación, puede aplicar la configuración con <a href="./action-ifwan.cgi?param=--start">IFWAN START</a>"
 					
-				mod_conf_param MODE dhcp
-				mod_conf_param IFWAN $1
+				mod_conf_param IFW_MODE dhcp
+				mod_conf_param IFW_IFWAN $1
 
-				del_conf_param IP
-				del_conf_param MASC
-				del_conf_param PE
-				del_conf_param DNS
+				del_conf_param IFW_IP
+				del_conf_param IFW_MASC
+				del_conf_param IFW_PE
+				del_conf_param IFW_DNS
 			fi
 			;;
 			
@@ -130,34 +130,34 @@ case $1 in
 				echo "Uso: ifwan --config manual <ifwan> <ip>/<mascara> <pe> <dns>"
 				exit 1
 			else
-				IFWAN=$1
-				IP=$(echo $2 | cut -d "/" -f 1)
-				MASC=$(echo $2 | cut -d "/" -f 2)
-				PE=$3
-				DNS=$4
+				IFW_IFWAN=$1
+				IFW_IP=$(echo $2 | cut -d "/" -f 1)
+				IFW_MASC=$(echo $2 | cut -d "/" -f 2)
+				IFW_PE=$3
+				IFW_DNS=$4
 
-				if [ -z $IP ] || [ -z $MASC ]; then
+				if [ -z $IFW_IP ] || [ -z $IFW_MASC ]; then
 					echo "No ha introducido una IP válida."
 					echo "Ejemplo: 192.168.0.10/24"
 					exit 1
 				else
 					echo "Se ha guardado la siguiente configuración:"
-					echo "MODE=manual"
-					echo "IFWAN=$IFWAN"
-					echo "IP=$IP"
-					echo "MASC=$MASC"
-					echo "PE=$PE"
-					echo "DNS=$DNS"
+					echo "IFW_MODE=manual"
+					echo "IFW_IFWAN=$IFWAN"
+					echo "IFW_IP=$IP"
+					echo "IFW_MASC=$MASC"
+					echo "IFW_PE=$PE"
+					echo "IFW_DNS=$DNS"
 					echo ""
 					echo "A continuación, puede aplicar la configuración con <a href="./action-ifwan.cgi?param=--start">IFWAN START</a>"
 				fi
 
-				mod_conf_param MODE manual
-				mod_conf_param IFWAN $IFWAN
-				mod_conf_param IP $IP
-				mod_conf_param MASC $MASC
-				mod_conf_param PE $PE
-				mod_conf_param DNS $DNS
+				mod_conf_param IFW_MODE manual
+				mod_conf_param IFW_IFWAN $IFWAN
+				mod_conf_param IFW_IP $IP
+				mod_conf_param IFW_MASC $MASC
+				mod_conf_param IFW_PE $PE
+				mod_conf_param IFW_DNS $DNS
 
 			fi
 			;;
@@ -170,16 +170,16 @@ case $1 in
 	;;
 
   --status)
-	if [ -z $IFWAN ] || [ -z $MODE ]; then
+	if [ -z $IFW_IFWAN ] || [ -z $IFW_MODE ]; then
 		echo "WARN: No hay una intefaz de red configurada." &&
 		echo "Configúrela y vuelva a intentarlo."
 	  	exit 1; 
 	fi
 
-	if curl --interface $IFWAN -m 5 https://www.google.com &>/dev/null ; then
-		echo "WAN ACTIVADA en $IFWAN"
+	if curl --interface $IFW_IFWAN -m 5 https://www.google.com &>/dev/null; then
+		echo "WAN ACTIVADA en $IFW_IFWAN"
 	else
-	       	echo "WAN DESACTIVADA en $IFWAN"
+	       	echo "WAN DESACTIVADA en $IFW_IFWAN"
 	fi
 
 	;;

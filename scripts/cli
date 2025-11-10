@@ -9,7 +9,7 @@ source /usr/local/JSBach/config/variables.conf
 
 while true; do
 	
-	SCRIPTS_PATH="$DIR$PROYECTO$DIR_SCRIPTS"
+	SCRIPTS_PATH="$DIR/$PROYECTO/$DIR_SCRIPTS/"
 	cd $SCRIPTS_PATH
 
 	echo -n "CLI>"
