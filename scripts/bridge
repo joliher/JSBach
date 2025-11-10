@@ -21,7 +21,7 @@ vlan_Local;3;10.0.3.0/24;10.0.3.1/24;
 EOF
 
 [ -f $if_conf_file ] || cat << EOF > $if_conf_file
-#nom_if;vlan_id_untag;vlan_id_tag;
+#nom_if;vlan_untag;vlan_tag;
 enxc84d4426b4ab;1;
 enxc84d4426b729;2;
 enxc84d44295146;;3,4;
