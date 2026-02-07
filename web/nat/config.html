@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuración NAT</title>
+    
+    <link rel="stylesheet" href="/web/00-css/nat/config.css">
+    <script src="/web/00-js/nat/config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>🔄 Configuración NAT</h2>
+
+        <div class="info-box">
+            <strong>ℹ️ Información:</strong> Configure la interfaz que se utilizará para realizar NAT (Network Address Translation).
+            Esta interfaz debe ser la que está conectada a la red externa (WAN).
+        </div>
+
+        <div class="wan-info-box" id="wan-info-container" style="display: none;">
+            <strong>🌐 Interfaz WAN Configurada:</strong>
+            <div class="wan-details" id="wan-details"></div>
+        </div>
+
+        <div class="wan-info-box" id="nat-info-container" style="display: none; background: #d1f2eb; border-color: #17a2b8; color: #004085;">
+            <strong>🔄 Interfaz NAT Configurada:</strong>
+            <div class="wan-details" id="nat-details"></div>
+        </div>
+
+        <form id="natForm">
+            <div class="form-group">
+                <label for="interface">Interfaz</label>
+                <input type="text" id="interface" placeholder="eth0" required>
+                <small style="color: #666; display: block; margin-top: 5px;">💡 Ejemplo: eth0, enp0s3, etc.</small>
+            </div>
+
+            <button type="submit">Guardar configuración</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+
+
+
+</body>
+</html>

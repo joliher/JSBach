@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WAN - Menú</title>
+    
+    <link rel="stylesheet" href="/web/00-css/wan/menu.css">
+    <script src="/web/00-js/wan/menu.js"></script>
+</head>
+<body>
+
+<h3>🌐 WAN</h3>
+
+<div class="status-box" id="module-status">Estado: Cargando...</div>
+
+<button type="button" id="btnStart"   onclick="runWan(event, 'start', this)">🚀 WAN START</button>
+<button type="button" id="btnStop"    onclick="runWan(event, 'stop', this)">🛑 WAN STOP</button>
+<button type="button" id="btnRestart" onclick="runWan(event, 'restart', this)">🔄 WAN RESTART</button>
+<button type="button" id="btnStatus"  onclick="runWan(event, 'status', this)">📊 WAN STATUS</button>
+
+<hr>
+
+<h4>Configuración</h4>
+
+<button type="button" id="btnConfig"  onclick="runWan(event, 'config', this)">⚙️ WAN CONFIG</button>
+
+<hr>
+
+<button type="button" id="btnInfo"    onclick="openInfo(event, this)">ℹ️ VER INFO</button>
+
+
+
+</body>
+</html>

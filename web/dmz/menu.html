@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>DMZ - Menú</title>
+
+    <link rel="stylesheet" href="/web/00-css/dmz/menu.css">
+    <script src="/web/00-js/dmz/menu.js"></script>
+</head>
+
+<body>
+
+    <h3>📡 DMZ</h3>
+
+    <div class="status-box" id="module-status">Estado: Cargando...</div>
+
+    <div class="dependency-warning">
+        <strong>⚠️ Dependencias requeridas:</strong><br>
+        <div id="dep-tagging" style="margin: 3px 0;">🔄 Tagging: Comprobando...</div>
+        <div id="dep-firewall" style="margin: 3px 0;">🔄 Firewall: Comprobando...</div>
+    </div>
+
+    <!-- Acciones principales -->
+    <button id="btnStart" onclick="executeAction('start', this)">🚀 DMZ START</button>
+    <button id="btnStop" onclick="executeAction('stop', this)">🛑 DMZ STOP</button>
+    <button id="btnRestart" onclick="executeAction('restart', this)">🔄 DMZ RESTART</button>
+    <button id="btnStatus" onclick="executeAction('status', this)">📊 DMZ STATUS</button>
+
+    <hr>
+
+    <h4 style="margin: 10px 0; color: #555;">Configuración y Vista</h4>
+
+    <button id="btnConfig" onclick="openPage('config', this)">⚙️ DMZ CONFIG</button>
+    <button id="btnDestinations" onclick="openPage('destinations', this)">📋 VER DESTINOS</button>
+
+    <hr>
+
+    <button id="btnInfo" onclick="openPage('info', this)">ℹ️ VER INFO</button>
+
+
+
+</body>
+
+</html>

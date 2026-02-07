@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>VLANs - Menú</title>
+    
+    <link rel="stylesheet" href="/web/00-css/vlans/menu.css">
+    <script src="/web/00-js/vlans/menu.js"></script>
+</head>
+<body>
+
+<h3>🔷 VLANs</h3>
+
+<div class="status-box" id="module-status">Estado: Cargando...</div>
+
+<button type="button" id="btnStart"   onclick="runVlans(event, 'start', this)">🚀 VLANs START</button>
+<button type="button" id="btnStop"    onclick="runVlans(event, 'stop', this)">🛑 VLANs STOP</button>
+<button type="button" id="btnRestart" onclick="runVlans(event, 'restart', this)">🔄 VLANs RESTART</button>
+<button type="button" id="btnStatus"  onclick="runVlans(event, 'status', this)">📊 VLANs STATUS</button>
+
+<hr>
+
+<h4>Configuración</h4>
+
+<button type="button" id="btnConfig"  onclick="runVlans(event, 'config', this)">⚙️ VLANs CONFIG</button>
+
+<hr>
+
+<button type="button" id="btnInfo"    onclick="openInfo(event, this)">ℹ️ VER INFO</button>
+
+
+
+</body>
+</html>

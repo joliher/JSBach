@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DMZ - Estado</title>
+    
+    <link rel="stylesheet" href="/web/00-css/dmz/status.css">
+    <script src="/web/00-js/dmz/status.js"></script>
+</head>
+<body>
+<div class="container">
+    <h2>📊 Estado de DMZ</h2>
+    
+    <div class="button-group">
+        <button onclick="refreshStatus()" id="btnRefresh">🔄 Actualizar</button>
+        <button onclick="goBack()">← Volver</button>
+    </div>
+    
+    <div id="statusContainer">
+        <div class="loading">Cargando estado de DMZ...</div>
+    </div>
+</div>
+
+
+</body>
+</html>

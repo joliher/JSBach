@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuración de Whitelist</title>
+    
+    <link rel="stylesheet" href="/web/00-css/firewall/config_whitelist.css">
+    <script src="/web/00-js/firewall/config_whitelist.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0;">🔐 Configuración de Whitelist por VLAN</h2>
+            <button class="btn-add" onclick="resetDefaults()" style="background: #6f42c1; height: fit-content; padding: 12px 20px; font-size: 14px; font-weight: bold;">
+                🔄 Reset a Valores Por Defecto
+            </button>
+        </div>
+        
+        <div class="info-box">
+            <strong>ℹ️ Información:</strong> La whitelist permite bloquear todo el tráfico excepto los destinos permitidos.<br>
+            <strong>Formatos soportados:</strong>
+            <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+                <li><code>IP</code> - Ejemplo: <code>8.8.8.8</code></li>
+                <li><code>IP/proto</code> - Ejemplo: <code>8.8.8.8/tcp</code> o <code>8.8.8.8/udp</code></li>
+                <li><code>IP:puerto</code> - Ejemplo: <code>192.168.1.1:80</code> (TCP+UDP)</li>
+                <li><code>IP:puerto/proto</code> - Ejemplo: <code>8.8.8.8:53/udp</code></li>
+                <li><code>:puerto</code> - Ejemplo: <code>:443</code> (cualquier IP, TCP+UDP)</li>
+                <li><code>:puerto/proto</code> - Ejemplo: <code>:22/tcp</code></li>
+            </ul>
+        </div>
+
+        <div id="content" class="loading">
+            Cargando configuración...
+        </div>
+    </div>
+
+    
+</body>
+</html>
+

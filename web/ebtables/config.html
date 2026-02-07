@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ebtables - Configuración</title>
+    
+    <link rel="stylesheet" href="/web/00-css/ebtables/config.css">
+    <script src="/web/00-js/ebtables/config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Configuración PVLAN (Private VLAN)</h1>
+        
+        <div class="alert alert-info">
+            <strong>ℹ️ Información:</strong> PVLAN (Private VLAN) implementa aislamiento a nivel de capa 2 mediante ebtables.
+            Cuando una VLAN está en modo PVLAN, solo puede comunicarse con la interfaz WAN.
+            <br><strong>VLAN 1 (Admin):</strong> Dispone de whitelist de MAC para control granular de acceso.
+        </div>
+
+        <div id="messageContainer"></div>
+
+        <div class="section">
+            <h2>🔧 VLANs Disponibles</h2>
+            <div id="vlanContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Cargando VLANs...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado de los Servicios WAN</title>
+    
+    <link rel="stylesheet" href="/web/00-css/status.css">
+    <script src="/web/00-js/status.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h3>Estado de los Servicios WAN</h3>
+        
+        <div id="wan-interface-info" style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 15px; margin-bottom: 20px; display: none;">
+            <strong>🌐 Interfaz WAN configurada:</strong> <span id="wan-interface" style="font-family: monospace; font-weight: bold; color: #1976d2;"></span>
+            <span id="wan-mode" style="margin-left: 15px; color: #666;"></span>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Servicio</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="status-table">
+                <!-- Los estados se llenarán dinámicamente -->
+            </tbody>
+        </table>
+
+        <button class="stop-all-btn" onclick="stopAllModules()" id="stop-btn">🛑 Detener Todos los Módulos</button>
+        <div id="stop-message"></div>
+    </div>
+
+    
+</body>
+</html>

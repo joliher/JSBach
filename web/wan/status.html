@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WAN - Estado</title>
+    
+    <link rel="stylesheet" href="/web/00-css/wan/status.css">
+    <script src="/web/00-js/wan/status.js"></script>
+</head>
+<body>
+<div class="container">
+    <h2>📊 Estado de WAN</h2>
+    
+    <div class="button-group">
+        <button onclick="refreshStatus()" id="btnRefresh">🔄 Actualizar</button>
+        <button onclick="goBack()">← Volver</button>
+    </div>
+    
+    <div id="statusContainer">
+        <div class="loading">Cargando estado de WAN...</div>
+    </div>
+</div>
+
+
+</body>
+</html>

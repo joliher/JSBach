@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CONFIG TAGGING</title>
+    
+    <link rel="stylesheet" href="/web/00-css/tagging/config.css">
+    <script src="/web/00-js/tagging/config.js"></script>
+</head>
+<body>
+    <div id="notification"></div>
+    <div class="container">
+        <h2>🏷️ Configuración de VLAN Tagging</h2>
+
+        <div class="info-box">
+            <strong>📌 Información:</strong> Configura el tagging de VLANs en las interfaces de red. 
+            Cada interfaz puede ser <strong>UNTAGGED</strong> (acceso a una sola VLAN) o <strong>TAGGED</strong> (troncal con múltiples VLANs), 
+            pero <strong>no ambas simultáneamente</strong>. Las validaciones del backend se reflejan en tiempo real en el frontend.
+            ⚠️ Símbolos: ✅ disponible | ⚠️ en uso por ebtables.
+        </div>
+
+        <h3>Interfaces configuradas</h3>
+
+        <table id="taggingTable">
+            <thead>
+                <tr>
+                    <th>Interface</th>
+                    <th>Configuración VLAN</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h3>Nueva Interface</h3>
+
+        <div class="form-section">
+            <form id="taggingForm">
+                <div class="form-group">
+                    <label>Nombre de la interface</label>
+                    <input type="text" name="name" placeholder="eth1" required>
+                    <small>💡 Ejemplo: eth0, eth1, enp0s8, eth_1</small>
+                </div>
+
+                <div class="form-group">
+                    <label>VLAN Untag (Acceso)</label>
+                    <input type="text" name="vlan_untag" placeholder="10">
+                    <small>💡 ID de VLAN sin etiquetar (1-4094) - <strong>Opcional</strong> | La interfaz solo accederá a esta VLAN</small>
+                </div>
+
+                <div class="form-group">
+                    <label>VLAN Tag (Troncal)</label>
+                    <input type="text" name="vlan_tag" placeholder="1,2,3-10,12,14-15">
+                    <small>💡 IDs de VLAN etiquetadas (soporta rangos) - <strong>Opcional</strong> | La interfaz transportará múltiples VLANs</small>
+                </div>
+
+                <button type="submit" class="submit-btn">Guardar Interface</button>
+            </form>
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+
+
+</body>
+</html>

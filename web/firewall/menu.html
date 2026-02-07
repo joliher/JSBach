@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>FIREWALL - Menú</title>
+    
+    <link rel="stylesheet" href="/web/00-css/firewall/menu.css">
+    <script src="/web/00-js/firewall/menu.js"></script>
+</head>
+<body>
+
+<h3>🔥 FIREWALL</h3>
+
+<div class="status-box" id="module-status">Estado: Cargando...</div>
+
+<div class="dependency-warning">
+    <strong>⚠️ Dependencias requeridas:</strong><br>
+    <div id="dep-vlans" style="margin: 3px 0;">🔄 VLANs: Comprobando...</div>
+    <div id="dep-tagging" style="margin: 3px 0;">🔄 Tagging: Comprobando...</div>
+</div>
+
+<!-- Acciones principales -->
+<button id="btnStart"   onclick="runAction('start', this)">🚀 FIREWALL START</button>
+<button id="btnStop"    onclick="runAction('stop', this)">🛑 FIREWALL STOP</button>
+<button id="btnRestart" onclick="runAction('restart', this)">🔄 FIREWALL RESTART</button>
+<button id="btnStatus"  onclick="runAction('status', this)">📊 FIREWALL STATUS</button>
+
+<hr>
+
+<h4 style="margin: 10px 0; color: #555;">Vista y Configuración</h4>
+
+<!-- Configuración y visualización -->
+<button id="btnViewVlans" onclick="openConfig('vlans', this)">👁️ VER VLANS</button>
+<button id="btnConfigWhitelist" onclick="openConfig('whitelist', this)">📋 CONFIG WHITELIST</button>
+
+<hr>
+
+<!-- Visualización -->
+<button id="btnInfo" onclick="openInfo(event, this)">ℹ️ VER INFO</button>
+
+
+
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CONFIG VLANS</title>
+    
+    <link rel="stylesheet" href="/web/00-css/vlans/config.css">
+    <script src="/web/00-js/vlans/config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>🏷️ Configuración de VLANs</h2>
+
+        <div class="info-box">
+            <strong>ℹ️ Información:</strong> Configure las VLANs del sistema. Cada VLAN requiere una IP para la interfaz (asignada al router) y una IP de red (para reglas de firewall).
+            Las VLANs 1 y 2 están protegidas y no se pueden eliminar.
+        </div>
+
+        <h3>VLANs configuradas</h3>
+
+        <table id="vlansTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>IP Interfaz</th>
+                    <th>IP Red</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h3>Nueva VLAN</h3>
+
+        <div class="form-section">
+            <form id="vlanForm">
+                <div class="form-group">
+                    <label>ID VLAN</label>
+                    <input type="number" name="id" min="1" max="4094" placeholder="100" required>
+                    <small>💡 ID único entre 1 y 4094</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" name="name" placeholder="DMZ_Servers" required>
+                    <small>💡 Nombre descriptivo para la VLAN</small>
+                </div>
+
+                <div class="form-group">
+                    <label>IP Interfaz</label>
+                    <input type="text" name="ip_interface" placeholder="192.168.1.1/24" required>
+                    <small>💡 IP asignada a la interfaz del router (no puede terminar en 0 o 255)</small>
+                </div>
+
+                <div class="form-group">
+                    <label>IP Red</label>
+                    <input type="text" name="ip_network" placeholder="192.168.1.0/24" required>
+                    <small>💡 IP de red para reglas de firewall (último octeto debe ser 0)</small>
+                </div>
+
+                <button type="submit" class="submit-btn">Guardar VLAN</button>
+            </form>
+        </div>
+
+        <pre id="output"></pre>
+    </div>
+
+
+
+</body>
+</html>

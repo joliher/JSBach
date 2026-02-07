@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Estado DMZ</title>
+    
+    <link rel="stylesheet" href="/web/00-css/dmz/destinations.css">
+    <script src="/web/00-js/dmz/destinations.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>📊 Estado DMZ</h2>
+        
+        <div class="info-box" id="statusInfo">
+            <strong>Estado del sistema:</strong> <span id="dmzStatus">Cargando...</span><br>
+            <strong>Interfaz WAN:</strong> <span id="wanInterface">-</span><br>
+            <strong>VLANs:</strong> <span id="vlansStatus">-</span>
+        </div>
+        
+        <div class="warning-box" id="warningBox" style="display: none;">
+            ⚠️ <strong>Advertencia:</strong> NAT debe estar activo para iniciar DMZ.
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn btn-refresh" id="btnRefresh">🔄 ACTUALIZAR</button>
+        </div>
+        
+        <div id="result"></div>
+        
+        <h3>Destinos DMZ configurados</h3>
+        <div id="tableContainer">
+            <p class="loading">Cargando información...</p>
+        </div>
+    </div>
+
+    
+</body>
+</html>

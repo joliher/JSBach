@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>EBTABLES - Menú</title>
+    
+    <link rel="stylesheet" href="/web/00-css/ebtables/menu.css">
+    <script src="/web/00-js/ebtables/menu.js"></script>
+</head>
+<body>
+
+<h3>🌉 EBTABLES</h3>
+
+<div class="status-box" id="module-status">Estado: Cargando...</div>
+
+<div class="dependency-warning">
+    <strong>⚠️ Dependencias requeridas:</strong><br>
+    <div id="dep-wan" style="margin: 3px 0;">🔄 WAN: Comprobando...</div>
+    <div id="dep-vlans" style="margin: 3px 0;">🔄 VLANs: Comprobando...</div>
+    <div id="dep-tagging" style="margin: 3px 0;">🔄 Tagging: Comprobando...</div>
+</div>
+
+<button type="button" id="btnStart"   onclick="runEbtables(event, 'start', this)">🚀 EBTABLES START</button>
+<button type="button" id="btnStop"    onclick="runEbtables(event, 'stop', this)">🛑 EBTABLES STOP</button>
+<button type="button" id="btnRestart" onclick="runEbtables(event, 'restart', this)">🔄 EBTABLES RESTART</button>
+<button type="button" id="btnStatus"  onclick="runEbtables(event, 'status', this)">📊 EBTABLES STATUS</button>
+
+<hr>
+
+<button type="button" onclick="goConfig(event, this)">⚙️ CONFIGURAR AISLAMIENTO</button>
+<button type="button" onclick="goInfo(event, this)">📖 INFORMACIÓN</button>
+
+
+
+</body>
+</html>

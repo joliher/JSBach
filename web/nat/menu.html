@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>NAT - Menú</title>
+    
+    <link rel="stylesheet" href="/web/00-css/nat/menu.css">
+    <script src="/web/00-js/nat/menu.js"></script>
+</head>
+<body>
+
+<h3>🔀 NAT</h3>
+
+<div class="status-box" id="module-status">Estado: Cargando...</div>
+<div class="dependency-warning">
+    <strong>⚠️ Dependencias requeridas:</strong><br>
+    <div id="dep-wan" style="margin: 3px 0;">🔄 WAN: Comprobando...</div>
+</div>
+<button type="button" id="btnStart"   onclick="runNat(event, 'start', this)">🚀 NAT START</button>
+<button type="button" id="btnStop"    onclick="runNat(event, 'stop', this)">🛑 NAT STOP</button>
+<button type="button" id="btnRestart" onclick="runNat(event, 'restart', this)">🔄 NAT RESTART</button>
+<button type="button" id="btnStatus"  onclick="runNat(event, 'status', this)">📊 NAT STATUS</button>
+
+<hr>
+
+<h4>Configuración</h4>
+
+<button type="button" id="btnConfig"  onclick="runNat(event, 'config', this)">⚙️ NAT CONFIG</button>
+
+<hr>
+
+<button type="button" id="btnInfo"    onclick="openInfo(event, this)">ℹ️ VER INFO</button>
+
+
+
+</body>
+</html>

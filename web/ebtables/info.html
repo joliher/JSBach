@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>EBTABLES - Información</title>
+    
+    <link rel="stylesheet" href="/web/00-css/ebtables/info.css">
+</head>
+<body>
+
+<h3>📖 Información del Módulo EBTABLES</h3>
+
+<div class="info-section">
+    <h4>🌉 ¿Qué es EBTABLES?</h4>
+    <p>
+        El módulo <span class="highlight">EBTABLES</span> proporciona PVLAN (Private VLAN) a nivel de 
+        <strong>capa 2 (enlace de datos)</strong> utilizando <code>ebtables</code> 
+        (Ethernet Bridge Tables). Esto permite controlar el tráfico entre VLANs de manera más granular 
+        que con iptables, actuando directamente sobre las tramas Ethernet.
+    </p>
+    
+    <div class="info-box">
+        <strong>ℹ️ Diferencia con Firewall:</strong><br>
+        • <strong>Firewall (iptables):</strong> Opera en capa 3 (red) - IP<br>
+        • <strong>Ebtables:</strong> Opera en capa 2 (enlace) - Ethernet
+    </div>
+</div>
+
+<div class="info-section">
+    <h4>🔧 Funcionalidades</h4>
+    <ul>
+        <li><strong>🔒 Aislamiento por VLAN:</strong> Permite aislar cada VLAN de forma independiente</li>
+        <li><strong>📊 Control Granular:</strong> Cada VLAN tiene su propia cadena (VLAN_X_EBTABLES)</li>
+        <li><strong>🔄 Gestión Dinámica:</strong> Aislar/desaislar VLANs en caliente</li>
+        <li><strong>�� Dependencia WAN:</strong> Verifica que WAN esté activa antes de operar</li>
+    </ul>
+</div>
+
+<div class="info-section">
+    <h4>⚙️ Arquitectura Técnica (Optimizada - Redirección por Interfaz)</h4>
+    <p>El módulo implementa una arquitectura optimizada que redirecciona tráfico por interfaz VLAN en FORWARD:</p>
+    
+    <div class="code-block">Lectura:
+vlans.json → VLANs válidas [1, 10, 20, 30]
+tagging.json → Interfaces → [enxc84d44206f87, enxc84d4426b4ab, ...]
+
+Construcción:
+VLAN 3 → Interfaces [enxc84d44206f87]
+
+Reglas en FORWARD:
+ebtables -A FORWARD -i enxc84d44206f87 -j FORWARD_VLAN_3   (redirecciona VLAN 3)
+ebtables -A FORWARD -i enxc84d4426b4ab -j FORWARD_VLAN_1   (redirecciona VLAN 1)
+ebtables -A FORWARD -j DROP                                 (rechaza resto)
+
+Reglas en FORWARD_VLAN_3 (cuando está AISLADA):
+ebtables -A FORWARD_VLAN_3 -i eth0 -j ACCEPT               (permite WAN entrada)
+ebtables -A FORWARD_VLAN_3 -o eth0 -j ACCEPT               (permite WAN salida)
+(DROP implícito por default)</div>
+
+    <p style="margin-top: 15px;"><strong>Validación de Sincronización:</strong></p>
+    <ul style="margin: 8px 0 0 20px;">
+        <li>✅ VLANs en tagging.json DEBEN existir en vlans.json</li>
+        <li>✅ Si una VLAN en tagging NO existe → se registra warning y se ignora</li>
+        <li>✅ El mapa solo incluye VLANs válidas configuradas</li>
+    </ul>
+
+    <p style="margin-top: 15px;"><strong>Flujo de Tráfico (VLAN 3 AISLADA):</strong></p>
+    <div class="info-box">
+        <strong>Frame entra por enxc84d44206f87:</strong><br>
+        1. Evaluación en FORWARD: -i enxc84d44206f87 -j FORWARD_VLAN_3 ✓ COINCIDE<br>
+        2. Redirecciona a FORWARD_VLAN_3<br>
+        3. Evalúa: -i eth0 -j ACCEPT / -o eth0 -j ACCEPT<br>
+        4. Si coincide → ✅ PERMITIDO<br>
+        5. Si no coincide → ❌ BLOQUEADO (DROP implícito)<br>
+        <br>
+        <strong>Frame entra por otra interfaz:</strong><br>
+        1. Evaluación en FORWARD: -i enxc84d4426b4ab -j FORWARD_VLAN_1 ✗ NO coincide<br>
+        2. Evaluación en FORWARD: -j DROP ✓ COINCIDE<br>
+        3. ❌ BLOQUEADO
+    </div>
+
+    <p style="margin-top: 15px;"><strong>Ventajas de esta Arquitectura:</strong></p>
+    <ul style="margin: 8px 0 0 20px;">
+        <li>🚀 <strong>Eficiente:</strong> Primero filtra por interfaz en FORWARD, luego reglas específicas</li>
+        <li>🎯 <strong>Dinámico:</strong> Se adapta automáticamente a cambios en tagging.json</li>
+        <li>✅ <strong>Sincronizado:</strong> Valida que todas las VLANs existan</li>
+        <li>📊 <strong>Escalable:</strong> Maneja múltiples interfaces por VLAN</li>
+        <li>🔒 <strong>Seguro:</strong> DROP final en FORWARD rechaza interfaz desconocidas</li>
+        <li>🧩 <strong>Modular:</strong> Cada VLAN es independiente</li>
+    </ul>
+</div>
+
+<div class="info-section">
+    <h4>📋 Requisitos</h4>
+    <ul>
+        <li>✅ El módulo <span class="highlight">WAN</span> debe estar activo</li>
+        <li>✅ El módulo <span class="highlight">VLANs</span> debe tener VLANs configuradas</li>
+        <li>✅ El paquete <code>ebtables</code> instalado en el sistema</li>
+        <li>✅ Permisos sudo configurados en <code>/etc/sudoers.d/jsbach</code></li>
+    </ul>
+    
+    <div class="warning-box">
+        <strong>⚠️ Advertencia:</strong> PVLAN (Private VLAN) puede interrumpir la comunicación 
+        entre dispositivos. Asegúrate de comprender las implicaciones antes de aislar VLANs en producción.
+    </div>
+</div>
+
+<div class="info-section">
+    <h4>🚀 Uso Básico</h4>
+    <ol>
+        <li><strong>Iniciar el módulo:</strong> Click en "EBTABLES START"</li>
+        <li><strong>Aislar VLAN:</strong> Ir a "CONFIGURAR AISLAMIENTO" → Aislar</li>
+        <li><strong>Desaislar VLAN:</strong> Usar botón "Desaislar"</li>
+        <li><strong>Ver estado:</strong> Click en "EBTABLES STATUS"</li>
+    </ol>
+</div>
+
+<div class="info-section">
+    <h4>📚 Casos de Uso</h4>
+    <ul>
+        <li><strong>Seguridad IoT:</strong> Aislar dispositivos IoT para que solo accedan a Internet</li>
+        <li><strong>Guest Networks:</strong> Aislar redes de invitados</li>
+        <li><strong>Segmentación:</strong> Separar departamentos o funciones</li>
+        <li><strong>Testing:</strong> Aislar segmentos para pruebas</li>
+        <li><strong>Compliance:</strong> Cumplir requisitos (PCI-DSS, HIPAA)</li>
+    </ul>
+</div>
+
+<div class="info-box">
+    <strong>💡 Nota:</strong> Por defecto, todas las VLANs están <strong>NO AISLADAS</strong>. 
+    Debes aislarlas explícitamente según necesidad.
+</div>
+
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuración WAN</title>
+    
+    <link rel="stylesheet" href="/web/00-css/wan/config.css">
+    <script src="/web/00-js/wan/config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>🌐 Configuración WAN</h2>
+
+        <div class="wan-info-box" id="wan-info-container" style="display: none;">
+            <strong>🌐 Interfaz WAN Configurada:</strong>
+            <div class="wan-details" id="wan-details"></div>
+            <div class="dhcp-notice" id="dhcp-notice" style="display: none;">
+                <strong>⏱️ Obtención de IP por DHCP</strong><br>
+                El proceso DHCP puede tardar <b>aproximadamente 30 segundos</b> en obtener una dirección IP de tu proveedor de internet. Si después de este tiempo no aparece una IP asignada, significa que el proceso ha <b>fallado</b> y deberás verificar la conexión física.
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ ADVERTENCIA IMPORTANTE:</strong><br>
+            Esta función debe utilizarse <strong>ÚNICAMENTE</strong> para configurar la interfaz que estará expuesta a internet (WAN).<br>
+            <strong>NO es recomendable usar esta configuración para interfaces internas normales.</strong>
+        </div>
+
+        <form id="wanForm">
+            <div class="form-group">
+                <label for="interface">Interfaz</label>
+                <input type="text" id="interface" placeholder="eth0, ens0, enp0s3, wlan0" required>
+                <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                    💡 Debe ser una interfaz física existente (eth0, ens3, enp0s3, etc.). Será verificada en el servidor.
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="mode">Modo</label>
+                <select id="mode">
+                    <option value="dhcp">DHCP (obtener IP automáticamente)</option>
+                    <option value="manual">Manual (IP estática)</option>
+                </select>
+            </div>
+
+            <div id="manualFields" class="hidden">
+                <div class="form-group">
+                    <label for="ip">IP</label>
+                    <input type="text" id="ip" placeholder="192.168.1.10">
+                    <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                        Ejemplo: 192.168.100.1
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="mask">Máscara (CIDR)</label>
+                    <input type="number" id="mask" placeholder="24" min="0" max="32">
+                    <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                        Rango: 0–32. Ejemplo: 24 para /24 (255.255.255.0)
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="gateway">Gateway</label>
+                    <input type="text" id="gateway" placeholder="192.168.1.1">
+                    <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                        IP del router/puerta de enlace
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="dns">DNS (separados por coma)</label>
+                    <input type="text" id="dns" placeholder="8.8.8.8,1.1.1.1">
+                    <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                        Ejemplo: 8.8.8.8,1.1.1.1 o 8.8.8.8
+                    </small>
+                </div>
+            </div>
+
+            <button type="submit">Guardar configuración</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+
+
+
+</body>
+</html>
