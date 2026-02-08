@@ -30,9 +30,9 @@
     <h4>🔧 Funcionalidades</h4>
     <ul>
         <li><strong>🔒 Aislamiento por VLAN:</strong> Permite aislar cada VLAN de forma independiente</li>
-        <li><strong>📊 Control Granular:</strong> Cada VLAN tiene su propia cadena (VLAN_X_EBTABLES)</li>
+        <li><strong>📊 Control Granular:</strong> Cada VLAN tiene su propia cadena (FORWARD_VLAN_X)</li>
         <li><strong>🔄 Gestión Dinámica:</strong> Aislar/desaislar VLANs en caliente</li>
-        <li><strong>�� Dependencia WAN:</strong> Verifica que WAN esté activa antes de operar</li>
+        <li><strong>⚠️ Dependencia WAN:</strong> Verifica que WAN esté activa antes de operar</li>
     </ul>
 </div>
 
@@ -55,7 +55,7 @@ ebtables -A FORWARD -j DROP                                 (rechaza resto)
 Reglas en FORWARD_VLAN_3 (cuando está AISLADA):
 ebtables -A FORWARD_VLAN_3 -i eth0 -j ACCEPT               (permite WAN entrada)
 ebtables -A FORWARD_VLAN_3 -o eth0 -j ACCEPT               (permite WAN salida)
-(DROP implícito por default)</div>
+ebtables -A FORWARD_VLAN_3 -j DROP                         (bloquea resto)</div>
 
     <p style="margin-top: 15px;"><strong>Validación de Sincronización:</strong></p>
     <ul style="margin: 8px 0 0 20px;">

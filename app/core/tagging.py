@@ -3,9 +3,9 @@
 import os
 import json
 import subprocess
-from typing import Dict, Any, Tuple
-from ..utils.global_functions import create_module_config_directory, create_module_log_directory
-from ..utils.validators import sanitize_interface_name
+from typing import Dict, Any, Tuple, Optional
+from ..utils.global_functions import create_module_config_directory, create_module_log_directory, check_module_dependencies, get_module_status
+from ..utils.validators import sanitize_interface_name, validate_interface_name
 from ..utils.helpers import (
     load_json_config, save_json_config, update_module_status, run_command
 )
@@ -39,7 +39,7 @@ _format_vlan_list = format_vlan_list
 # --------------------------------
 
 
-def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     create_module_config_directory("tagging")
     create_module_log_directory("tagging")
 
@@ -56,6 +56,12 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     if not _bridge_exists():
         return False, "Bridge br0 no existe. Configure VLANs primero"
+
+    if get_module_status("tagging") == 1 and _tagging_already_started(interfaces):
+        return False, "Tagging ya iniciado"
+
+    if _tagging_already_started(interfaces):
+        return False, "Tagging ya iniciado"
     
     # Solo tocar VLAN 1 si hay interfaces físicas
     if interfaces:
@@ -75,8 +81,12 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             continue
         
         # Validar nombre de interfaz seguro
-        if not _sanitize_interface_name(name):
-            return False, f"Nombre de interfaz inválido: '{name}'. Solo use caracteres alfanuméricos, puntos, guiones y guiones bajos."
+        valid, error = validate_interface_name(name)
+        if not valid:
+            return False, f"Nombre de interfaz inválido: '{name}'. {error}"
+
+        if name == "br0" or name.startswith("br0."):
+            return False, "Nombre de interfaz inválido: 'br0' y sus subinterfaces no son permitidas en tagging"
         
         iface_errors = []
         
@@ -146,7 +156,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     return True, result_msg if result_msg else "Tagging configurado correctamente"
 
 
-def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     create_module_config_directory("tagging")
     create_module_log_directory("tagging")
     
@@ -169,14 +179,14 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     return True, "Tagging detenido"
 
 
-def restart(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def restart(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     ok, msg = stop()
     if not ok:
         return False, msg
     return start()
 
 
-def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     create_module_config_directory("tagging")
     create_module_log_directory("tagging")
     
@@ -307,9 +317,12 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
             return False, "Error: 'name' no puede estar vacío"
         
         # Validar formato de nombre de interfaz
-        import re
-        if not re.match(r'^[a-zA-Z0-9._-]+$', name):
-            return False, f"Error: formato de nombre de interfaz inválido: '{name}'. Debe ser alfanumérico con guiones, puntos o barras bajas"
+        valid, error = validate_interface_name(name)
+        if not valid:
+            return False, f"Error: nombre de interfaz inválido: '{name}'. {error}"
+
+        if name == "br0" or name.startswith("br0."):
+            return False, "Error: nombre de interfaz inválido. 'br0' y sus subinterfaces no son permitidas en tagging"
         
         # Normalizar campos vacíos
         vlan_untag = params.get("vlan_untag", "")
@@ -410,7 +423,7 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
                                     f"Primero desaísla VLAN {vlan_id} antes de cambiar la configuración."
                                 )
             except Exception:
-                pass  # Si falla la lectura, permitir reconfiguración
+                return False, "Error: no se pudo leer la configuración de ebtables para validar dependencias"
         
         # Eliminar si ya existía la interfaz
         cfg["interfaces"] = [i for i in cfg["interfaces"] if i.get("name") != name]
@@ -421,7 +434,8 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
             "vlan_untag": str(vlan_untag) if vlan_untag else "",
             "vlan_tag": str(vlan_tag) if vlan_tag else ""
         })
-        _save_config(cfg)
+        if not _save_config(cfg):
+            return False, f"Error guardando configuración de tagging en {CONFIG_FILE}"
         return True, f"Interfaz {name} agregada"
     
     elif action == "remove":
@@ -454,14 +468,15 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
                                 f"Primero desaísla VLAN {vlan_id} usando: ebtables desaislar {{'vlan_id': {vlan_id}}}"
                             )
             except Exception:
-                pass  # Si falla la lectura, permitir eliminación
+                return False, "Error: no se pudo leer la configuración de ebtables para validar dependencias"
         
         original_count = len(cfg["interfaces"])
         cfg["interfaces"] = [i for i in cfg["interfaces"] if i.get("name") != name]
         if len(cfg["interfaces"]) == original_count:
             return False, f"Interfaz {name} no encontrada"
         
-        _save_config(cfg)
+        if not _save_config(cfg):
+            return False, f"Error guardando configuración de tagging en {CONFIG_FILE}"
         return True, f"Interfaz {name} eliminada"
     
     elif action == "show":
@@ -493,3 +508,88 @@ ALLOWED_ACTIONS = {
     "status": status,
     "config": config,
 }
+
+
+def _parse_bridge_vlan_output(output: str) -> Dict[str, Dict[str, set]]:
+    vlan_map: Dict[str, Dict[str, set]] = {}
+    last_iface = None
+
+    for line in output.splitlines():
+        if not line.strip() or line.startswith("port"):
+            continue
+        parts = line.split()
+
+        iface = None
+        vlan_id = None
+        flags = set()
+
+        if parts[0].isdigit() and last_iface:
+            iface = last_iface
+            vlan_id = parts[0]
+            flags = set(parts[1:]) if len(parts) > 1 else set()
+        elif len(parts) >= 2:
+            iface = parts[0]
+            vlan_id = parts[1]
+            flags = set(parts[2:]) if len(parts) > 2 else set()
+            last_iface = iface
+        else:
+            continue
+
+        if iface not in vlan_map:
+            vlan_map[iface] = {"vlans": set(), "pvids": set()}
+
+        vlan_map[iface]["vlans"].add(vlan_id)
+        if "PVID" in flags:
+            vlan_map[iface]["pvids"].add(vlan_id)
+
+    return vlan_map
+
+
+def _interface_in_bridge(interface: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["/usr/sbin/ip", "a", "show", interface],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5
+        )
+        return "master br0" in result.stdout
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return False
+
+
+def _tagging_already_started(interfaces: list) -> bool:
+    if not interfaces:
+        return False
+
+    success, output = _run_cmd(["/usr/sbin/bridge", "vlan", "show"])
+    if not success:
+        return False
+
+    vlan_map = _parse_bridge_vlan_output(output)
+
+    for iface in interfaces:
+        name = iface.get("name")
+        if not name or not os.path.exists(f"/sys/class/net/{name}"):
+            return False
+        if not _interface_in_bridge(name):
+            return False
+
+        iface_vlans = vlan_map.get(name, {"vlans": set(), "pvids": set()})
+        vlan_untag = str(iface.get("vlan_untag") or "").strip()
+        vlan_tag = str(iface.get("vlan_tag") or "").strip()
+
+        if vlan_untag:
+            if vlan_untag not in iface_vlans["vlans"]:
+                return False
+            if vlan_untag not in iface_vlans["pvids"]:
+                return False
+
+        if vlan_tag:
+            tag_list = _parse_vlan_range(vlan_tag)
+            for tag_id in tag_list:
+                if tag_id not in iface_vlans["vlans"]:
+                    return False
+
+    return True

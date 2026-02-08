@@ -1,5 +1,7 @@
 # app/core/wan.py
 
+import asyncio
+import ipaddress
 import os
 from typing import Dict, Any, Tuple
 from ..utils.global_functions import create_module_config_directory, create_module_log_directory
@@ -82,7 +84,10 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             return True, f"DHCP iniciado en {iface} (verificando IP, estado físico y ruta en background)"
 
         elif mode == "manual":
-            _start_manual(iface, cfg)
+            ok, err_msg = _start_manual(iface, cfg)
+            if not ok:
+                _update_status(0)
+                return False, err_msg
             # Para modo manual, verificar que se cumplan las validaciones
             is_valid, _ = _verify_wan_status()
             if not is_valid:
@@ -242,6 +247,10 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
             if not valid:
                 return False, f"DNS inválido '{dns_ip}': {error}"
 
+        valid, error = _validate_manual_network(params["ip"], params["mask"], params["gateway"])
+        if not valid:
+            return False, error
+
     # Validar nombre de interfaz
     iface = params["interface"]
     valid, error = validate_interface_name(iface)
@@ -302,19 +311,69 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
 # Helpers internos
 # -----------------------------
 
-def _start_manual(iface: str, cfg: dict):
-    _run_command(["/usr/sbin/ip", "a", "flush", "dev", iface])
-    _run_command(["/usr/sbin/ip", "a", "add", f"{cfg['ip']}/{cfg['mask']}", "dev", iface])
-    _run_command(["/usr/sbin/ip", "l", "set", iface, "up"])
-    _run_command(["/usr/sbin/ip", "r", "add", "default", "via", cfg["gateway"], "dev", iface])
+def _start_manual(iface: str, cfg: dict) -> Tuple[bool, str]:
+    steps = [
+        ("limpiar IP", ["/usr/sbin/ip", "a", "flush", "dev", iface]),
+        ("asignar IP", ["/usr/sbin/ip", "a", "add", f"{cfg['ip']}/{cfg['mask']}", "dev", iface]),
+        ("habilitar interfaz", ["/usr/sbin/ip", "l", "set", iface, "up"]),
+        ("configurar ruta por defecto", ["/usr/sbin/ip", "r", "add", "default", "via", cfg["gateway"], "dev", iface]),
+    ]
+
+    for label, cmd in steps:
+        success, msg = _run_command(cmd)
+        if not success:
+            _rollback_manual(iface)
+            return False, f"Error al {label}: {msg}"
 
     dns = cfg.get("dns", [])
     if isinstance(dns, str):
         dns = [d.strip() for d in dns.split(",") if d.strip()]
 
     if dns:
-        _run_command(["/usr/bin/resolvectl", "revert", iface])
-        _run_command(["/usr/bin/resolvectl", "dns", iface] + dns)
+        success, msg = _run_command(["/usr/bin/resolvectl", "revert", iface])
+        if not success:
+            _rollback_manual(iface)
+            return False, f"Error al revertir DNS: {msg}"
+        success, msg = _run_command(["/usr/bin/resolvectl", "dns", iface] + dns)
+        if not success:
+            _rollback_manual(iface)
+            return False, f"Error al configurar DNS: {msg}"
+
+    return True, "OK"
+
+
+def _rollback_manual(iface: str) -> None:
+    _run_command(["/usr/bin/resolvectl", "revert", iface])
+    _run_command(["/usr/sbin/ip", "r", "flush", "dev", iface])
+    _run_command(["/usr/sbin/ip", "a", "flush", "dev", iface])
+    _run_command(["/usr/sbin/ip", "link", "set", iface, "down"])
+
+
+def _validate_manual_network(ip: str, mask: Any, gateway: str) -> Tuple[bool, str]:
+    try:
+        mask_int = int(mask)
+        if mask_int < 0 or mask_int > 32:
+            return False, "Mascara invalida. Use un valor entre 0 y 32."
+
+        network = ipaddress.ip_network(f"{ip}/{mask_int}", strict=False)
+        ip_addr = ipaddress.ip_address(ip)
+        gw_addr = ipaddress.ip_address(gateway)
+
+        if ip_addr in (network.network_address, network.broadcast_address):
+            return False, f"IP invalida: {ip} es direccion de red o broadcast para /{mask_int}"
+
+        if gw_addr not in network:
+            return False, f"Gateway fuera de red: {gateway} no pertenece a {network}"
+
+        if gw_addr in (network.network_address, network.broadcast_address):
+            return False, f"Gateway invalido: {gateway} es direccion de red o broadcast"
+
+        if gw_addr == ip_addr:
+            return False, "Gateway invalido: no puede ser igual a la IP"
+
+        return True, ""
+    except (ValueError, TypeError):
+        return False, "Parametros de red invalidos para IP, mascara o gateway"
 
 
 # -----------------------------

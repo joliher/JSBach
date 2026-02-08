@@ -31,11 +31,35 @@ function runVlans(event, action, btn) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action }),
             credentials: 'include'
-    }).catch(error => {
-        console.error("Error al ejecutar la acción:", error);
-    });
-return;
-}
+        }).then(async response => {
+            if (action === "status") return;
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = { success: false, message: "Respuesta invalida del servidor" };
+            }
+
+            if (!response.ok) {
+                storeActionResult({
+                    success: false,
+                    message: data.detail || data.message || "Error desconocido"
+                });
+                return;
+            }
+
+            storeActionResult({
+                success: Boolean(data.success),
+                message: data.message || "Accion ejecutada"
+            });
+        }).catch(error => {
+            if (action !== "status") {
+                storeActionResult({ success: false, message: error.message });
+            }
+            console.error("Error al ejecutar la accion:", error);
+        });
+        return;
+    }
 
 // Otras acciones → mostrar info.html
 iframe.location.href = "/web/vlans/info.html";
@@ -108,4 +132,8 @@ function openInfo(event, btn) {
     sessionStorage.setItem("vlansSelected", btn.id);
 
     iframe.location.href = "/web/vlans/info.html";
+}
+
+function storeActionResult(result) {
+    sessionStorage.setItem("vlansLastActionResult", JSON.stringify(result));
 }

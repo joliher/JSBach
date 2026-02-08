@@ -410,6 +410,15 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
             success, _ = _run_command(check_cmd)
             if not success:
                 _run_command(add_cmd)
+
+        elif protocol and not ip:
+            # Caso: /proto (sin IP ni puerto)
+            check_cmd = ["/usr/sbin/iptables", "-C", chain_name, "-p", protocol, "-j", "ACCEPT"]
+            add_cmd = ["/usr/sbin/iptables", "-A", chain_name, "-p", protocol, "-j", "ACCEPT"]
+
+            success, _ = _run_command(check_cmd)
+            if not success:
+                _run_command(add_cmd)
                 
         elif ip:
             # Caso: solo IP (sin puerto ni protocolo)

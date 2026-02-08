@@ -78,6 +78,45 @@ function haveSameMask(ipInterface, ipNetwork) {
     }
 }
 
+function validateVlanFields(name, ipInterface, ipNetwork) {
+    if (!name) {
+        return "Nombre no puede estar vacio";
+    }
+
+    if (!ipInterface) {
+        return "IP de interfaz no puede estar vacia";
+    }
+
+    if (!isValidCIDR(ipInterface)) {
+        return "Formato de IP de interfaz invalido. Esperado: 192.168.1.1/24 (incluir mascara CIDR)";
+    }
+
+    if (!isValidInterfaceIP(ipInterface)) {
+        return "IP de interfaz no puede terminar en 0 (direccion de red) ni en 255 (broadcast). Use una IP de host valida (ej: 192.168.1.1).";
+    }
+
+    if (!ipNetwork) {
+        return "IP de red no puede estar vacia";
+    }
+
+    if (!isValidNetworkIP(ipNetwork)) {
+        return "IP de red debe terminar en 0 (ej: 192.168.1.0/24). Formato esperado: X.X.X.0/mascara";
+    }
+
+    if (!haveSameMask(ipInterface, ipNetwork)) {
+        const maskIface = ipInterface.split('/')[1];
+        const maskNet = ipNetwork.split('/')[1];
+        return `Las mascaras no coinciden. IP interfaz: /${maskIface}, IP red: /${maskNet}. Deben ser iguales.`;
+    }
+
+    if (!isIpInNetwork(ipInterface, ipNetwork)) {
+        const ipAddr = ipInterface.split('/')[0];
+        return `La IP de interfaz ${ipAddr} no pertenece a la red ${ipNetwork}. Rango valido: desde ${ipNetwork.split('/')[0].replace(/0$/, '1')} hasta ${ipNetwork.split('/')[0].replace(/0$/, '254')}`;
+    }
+
+    return null;
+}
+
 async function loadVlans() {
     try {
         const response = await fetch("/admin/vlans", {
@@ -178,49 +217,9 @@ async function saveRow(id) {
     const [name, ip_interface, ip_network] = Array.from(inputs).map(i => i.value.trim());
     const output = document.getElementById("output");
 
-    // Validar nombre
-    if (!name) {
-        output.textContent = "❌ Error: Nombre no puede estar vacío";
-        return;
-    }
-
-    // Validar IP de interfaz
-    if (!ip_interface) {
-        output.textContent = "❌ Error: IP de interfaz no puede estar vacía";
-        return;
-    }
-
-    if (!isValidCIDR(ip_interface)) {
-        output.textContent = "❌ Error: Formato de IP de interfaz inválido. Esperado: 192.168.1.1/24 (incluir máscara CIDR)";
-        return;
-    }
-
-    if (!isValidInterfaceIP(ip_interface)) {
-        output.textContent = "❌ Error: IP de interfaz no puede terminar en 0 (dirección de red) ni en 255 (broadcast). Use una IP de host válida (ej: 192.168.1.1).";
-        return;
-    }
-
-    // Validar IP de red
-    if (!ip_network) {
-        output.textContent = "❌ Error: IP de red no puede estar vacía";
-        return;
-    }
-
-    if (!isValidNetworkIP(ip_network)) {
-        output.textContent = "❌ Error: IP de red debe terminar en 0 (ej: 192.168.1.0/24). Formato esperado: X.X.X.0/máscara";
-        return;
-    }
-
-    if (!haveSameMask(ip_interface, ip_network)) {
-        const maskIface = ip_interface.split('/')[1];
-        const maskNet = ip_network.split('/')[1];
-        output.textContent = `❌ Error: Las máscaras no coinciden. IP interfaz: /${maskIface}, IP red: /${maskNet}. Deben ser iguales.`;
-        return;
-    }
-
-    if (!isIpInNetwork(ip_interface, ip_network)) {
-        const ipAddr = ip_interface.split('/')[0];
-        output.textContent = `❌ Error: La IP de interfaz ${ipAddr} no pertenece a la red ${ip_network}. Rango válido: desde ${ip_network.split('/')[0].replace(/0$/, '1')} hasta ${ip_network.split('/')[0].replace(/0$/, '254')}`;
+    const validationError = validateVlanFields(name, ip_interface, ip_network);
+    if (validationError) {
+        output.textContent = `❌ Error: ${validationError}`;
         return;
     }
 
@@ -248,7 +247,7 @@ async function saveRow(id) {
             return;
         }
 
-        output.textContent = "✅ " + (data.message || "VLAN guardada exitosamente");
+        output.textContent = `✅ VLAN ${id} actualizada`;
         loadVlans();
 
     } catch (err) {
@@ -310,6 +309,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const vlanIdNum = parseInt(vlanId);
+        const existing = Boolean(vlanCache[vlanIdNum]);
         if (isNaN(vlanIdNum) || vlanIdNum < 1 || vlanIdNum > 4094) {
             output.textContent = "❌ Error: ID de VLAN debe estar entre 1 y 4094";
             return;
@@ -320,49 +320,9 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Validar nombre
-        if (!name) {
-            output.textContent = "❌ Error: Nombre no puede estar vacío";
-            return;
-        }
-
-        // Validar IP de interfaz
-        if (!ip_interface) {
-            output.textContent = "❌ Error: IP de interfaz no puede estar vacía";
-            return;
-        }
-
-        if (!isValidCIDR(ip_interface)) {
-            output.textContent = "❌ Error: Formato de IP de interfaz inválido. Esperado: 192.168.1.1/24 (incluir máscara CIDR)";
-            return;
-        }
-
-        if (!isValidInterfaceIP(ip_interface)) {
-            output.textContent = "❌ Error: IP de interfaz no puede terminar en 0 (dirección de red) ni en 255 (broadcast). Use una IP de host válida (ej: 192.168.1.1).";
-            return;
-        }
-
-        // Validar IP de red
-        if (!ip_network) {
-            output.textContent = "❌ Error: IP de red no puede estar vacía";
-            return;
-        }
-
-        if (!isValidNetworkIP(ip_network)) {
-            output.textContent = "❌ Error: IP de red debe terminar en 0 (ej: 192.168.1.0/24). Formato esperado: X.X.X.0/máscara";
-            return;
-        }
-
-        if (!haveSameMask(ip_interface, ip_network)) {
-            const maskIface = ip_interface.split('/')[1];
-            const maskNet = ip_network.split('/')[1];
-            output.textContent = `❌ Error: Las máscaras no coinciden. IP interfaz: /${maskIface}, IP red: /${maskNet}. Deben ser iguales.`;
-            return;
-        }
-
-        if (!isIpInNetwork(ip_interface, ip_network)) {
-            const ipAddr = ip_interface.split('/')[0];
-            output.textContent = `❌ Error: La IP de interfaz ${ipAddr} no pertenece a la red ${ip_network}. Rango válido: desde ${ip_network.split('/')[0].replace(/0$/, '1')} hasta ${ip_network.split('/')[0].replace(/0$/, '254')}`;
+        const validationError = validateVlanFields(name, ip_interface, ip_network);
+        if (validationError) {
+            output.textContent = `❌ Error: ${validationError}`;
             return;
         }
 
@@ -387,8 +347,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!response.ok) {
                 output.textContent = "❌ " + (data.detail || data.message || "Error desconocido");
+            } else if (existing) {
+                output.textContent = `✅ VLAN ${vlanIdNum} actualizada`;
             } else {
-                output.textContent = "✅ " + (data.message || "VLAN guardada exitosamente");
+                output.textContent = `✅ VLAN ${vlanIdNum} agregada`;
             }
 
             form.reset();

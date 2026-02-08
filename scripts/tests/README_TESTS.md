@@ -1,10 +1,10 @@
-# JSBach V4.0 - Test Suite
+# JSBach V4.2 - Test Suite
 
 Suite de pruebas para validar la refactorización de módulos (Fases 1-4).
 
 ## 📁 Archivos de Test
 
-### 1️⃣ test_modules.py (Test Básico)
+### 1️⃣ test_basics.py (Test Básico)
 **Propósito:** Validación básica de funcionalidad sin privilegios sudo elevados
 
 **Módulos probados:**
@@ -17,8 +17,8 @@ Suite de pruebas para validar la refactorización de módulos (Fases 1-4).
 
 **Uso:**
 ```bash
-cd /opt/JSBach_V4.0/install
-sudo ../venv/bin/python test_modules.py
+cd /opt/JSBach_V4.2/scripts/tests
+sudo ../../venv/bin/python test_basics.py
 ```
 
 **Tests:** ~10-12 pruebas básicas
@@ -61,8 +61,8 @@ sudo ../venv/bin/python test_modules.py
 
 **Uso:**
 ```bash
-cd /opt/JSBach_V4.0/install
-sudo ../venv/bin/python test_comprehensive.py
+cd /opt/JSBach_V4.2/scripts/tests
+sudo ../../venv/bin/python test_comprehensive.py
 ```
 
 **Tests totales:** 68 pruebas (100% cobertura)
@@ -73,20 +73,20 @@ sudo ../venv/bin/python test_comprehensive.py
 
 ### Test básico (sin sudo elevado):
 ```bash
-cd /opt/JSBach_V4.0/install
-sudo ../venv/bin/python test_modules.py
+cd /opt/JSBach_V4.2/scripts/tests
+sudo ../../venv/bin/python test_basics.py
 ```
 
 ### Test exhaustivo (RECOMENDADO):
 ```bash
-cd /opt/JSBach_V4.0/install
-sudo ../venv/bin/python test_comprehensive.py
+cd /opt/JSBach_V4.2/scripts/tests
+sudo ../../venv/bin/python test_comprehensive.py
 ```
 
 ### Verificar instalación de dependencias:
 ```bash
-cd /opt/JSBach_V4.0/install
-../venv/bin/python -c "import app.core.wan; import app.core.vlans; print('✅ Módulos OK')"
+cd /opt/JSBach_V4.2/scripts/tests
+../../venv/bin/python -c "import app.core.wan; import app.core.vlans; print('✅ Módulos OK')"
 ```
 
 ---
@@ -118,7 +118,7 @@ cd /opt/JSBach_V4.0/install
 ### Error: "ModuleNotFoundError"
 ```bash
 # Verificar que PROJECT_ROOT está correctamente configurado
-cd /opt/JSBach_V4.0/install
+cd /opt/JSBach_V4.2/scripts/tests
 grep PROJECT_ROOT test_*.py
 ```
 
@@ -130,14 +130,14 @@ sudo ../venv/bin/python test_comprehensive.py
 
 ### Tests fallan en módulos específicos:
 1. Verificar que el servicio JSBach está corriendo
-2. Revisar logs en `/opt/JSBach_V4.0/logs/{module}/`
-3. Verificar configuración en `/opt/JSBach_V4.0/config/{module}/`
+2. Revisar logs en `/opt/JSBach_V4.2/logs/{module}/`
+3. Verificar configuración en `/opt/JSBach_V4.2/config/{module}/`
 
 ---
 
 ## 📝 Notas
 
-- **test_modules.py**: Ideal para validación rápida durante desarrollo
+- **test_basics.py**: Ideal para validación rápida durante desarrollo
 - **test_comprehensive.py**: Usar antes de deployments o releases
 - Los tests no modifican configuración de producción (usan parámetros de prueba)
 - Algunos tests requieren que módulos previos estén configurados (ej: tagging requiere vlans)

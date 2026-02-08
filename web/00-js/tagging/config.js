@@ -5,7 +5,24 @@ let ebtablesCache = {};
 // ============ FUNCIONES DE VALIDACIÓN ============
 
 function isValidInterfaceName(name) {
-    return /^[a-zA-Z0-9._-]+$/.test(name);
+    if (!/^[a-zA-Z0-9._-]+$/.test(name)) return false;
+    if (name.length > 15) return false;
+    if (name === 'br0' || name.startsWith('br0.')) return false;
+    return true;
+}
+
+function getInterfaceNameError(name) {
+    if (!name) return "Nombre de interfaz no puede estar vacio";
+    if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+        return "Formato de interfaz invalido. Use caracteres alfanumericos, guiones, puntos o barras bajas.";
+    }
+    if (name.length > 15) {
+        return "Nombre de interfaz demasiado largo (max 15)";
+    }
+    if (name === 'br0' || name.startsWith('br0.')) {
+        return "No se permite usar br0 ni subinterfaces br0.X";
+    }
+    return null;
 }
 
 function isValidVLANId(id) {
@@ -101,34 +118,31 @@ async function loadAllData() {
 
         if (tagResponse.ok) {
             const tagData = await tagResponse.json();
-            taggingCache = tagData.interfaces || {};
+            taggingCache = parseMessageToMap(tagData.message, "name");
         }
 
         const vlanResponse = await fetch("/admin/vlans", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ action: "config", params: { action: "show" } })
+            body: JSON.stringify({ action: "config", params: { action: "show", format: "json" } })
         });
 
         if (vlanResponse.ok) {
             const vlanData = await vlanResponse.json();
-            vlanCache = {};
-            if (vlanData.vlans && Array.isArray(vlanData.vlans)) {
-                vlanData.vlans.forEach(v => { vlanCache[v.vlan_id] = v; });
-            }
+            vlanCache = parseMessageToMap(vlanData.message, "id");
         }
 
         const ebtResponse = await fetch("/admin/ebtables", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ action: "config", params: { action: "show" } })
+            body: JSON.stringify({ action: "config", params: { action: "show", format: "json" } })
         });
 
         if (ebtResponse.ok) {
             const ebtData = await ebtResponse.json();
-            ebtablesCache = ebtData.vlans || {};
+            ebtablesCache = parseMessageToObject(ebtData.message);
         }
 
         loadTagging();
@@ -158,6 +172,55 @@ function showMessage(message) {
     setTimeout(() => {
         notification.classList.remove("show");
     }, 6000);
+}
+
+function parseMessageToObject(message) {
+    if (!message) return {};
+    if (typeof message === 'object') return message;
+    if (typeof message === 'string') {
+        const trimmed = message.trim();
+        if (!trimmed) return {};
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            try {
+                return JSON.parse(trimmed);
+            } catch (e) {
+                return {};
+            }
+        }
+    }
+    return {};
+}
+
+function parseMessageToMap(message, keyField) {
+    const parsed = parseMessageToObject(message);
+    const map = {};
+
+    if (Array.isArray(parsed)) {
+        parsed.forEach(item => {
+            const key = item && item[keyField];
+            if (key !== undefined && key !== null && key !== '') {
+                map[String(key)] = item;
+            }
+        });
+        return map;
+    }
+
+    if (parsed && typeof parsed === 'object') {
+        if (parsed.vlans && Array.isArray(parsed.vlans)) {
+            parsed.vlans.forEach(item => {
+                const key = item && item[keyField];
+                if (key !== undefined && key !== null && key !== '') {
+                    map[String(key)] = item;
+                }
+            });
+            return map;
+        }
+        Object.keys(parsed).forEach(key => {
+            map[String(key)] = parsed[key];
+        });
+    }
+
+    return map;
 }
 
 async function loadTagging() {
@@ -436,8 +499,9 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        if (!isValidInterfaceName(name)) {
-            showMessage("❌ Error: Formato de interfaz inválido. Use caracteres alfanuméricos, guiones, puntos o barras bajas.");
+        const nameError = getInterfaceNameError(name);
+        if (nameError) {
+            showMessage(`❌ Error: ${nameError}`);
             return;
         }
 

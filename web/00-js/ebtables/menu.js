@@ -1,22 +1,45 @@
 let statusCheckInterval;
 
-function runEbtables(evt, action, btn) {
+async function runEbtables(evt, action, btn) {
     evt.preventDefault();
+    evt.stopPropagation();
 
     // Marcar botón seleccionado
     document.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
+    sessionStorage.setItem('ebtablesSelected', btn.id);
 
     const iframe = parent.frames['body'];
     if (action === "start" || action === "stop" || action === "restart" || action === "status") {
-        iframe.location.href = "/web/ebtables/status.html";
+        try {
+            const resp = await fetch('/admin/ebtables', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action }),
+                credentials: 'include'
+            });
 
-        fetch('/admin/ebtables', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: action }),
-            credentials: 'include'
-        }).catch(err => console.error('Error:', err));
+            let data = { success: false, message: 'Sin respuesta' };
+            try {
+                data = await resp.json();
+            } catch (e) {
+                data = { success: false, message: 'Respuesta invalida del servidor' };
+            }
+
+            if (action !== "status") {
+                storeActionResult({
+                    success: Boolean(data.success),
+                    message: data.message || 'Accion ejecutada'
+                });
+            }
+        } catch (error) {
+            if (action !== "status") {
+                storeActionResult({ success: false, message: error.message });
+            }
+            console.error('Error:', error);
+        }
+
+        iframe.location.href = "/web/ebtables/status.html";
     }
 }
 
@@ -36,18 +59,20 @@ function goInfo(evt, btn) {
 
 async function checkModuleStatus() {
     try {
-        const response = await fetch('/admin/ebtables/info', {
-            credentials: 'include'
-        });
+        const response = await fetch('/admin/status', { credentials: 'include' });
         const data = await response.json();
+        const status = data['ebtables'] || 'DESCONOCIDO';
 
         const statusBox = document.getElementById('module-status');
-        if (data.status === 1) {
-            statusBox.textContent = 'Estado: ACTIVO';
-            statusBox.className = 'status-box activo';
+        statusBox.textContent = `Estado: ${status}`;
+        statusBox.className = 'status-box';
+
+        if (status === 'ACTIVO') {
+            statusBox.classList.add('activo');
+        } else if (status === 'INACTIVO') {
+            statusBox.classList.add('inactivo');
         } else {
-            statusBox.textContent = 'Estado: INACTIVO';
-            statusBox.className = 'status-box inactivo';
+            statusBox.classList.add('desconocido');
         }
     } catch (error) {
         document.getElementById('module-status').textContent = 'Estado: DESCONOCIDO';
@@ -61,12 +86,13 @@ async function checkDependencies() {
     let vlansReady = false;
     let taggingReady = false;
 
-    // Verificar WAN
     try {
-        const wanResp = await fetch('/admin/wan/info', { credentials: 'include' });
-        const wanData = await wanResp.json();
+        const statusResp = await fetch('/admin/status', { credentials: 'include' });
+        const statusData = await statusResp.json();
+
         const wanDiv = document.getElementById('dep-wan');
-        if (wanData.status === 1) {
+        const wanStatus = statusData['wan'] || 'DESCONOCIDO';
+        if (wanStatus === 'ACTIVO') {
             wanDiv.innerHTML = '✅ WAN: Activo';
             wanDiv.style.color = '#155724';
             wanReady = true;
@@ -74,16 +100,10 @@ async function checkDependencies() {
             wanDiv.innerHTML = '❌ WAN: Inactivo';
             wanDiv.style.color = '#721c24';
         }
-    } catch {
-        document.getElementById('dep-wan').innerHTML = '⚠️ WAN: Error al verificar';
-    }
 
-    // Verificar VLANs
-    try {
-        const vlansResp = await fetch('/admin/vlans/info', { credentials: 'include' });
-        const vlansData = await vlansResp.json();
         const vlansDiv = document.getElementById('dep-vlans');
-        if (vlansData.status === 1) {
+        const vlansStatus = statusData['vlans'] || 'DESCONOCIDO';
+        if (vlansStatus === 'ACTIVO') {
             vlansDiv.innerHTML = '✅ VLANs: Activo';
             vlansDiv.style.color = '#155724';
             vlansReady = true;
@@ -91,16 +111,10 @@ async function checkDependencies() {
             vlansDiv.innerHTML = '❌ VLANs: Inactivo';
             vlansDiv.style.color = '#721c24';
         }
-    } catch {
-        document.getElementById('dep-vlans').innerHTML = '⚠️ VLANs: Error al verificar';
-    }
 
-    // Verificar Tagging
-    try {
-        const taggingResp = await fetch('/admin/tagging/info', { credentials: 'include' });
-        const taggingData = await taggingResp.json();
         const taggingDiv = document.getElementById('dep-tagging');
-        if (taggingData.status === 1) {
+        const taggingStatus = statusData['tagging'] || 'DESCONOCIDO';
+        if (taggingStatus === 'ACTIVO') {
             taggingDiv.innerHTML = '✅ Tagging: Activo';
             taggingDiv.style.color = '#155724';
             taggingReady = true;
@@ -109,6 +123,8 @@ async function checkDependencies() {
             taggingDiv.style.color = '#721c24';
         }
     } catch {
+        document.getElementById('dep-wan').innerHTML = '⚠️ WAN: Error al verificar';
+        document.getElementById('dep-vlans').innerHTML = '⚠️ VLANs: Error al verificar';
         document.getElementById('dep-tagging').innerHTML = '⚠️ Tagging: Error al verificar';
     }
 
@@ -126,11 +142,20 @@ async function checkDependencies() {
     }
 }
 
+function storeActionResult(result) {
+    sessionStorage.setItem('ebtablesLastActionResult', JSON.stringify(result));
+}
+
 /* -----------------------------
 Inicialización cuando el DOM está listo
 ----------------------------- */
 
 document.addEventListener("DOMContentLoaded", function () {
+    const saved = sessionStorage.getItem('ebtablesSelected');
+    if (saved) {
+        const btn = document.getElementById(saved);
+        if (btn) btn.classList.add('selected');
+    }
     // Verificar estado inicial
     checkModuleStatus();
     checkDependencies();

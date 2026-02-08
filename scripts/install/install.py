@@ -2,7 +2,7 @@ def create_cli_systemd_service(target_path, venv_path):
     info("Creando servicio systemd para CLI")
     cli_path = os.path.join(target_path, "cli_server.py")
     service_content = f"""[Unit]
-Description=JSBach V4.0 CLI Service
+Description=JSBach V4.2 CLI Service
 BindsTo=jsbach.service
 PartOf=jsbach.service
 After=jsbach.service
@@ -107,7 +107,7 @@ def create_config_directory(target_path):
     success(f"Directorio de config creado y permisos establecidos en {config_dir}")
 
     # Copiar perfiles de Expect si existen
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     src_profiles = os.path.join(base_dir, "config", "expect", "profiles")
     dst_profiles = os.path.join(config_dir, "expect", "profiles")
 
@@ -210,12 +210,12 @@ def create_user(username="jsbach"):
 ###############
 #   Proyecto
 ###############
-DIRECTORY_WHITELIST = ["app", "web", "install"]  # directorios de código fuente
+DIRECTORY_WHITELIST = ["app", "web", "scripts"]  # directorios de código fuente
 FILE_WHITELIST = ["main.py", "cli_server.py"]  # archivos raíz necesarios
 
 def prepare_directory(target_path):
     info(f"Preparando directorio del proyecto en {target_path}")
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
     if not os.path.exists(target_path):
         info(f"Creando directorio {target_path}")
@@ -324,19 +324,19 @@ def set_directory_permissions(target_path):
         info(f"  cli_server.py: 550 (r-xr-x---)")
         subprocess.run(f"chmod 550 {cli_server_py}", shell=True)
 
-    # Install dir: solo lectura
-    install_dir = os.path.join(target_path, "install")
-    if os.path.exists(install_dir):
-        info(f"  Install: 550 (r-xr-x---) - solo lectura")
-        subprocess.run(f"chmod -R 550 {install_dir}", shell=True)
-        subprocess.run(f"find {install_dir} -type f -exec chmod 440 {{}} \\;", shell=True)
+    # Scripts dir: solo lectura
+    scripts_dir = os.path.join(target_path, "scripts")
+    if os.path.exists(scripts_dir):
+        info(f"  Scripts: 550 (r-xr-x---) - solo lectura")
+        subprocess.run(f"chmod -R 550 {scripts_dir}", shell=True)
+        subprocess.run(f"find {scripts_dir} -type f -exec chmod 440 {{}} \\;", shell=True)
     
     success("Permisos configurados correctamente")
 
 def create_systemd_service(target_path, venv_path, port):
     info("Creando servicio systemd")
     service_content = f"""[Unit]
-Description=JSBach V4.0 Web Service
+Description=JSBach V4.2 Web Service
 After=network.target
 
 [Service]
@@ -470,10 +470,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ensure_root()
-    info("Instalador JSBach V4.0")
+    info("Instalador JSBach V4.2")
 
     # Preguntar ruta de instalación
-    target_path = ask("Ruta de instalación del proyecto", "/opt/JSBach_V4.0")
+    target_path = ask("Ruta de instalación del proyecto", "/opt/JSBach_V4.2")
     target_path = target_path.rstrip("/")
 
     if target_path == "/":
@@ -550,7 +550,7 @@ if __name__ == "__main__":
         info(f"Puede iniciar sesión con usuario '{username}' y contraseña vacía")
     
     print()
-    info("Para administrar el servicio JSBach V4.0, usa los siguientes comandos:")
+    info("Para administrar el servicio JSBach V4.2, usa los siguientes comandos:")
     print("  systemctl status jsbach      # Ver estado del servicio")
     print("  systemctl restart jsbach     # Reiniciar el servicio")
     print("  systemctl stop jsbach        # Detener el servicio")

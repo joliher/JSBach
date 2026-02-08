@@ -26,7 +26,8 @@ from .helper_ebtables import (
     update_status as ebtables_update_status, run_ebtables,
     create_vlan_chain, delete_vlan_chain, add_vlan_interface_to_forward, remove_vlan_interface_from_forward,
     apply_isolation, remove_isolation,
-    validate_mac_address, normalize_mac_address, apply_mac_whitelist_rules, remove_mac_whitelist_rules
+    validate_mac_address, normalize_mac_address, apply_mac_whitelist_rules, remove_mac_whitelist_rules,
+    validate_wan_interface
 )
 
 __all__ = [
@@ -101,4 +102,5 @@ __all__ = [
     'normalize_mac_address',
     'apply_mac_whitelist_rules',
     'remove_mac_whitelist_rules',
+    'validate_wan_interface',
 ]

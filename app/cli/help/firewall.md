@@ -23,18 +23,18 @@
     **restart**
         Realiza un reinicio completo del subsistema (equivalente a stop + start).
 
-    **enable_whitelist** --vlan_id ID [--whitelist IPS]
+    **enable_whitelist** --vlan_id ID [--whitelist REGLAS]
         Activa el filtrado restrictivo por lista blanca en la VLAN indicada.
-        `--whitelist` acepta una lista de IPs separadas por comas.
+        `--whitelist` acepta reglas separadas por comas (ej: IP, IP/proto, IP:puerto, :puerto, /proto).
 
     **disable_whitelist** --vlan_id ID
         Desactiva la whitelist para la VLAN, permitiendo de nuevo todo el tráfico.
 
-    **add_rule** --vlan_id ID --rule IP
-        Añade una IP individual a la whitelist de una VLAN existente.
+    **add_rule** --vlan_id ID --rule REGLA
+        Añade una regla a la whitelist de una VLAN existente.
 
-    **remove_rule** --vlan_id ID --rule IP
-        Elimina una IP de la whitelist, denegando de nuevo su acceso.
+    **remove_rule** --vlan_id ID --rule REGLA
+        Elimina una regla de la whitelist, denegando de nuevo su acceso.
 
     **aislar** --vlan_id ID
         Bloquea todo el acceso a Internet (FORWARD) para la red especificada.
@@ -56,3 +56,4 @@
 ## NOTAS
     - El aislamiento (**aislar**) tiene prioridad máxima sobre cualquier regla de forwarding.
     - Las restricciones (**restrict**) solo afectan al tráfico dirigido a la IP del propio router.
+    - Las VLANs 1 y 2 no permiten whitelist.

@@ -3,7 +3,7 @@
 import os
 import json
 from typing import Dict, Any, Tuple
-from ..utils.global_functions import create_module_config_directory, create_module_log_directory
+from ..utils.global_functions import create_module_config_directory, create_module_log_directory, get_module_status
 from ..utils.validators import sanitize_interface_name
 from ..utils.helpers import (
     load_json_config, save_json_config, update_module_status, run_command
@@ -33,6 +33,9 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     if not config:
         return False, "Configuración NAT no encontrada"
 
+    if get_module_status("wan") != 1:
+        return False, "El módulo WAN debe estar activo para iniciar NAT"
+
     interfaz = config.get("interface")
     if not interfaz:
         return False, "Interfaz NAT no definida"
@@ -43,8 +46,13 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
     # Comprobar si NAT ya está activo
     cmd = ["/usr/sbin/iptables", "-t", "nat", "-C", "POSTROUTING", "-o", interfaz, "-j", "MASQUERADE"]
-    success, _ = _run_command(cmd)
-    if success:
+    nat_rule_exists, _ = _run_command(cmd)
+
+    # Capturar estado actual de IP forwarding para rollback
+    success, output = _run_command(["/usr/sbin/sysctl", "-n", "net.ipv4.ip_forward"])
+    ip_forward_prev = output.strip() if success else "0"
+
+    if nat_rule_exists and ip_forward_prev == "1":
         return True, f"NAT ya activado en {interfaz}"
 
     # Activar IP forwarding usando sysctl
@@ -53,9 +61,13 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         return False, f"Error activando IP forwarding: {msg}"
     
     # Añadir regla NAT
-    success, msg = _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "POSTROUTING", "-o", interfaz, "-j", "MASQUERADE"])
-    if not success:
-        return False, f"Error añadiendo regla NAT: {msg}"
+    if not nat_rule_exists:
+        success, msg = _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "POSTROUTING", "-o", interfaz, "-j", "MASQUERADE"])
+        if not success:
+            # Rollback ip_forward al estado anterior
+            if ip_forward_prev in ("0", "1"):
+                _run_command(["/usr/sbin/sysctl", "-w", f"net.ipv4.ip_forward={ip_forward_prev}"])
+            return False, f"Error añadiendo regla NAT: {msg}"
     
     _update_status(1)
     return True, f"NAT activado en {interfaz}"
@@ -88,8 +100,8 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
                     if module_config.get("status") == 1:
                         active_modules.append(module_name)
             except Exception:
-                # Si hay error leyendo, asumimos que podría estar activo
-                pass
+                # Si hay error leyendo, asumir activo para evitar desactivar forwarding
+                active_modules.append(f"{module_name} (config ilegible)")
     
     if active_modules:
         modules_str = ", ".join(active_modules)
@@ -155,6 +167,9 @@ Interfaz: {interfaz} [{interface_status}]
 IP Forwarding: {forwarding_status}
 Regla MASQUERADE: {nat_rule_status}"""
 
+    if ip_forward == "1" and not nat_active:
+        status_summary += "\n\n⚠️ Aviso: IP forwarding está activo, pero NAT no está configurado"
+
     if not is_up:
         status_summary += f"\n\n⚠️ ADVERTENCIA: La interfaz {interfaz} está DOWN (inactiva)"
     
@@ -185,10 +200,9 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     if not interfaz:
         return False, "El parámetro 'interface' no puede estar vacío"
     
-    # Validar formato de interfaz (eth0, ens3, enp0s3, wlan0, etc.)
-    import re
-    if not re.match(r'^[a-zA-Z0-9]+$', interfaz):
-        return False, f"Formato de interfaz inválido: '{interfaz}'. Debe ser alfanumérico (ej: eth0, ens3, wlan0)"
+    # Validar formato de interfaz
+    if not _sanitize_interface_name(interfaz):
+        return False, f"Formato de interfaz inválido: '{interfaz}'. Debe ser alfanumérico y puede incluir '.' o '_'"
     
     # Verificar que la interfaz existe en el sistema
     success, output = _run_command(["/usr/sbin/ip", "link", "show", interfaz])

@@ -2,9 +2,10 @@ let firewallConfig = {};
 
 async function loadConfig() {
     try {
-        const response = await fetch('/config/firewall/firewall.json', {
-            credentials: 'include'
-    });
+        const response = await fetch(`/config/firewall/firewall.json?t=${Date.now()}`, {
+            credentials: 'include',
+            cache: 'no-cache'
+        });
 
     if (!response.ok) {
         throw new Error('No se pudo cargar la configuración');
@@ -13,7 +14,8 @@ async function loadConfig() {
     firewallConfig = await response.json();
 
     // Verificar si el firewall está activo
-    if (firewallConfig.status === 0 || !firewallConfig.vlans || Object.keys(firewallConfig.vlans).length === 0) {
+    const status = Number(firewallConfig.status);
+    if (status !== 1 || !firewallConfig.vlans || Object.keys(firewallConfig.vlans).length === 0) {
         document.getElementById('content').innerHTML = `
         <div class="warning-box" style="text-align: center; padding: 40px;">
         <h3 style="color: #856404; margin-top: 0;">⚠️ Firewall Inactivo</h3>
@@ -242,47 +244,20 @@ async function addRule(vlanId) {
         return;
     }
 
-    // Validar formatos:
-    // IP: 8.8.8.8
-    // IP/proto: 8.8.8.8/tcp, 8.8.8.8/udp
-    // IP:puerto: 192.168.1.1:80
-    // IP:puerto/proto: 8.8.8.8:53/udp
-    // :puerto: :443
-    // :puerto/proto: :22/tcp
-    const validPattern = /^((\d{1,3}\.){3}\d{1,3}(:\d+)?(\/(?:tcp|udp))?|:\d+(\/(?:tcp|udp))?)$/;
-    if (!validPattern.test(rule)) {
-        alert('Formato inválido. Ejemplos válidos:\n' +
+    const ruleError = validateWhitelistRule(rule);
+    if (ruleError) {
+        alert(`Formato inválido: ${ruleError}\n\nEjemplos válidos:\n` +
         '- IP: 8.8.8.8\n' +
         '- IP/proto: 8.8.8.8/tcp\n' +
         '- IP:puerto: 192.168.1.1:80\n' +
         '- IP:puerto/proto: 8.8.8.8:53/udp\n' +
         '- :puerto: :443\n' +
-        '- :puerto/proto: :22/tcp');
+        '- :puerto/proto: :22/tcp\n' +
+        '- /tcp (cualquier IP y puerto con protocolo)');
         return;
     }
 
-    // Validar puertos (1-65535) si existen
-    const portMatch = rule.match(/:(\d+)/);
-    if (portMatch) {
-        const port = parseInt(portMatch[1]);
-        if (port < 1 || port > 65535) {
-            alert(`❌ Puerto inválido: ${port}. Debe estar entre 1 y 65535`);
-            return;
-        }
-    }
-
-    // Validar IP si existe (octetos 0-255)
-    const ipMatch = rule.match(/^(\d{1,3}\.){3}(\d{1,3})/);
-    if (ipMatch) {
-        const octets = rule.split(/[:\/]/)[0].split('.');
-        for (let octet of octets) {
-            const num = parseInt(octet);
-            if (num > 255) {
-                alert(`❌ IP inválida: octeto ${octet} > 255`);
-                return;
-            }
-        }
-    }
+    // Validacion detallada ya realizada por validateWhitelistRule
 
     try {
         const response = await fetch('/admin/firewall', {
@@ -313,6 +288,70 @@ async function addRule(vlanId) {
     }
 } catch (error) {
     alert('Error de conexión al servidor');
+}
+
+function validateWhitelistRule(rule) {
+    if (!rule || typeof rule !== 'string') return 'Regla vacía';
+
+    const trimmed = rule.trim();
+    if (!trimmed) return 'Regla vacía';
+
+    let base = trimmed;
+    let proto = null;
+    if (trimmed.includes('/')) {
+        const parts = trimmed.split('/');
+        if (parts.length !== 2) return 'Formato inválido';
+        base = parts[0].trim();
+        proto = parts[1].trim().toLowerCase();
+        if (proto !== 'tcp' && proto !== 'udp') return 'Protocolo inválido (use tcp o udp)';
+    }
+
+    if (base === '' && proto) {
+        return null; // '/tcp' o '/udp'
+    }
+
+    if (base.startsWith(':')) {
+        const portStr = base.slice(1).trim();
+        if (!portStr) return 'Puerto requerido después de :';
+        if (!/^[0-9]+$/.test(portStr)) return 'Puerto inválido';
+        const port = parseInt(portStr, 10);
+        if (port < 1 || port > 65535) return 'Puerto fuera de rango';
+        return null;
+    }
+
+    let ipPart = base;
+    let portPart = null;
+    if (base.includes(':')) {
+        const split = base.split(':');
+        if (split.length !== 2) return 'Formato inválido';
+        ipPart = split[0].trim();
+        portPart = split[1].trim();
+        if (!portPart) return 'Puerto requerido después de :';
+        if (!/^[0-9]+$/.test(portPart)) return 'Puerto inválido';
+        const port = parseInt(portPart, 10);
+        if (port < 1 || port > 65535) return 'Puerto fuera de rango';
+    }
+
+    if (!ipPart) return 'IP requerida';
+
+    if (isIPv4(ipPart)) return null;
+    if (isIPv6(ipPart)) return 'IPv6 no soportado todavia';
+
+    return 'IP inválida';
+}
+
+function isIPv4(ip) {
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+    return parts.every(part => {
+        if (!/^[0-9]+$/.test(part)) return false;
+        const num = parseInt(part, 10);
+        return num >= 0 && num <= 255;
+    });
+}
+
+function isIPv6(ip) {
+    return /^[0-9a-fA-F:]+$/.test(ip) && ip.includes(':');
 }
 }
 

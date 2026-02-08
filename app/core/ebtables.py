@@ -19,7 +19,8 @@ from .helpers import (
     ebtables_update_status, run_ebtables,
     create_vlan_chain, delete_vlan_chain, add_vlan_interface_to_forward, remove_vlan_interface_from_forward,
     apply_isolation, remove_isolation,
-    validate_mac_address, normalize_mac_address, apply_mac_whitelist_rules, remove_mac_whitelist_rules
+    validate_mac_address, normalize_mac_address, apply_mac_whitelist_rules, remove_mac_whitelist_rules,
+    validate_wan_interface
 )
 
 # Configurar logging
@@ -63,6 +64,7 @@ _normalize_mac_address = normalize_mac_address
 _apply_mac_whitelist_rules = apply_mac_whitelist_rules
 _remove_mac_whitelist_rules = remove_mac_whitelist_rules
 _sanitize_interface_name = sanitize_interface_name
+_validate_wan_interface = validate_wan_interface
 
 
 # =============================================================================
@@ -90,10 +92,18 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Obtener interfaz WAN (ya sabemos que está activa)
     wan_active, wan_iface = _check_wan_active()
-    
+    if not wan_active or not wan_iface:
+        logger.error("WAN no activa o sin interfaz")
+        return False, "Error: WAN no activa o sin interfaz"
+
     if not _sanitize_interface_name(wan_iface):
         logger.error(f"Interfaz WAN inválida: {wan_iface}")
         return False, f"Error: Interfaz WAN inválida: {wan_iface}"
+
+    wan_valid, wan_msg = _validate_wan_interface(wan_iface)
+    if not wan_valid:
+        logger.error(wan_msg)
+        return False, f"Error: {wan_msg}"
     
     # Cargar configuración de VLANs
     vlans_cfg = _load_vlans_config()
@@ -150,6 +160,11 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         else:
             # Actualizar nombre de la VLAN
             ebtables_cfg["vlans"][vlan_id_str]["name"] = vlan_name
+            if vlan_id == 1:
+                # Rehabilitar whitelist en cada inicio del módulo
+                if ebtables_cfg["vlans"][vlan_id_str].get("mac_whitelist_enabled") is False:
+                    logger.info("VLAN 1: Whitelist re-habilitada al iniciar el módulo")
+                ebtables_cfg["vlans"][vlan_id_str]["mac_whitelist_enabled"] = True
         
         # Crear cadena para la VLAN
         if not _create_vlan_chain(vlan_id):
@@ -168,6 +183,10 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         vlan_interfaces = vlan_iface_map.get(vlan_id, [])
         
         if is_isolated:
+            if not vlan_interfaces:
+                errors.append(f"VLAN {vlan_id}: No hay interfaces configuradas en Tagging")
+                logger.warning(f"VLAN {vlan_id} aislada sin interfaces configuradas")
+                continue
             if not _apply_isolation(vlan_id, wan_iface, vlan_interfaces):
                 errors.append(f"VLAN {vlan_id}: Error aplicando aislamiento")
                 logger.error(f"Error aplicando aislamiento a VLAN {vlan_id}")
@@ -207,7 +226,8 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         logger.warning("No se pudo persistir ebtables.json")
     
     # Construir mensaje de resultado
-    message_parts = [f"✅ Ebtables iniciado correctamente"]
+    status_title = "✅ Ebtables iniciado correctamente" if not errors else "⚠️ Ebtables iniciado con advertencias"
+    message_parts = [status_title]
     message_parts.append(f"WAN: {wan_iface}")
     message_parts.append(f"VLANs procesadas: {len(results)}")
     
@@ -224,7 +244,8 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     logger.info(final_message)
     logger.info("=== FIN: ebtables start ===")
     
-    return True, final_message
+    success = len(errors) == 0
+    return success, final_message
 
 
 def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
@@ -394,6 +415,12 @@ def aislar(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     # Obtener interfaz WAN (ya sabemos que está activa)
     wan_active, wan_iface = _check_wan_active()
+    if not wan_active or not wan_iface:
+        return False, "Error: WAN no activa o sin interfaz"
+
+    wan_valid, wan_msg = _validate_wan_interface(wan_iface)
+    if not wan_valid:
+        return False, f"Error: {wan_msg}"
     
     # Verificar que la VLAN existe en vlans.json (sincronización)
     vlans_cfg = _load_vlans_config()
@@ -419,17 +446,16 @@ def aislar(params: Dict[str, Any]) -> Tuple[bool, str]:
     if not already_isolated_ok:
         logger.error(f"Intento de re-aislar VLAN {vlan_id}: {already_isolated_msg}")
         return False, already_isolated_msg
+
+    if not vlan_interfaces:
+        logger.warning(f"VLAN {vlan_id} sin interfases configuradas")
+        return False, f"Error: VLAN {vlan_id} no tiene interfases configuradas. Configure interfases en tagging primero."
     
     logger.info(f"Aislando VLAN {vlan_id} con interfaces: {vlan_interfaces}")
     
     # Aplicar aislamiento
     if not _apply_isolation(vlan_id, wan_iface, vlan_interfaces):
         return False, f"Error aplicando aislamiento a VLAN {vlan_id}"
-    
-    # Validación: Asegurar que al menos una interfaz está configurada
-    if not vlan_interfaces:
-        logger.warning(f"VLAN {vlan_id} aislada sin interfases (puede ser intencionado)")
-        return False, f"Error: VLAN {vlan_id} no tiene interfases configuradas. Configure interfases en tagging primero."
     
     # Actualizar configuración
     ebtables_cfg["vlans"][vlan_id_str]["isolated"] = True

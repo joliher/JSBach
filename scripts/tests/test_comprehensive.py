@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test suite COMPLETO para JSBach V4.0 - Refactorización Fases 1-4
+Test suite COMPLETO para JSBach V4.2 - Refactorización Fases 1-4
 ===============================================================================
 Incluye pruebas de:
 1. Happy path (funcionalidad normal)
@@ -27,14 +27,14 @@ try:
 except ModuleNotFoundError:
     # Añadir el directorio raíz del proyecto al sys.path si no se encuentra el módulo
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(current_dir, '..'))
+    project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
     try:
         from app.controllers.admin_router import execute_module_action
     except ModuleNotFoundError as e:
         print(f"[ERROR] No se pudo importar execute_module_action: {e}")
-        print(f"Asegúrate de ejecutar el test desde la raíz del proyecto JSBach_V4.0")
+        print("Asegúrate de ejecutar el test desde la raíz del proyecto JSBach")
         sys.exit(1)
 
 

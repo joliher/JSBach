@@ -36,16 +36,16 @@
         </p>
         <ul>
             <li>Recibe tráfico sin etiquetar en una interfaz física</li>
-            <li>Añade una etiqueta VLAN específica a los paquetes</li>
+            <li>Añade etiquetas VLAN específicas a los paquetes</li>
             <li>Permite identificar el origen del tráfico en switches y routers</li>
-            <li>Crea subinterfaces con formato <code>interfaz.vlan_id</code></li>
+            <li>Asocia la interfaz física al bridge <code>br0</code> y aplica VLANs con <code>bridge vlan</code></li>
         </ul>
         
         <div class="example">
-Ejemplo: eth0.100<br>
-- Interfaz física: eth0<br>
-- VLAN ID: 100<br>
-- Todo el tráfico de eth0.100 llevará etiqueta VLAN 100
+    Ejemplo: interfaz eth0 con TAG 100<br>
+    - Interfaz física: eth0<br>
+    - VLAN ID: 100<br>
+    - Todo el tráfico de eth0 llevará etiqueta VLAN 100
         </div>
         
         <h3>Operación UNTAG</h3>
@@ -106,46 +106,32 @@ Ejemplo: eth0.100<br>
             </p>
         </div>
         
-        <div class="button-section">
-            <div class="button-name">📜 VER LOGS</div>
-            <p>
-                Cambia a la vista de logs en tiempo real donde puedes ver:
-            </p>
-            <ul>
-                <li>Creación/eliminación de subinterfaces VLAN</li>
-                <li>Errores de configuración</li>
-                <li>Estado de operaciones TAG/UNTAG</li>
-                <li>Eventos del sistema relacionados con VLANs</li>
-            </ul>
-        </div>
-        
         <h2>📝 Configuración</h2>
         <p>
-            El archivo de configuración <code>config/tagging/tagging.json</code> define las reglas de etiquetado.
-            Cada regla especifica:
+            El archivo de configuración <code>config/tagging/tagging.json</code> define las interfaces y sus VLANs.
+            Cada entrada especifica:
         </p>
         <ul>
-            <li><strong>interface:</strong> La interfaz física a utilizar</li>
-            <li><strong>vlan_id:</strong> El identificador numérico de la VLAN (1-4094)</li>
-            <li><strong>operation:</strong> "tag" o "untag"</li>
-            <li><strong>ip_address:</strong> (Opcional) IP para asignar a la subinterfaz</li>
+            <li><strong>name:</strong> Interfaz física a utilizar</li>
+            <li><strong>vlan_untag:</strong> VLAN de acceso (solo una, opcional)</li>
+            <li><strong>vlan_tag:</strong> VLANs trunk (lista o rangos, opcional)</li>
         </ul>
         
         <div class="example">
-{<br>
-  "rules": [<br>
-    {<br>
-      "interface": "eth0",<br>
-      "vlan_id": 100,<br>
-      "operation": "tag",<br>
-      "ip_address": "192.168.100.1/24"<br>
-    },<br>
-    {<br>
-      "interface": "eth1",<br>
-      "vlan_id": 200,<br>
-      "operation": "untag"<br>
-    }<br>
-  ]<br>
+{
+    "interfaces": [
+        {
+            "name": "eth0",
+            "vlan_untag": "10",
+            "vlan_tag": ""
+        },
+        {
+            "name": "eth1",
+            "vlan_untag": "",
+            "vlan_tag": "20,30-32"
+        }
+    ],
+    "status": 0
 }
         </div>
         
@@ -154,7 +140,7 @@ Ejemplo: eth0.100<br>
             <ul>
                 <li>Los VLAN IDs deben estar entre 1 y 4094</li>
                 <li>No uses VLAN ID 0 (reservado) ni 4095 (reservado)</li>
-                <li>Asegúrate de que las interfaces físicas existen antes de crear subinterfaces</li>
+                <li>Asegúrate de que las interfaces físicas existen antes de aplicar el tagging</li>
                 <li>Al hacer STOP, todas las conexiones activas en esas VLANs se perderán temporalmente</li>
             </ul>
         </div>
@@ -177,7 +163,7 @@ Ejemplo: eth0.100<br>
         
         <h2>📊 Monitoreo</h2>
         <p>
-            Los logs del módulo se almacenan en <code>logs/tagging/tagging.log</code> y muestran:
+            Los logs del módulo se almacenan en <code>logs/tagging/actions.log</code> y muestran:
         </p>
         <ul>
             <li>Timestamp de cada operación</li>
@@ -187,7 +173,7 @@ Ejemplo: eth0.100<br>
         </ul>
         
         <p style="margin-top: 40px; text-align: center; color: #999; font-size: 14px;">
-            JSBach V4.0 - Tagging Module | Gestión Avanzada de VLANs
+            JSBach V4.2 - Tagging Module | Gestión Avanzada de VLANs
         </p>
     </div>
 </body>

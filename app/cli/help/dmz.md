@@ -43,5 +43,5 @@
 
 ## NOTAS
     - El aislamiento DMZ es una medida proactiva para contener hosts potencialmente comprometidos.
-    - Se requiere que el módulo **NAT** esté activo para que las redirecciones funcionen.
+    - Se requiere que **WAN**, **VLANs**, **Tagging** y **Firewall** estén activos para operar DMZ.
     - Las IPs de destino deben pertenecer a rangos de VLANs activas.

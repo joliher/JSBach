@@ -29,7 +29,7 @@ LOG_DIR = os.path.join(BASE_DIR, "logs", "expect")
 logger = get_module_logger("expect")
 
 
-def _run_expect_script(script_content: str, timeout: int = 10, env_vars: Dict[str, str] = None) -> Tuple[bool, str, str]:
+def _run_expect_script(script_content: str, timeout: int = 10, env_vars: Optional[Dict[str, str]] = None) -> Tuple[bool, str, str]:
     """
     Ejecuta un script de expect de forma segura.
     
@@ -170,14 +170,14 @@ def execute_commands(target_config: Dict[str, Any], commands: List[str]) -> Tupl
             script_content = _generate_ssh_script(ip, user, port, commands)
             # Pasar password via env var
             success, stdout, stderr = _run_expect_script(
-                script_content, 
-                env_vars={"SSH_PASS": password}
+                script_content,
+                env_vars={"SSH_PASS": password or ""}
             )
         elif protocol == "telnet":
             script_content = _generate_telnet_script(ip, user, port, commands)
             success, stdout, stderr = _run_expect_script(
                 script_content,
-                env_vars={"TELNET_PASS": password}
+                env_vars={"TELNET_PASS": password or ""}
             )
         else:
             return False, f"Protocolo no soportado: {protocol}"
@@ -227,7 +227,7 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     user, password = get_secrets(ip, SECRETS_JSON)
     if auth_required and not user:
-        return False, f"Autenticación requerida para {ip}. Configure con 'expect auth'"
+        return False, f"Autenticación requerida para {ip}. Configure el usuario con 'expect auth'"
     
     # 4. Parsear y Validar Acciones
     blocks = parse_config_blocks(actions_str)
@@ -380,8 +380,8 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     logger.info(f"Ejecutando configuración en {ip} (Perfil: {profile_id})")
     
     env_vars = {}
-    if auth_required and password:
-        env_vars["EXPECT_PASS"] = password
+    if auth_required and user:
+        env_vars["EXPECT_PASS"] = password or ""
 
     success, stdout, stderr = _run_expect_script(full_script, timeout=60, env_vars=env_vars)
     
@@ -412,10 +412,10 @@ def auth(params: Dict[str, Any]) -> Tuple[bool, str]:
     """Gestiona credenciales."""
     ip = params.get("ip")
     user = params.get("user")
-    password = params.get("password")
+    password = params.get("password", "")
     
-    if not ip or not user or not password:
-        return False, "Faltan parámetros: ip, user, password"
+    if not ip or not user:
+        return False, "Faltan parámetros: ip, user"
     
     try:
         secrets = {}
@@ -423,7 +423,7 @@ def auth(params: Dict[str, Any]) -> Tuple[bool, str]:
             with open(SECRETS_JSON, 'r') as f:
                 secrets = json.load(f)
         
-        secrets[ip] = {"user": user, "password": password}
+        secrets[ip] = {"user": user, "password": password or ""}
         
         with open(SECRETS_JSON, 'w') as f:
             json.dump(secrets, f, indent=4)
@@ -433,7 +433,9 @@ def auth(params: Dict[str, Any]) -> Tuple[bool, str]:
         except PermissionError:
             pass # No somos dueños, pero ya escribimos el contenido
         
-        return True, f"Credenciales guardadas para {ip}"
+        if password:
+            return True, f"Credenciales guardadas para {ip}"
+        return True, f"Credenciales guardadas para {ip} (sin contraseña)"
     except Exception as e:
         return False, f"Error guardando credenciales: {e}"
 
@@ -464,7 +466,7 @@ def reset(params: Dict[str, Any]) -> Tuple[bool, str]:
         
     user, password = get_secrets(ip, SECRETS_JSON)
     if auth_required and not user:
-        return False, f"Autenticación requerida para {ip}. Falta configurar credenciales (expect auth)."
+        return False, f"Autenticación requerida para {ip}. Falta configurar usuario (expect auth)."
 
     # 3. Generar Script de Reset Masivo
     script_lines = []
@@ -521,8 +523,8 @@ def reset(params: Dict[str, Any]) -> Tuple[bool, str]:
     logger.warning(f"EJECUTANDO SOFT RESET EN {ip} (Perfil: {profile_id})")
     
     env_vars = {}
-    if auth_required and password:
-        env_vars["EXPECT_PASS"] = password
+    if auth_required and user:
+        env_vars["EXPECT_PASS"] = password or ""
 
     success, stdout, stderr = _run_expect_script(full_script, timeout=120, env_vars=env_vars)
     
@@ -642,8 +644,8 @@ def port_security(params: Dict[str, Any]) -> Tuple[bool, str]:
     logger.warning(f"APLICANDO PORT SECURITY EN {ip} Puertos:{ports} MACs:{len(macs)}")
     
     env_vars = {}
-    if auth_required and password:
-        env_vars["EXPECT_PASS"] = password
+    if auth_required and user:
+        env_vars["EXPECT_PASS"] = password or ""
 
     success, stdout, stderr = _run_expect_script(full_script, timeout=120, env_vars=env_vars)
     
@@ -653,10 +655,10 @@ def port_security(params: Dict[str, Any]) -> Tuple[bool, str]:
         logger.error(f"Error aplicando seguridad: {stdout} {stderr}")
         return False, f"Error aplicando seguridad: {stdout if stdout else stderr}"
 
-def status(params: Dict[str, Any] = None) -> Tuple[bool, str]: return True, "Módulo Expect activo"
-def start(params: Dict[str, Any] = None) -> Tuple[bool, str]: return True, "Módulo Expect iniciado"
-def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]: return True, "Módulo Expect detenido"
-def restart(params: Dict[str, Any] = None) -> Tuple[bool, str]: return True, "Módulo Expect reiniciado"
+def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]: return True, "Módulo Expect activo"
+def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]: return True, "Módulo Expect iniciado"
+def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]: return True, "Módulo Expect detenido"
+def restart(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]: return True, "Módulo Expect reiniciado"
 
 ALLOWED_ACTIONS = {
     "config": config,

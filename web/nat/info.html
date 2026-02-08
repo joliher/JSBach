@@ -18,9 +18,9 @@
         <ul class="feature-list">
             <li><strong>Masquerading:</strong> Traduce IPs privadas a la IP pública de la interfaz WAN</li>
             <li><strong>IPv4 Forwarding:</strong> Habilita reenvío de paquetes entre interfaces</li>
-            <li><strong>Configuración flexible:</strong> Define interfaz WAN e interna desde JSON</li>
+            <li><strong>Configuración flexible:</strong> Define la interfaz WAN desde JSON</li>
             <li><strong>Reglas iptables:</strong> Gestión automática de reglas en POSTROUTING</li>
-            <li><strong>Logs completos:</strong> Registro de activación, desactivación y errores</li>
+            <li><strong>Logs completos:</strong> Registro de acciones en <code>logs/nat/actions.log</code></li>
         </ul>
 
         <h3>Botones de Acción:</h3>
@@ -42,12 +42,12 @@
 
         <div class="action-box">
             <strong>📊 NAT STATUS</strong>
-            <p>Muestra estado de NAT: activo/inactivo, interfaz WAN configurada, interfaz interna, estado de IP forwarding (<code>cat /proc/sys/net/ipv4/ip_forward</code>), y reglas activas en tabla NAT de iptables.</p>
+            <p>Muestra estado de NAT: activo/inactivo, interfaz WAN configurada, estado de IP forwarding (<code>sysctl net.ipv4.ip_forward</code>), y reglas activas en tabla NAT de iptables.</p>
         </div>
 
         <div class="action-box">
             <strong>⚙️ NAT CONFIG</strong>
-            <p>Permite configurar interfaz WAN y opcionalmente interfaz interna. La configuración se guarda en <code>config/nat/nat.json</code> y persiste entre reinicios. Debe hacer RESTART para aplicar cambios.</p>
+            <p>Permite configurar interfaz WAN. La configuración se guarda en <code>config/nat/nat.json</code> y persiste entre reinicios. Debe hacer RESTART para aplicar cambios.</p>
         </div>
 
 

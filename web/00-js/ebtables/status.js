@@ -1,5 +1,9 @@
 async function refreshStatus() {
     const container = document.getElementById('statusContainer');
+    const btn = document.getElementById('btnRefresh');
+    const actionResult = getLastActionResult();
+
+    if (btn) btn.disabled = true;
     container.innerHTML = '<div class="loading">⏳ Consultando estado...</div>';
 
     try {
@@ -12,31 +16,29 @@ async function refreshStatus() {
 
     const data = await response.json();
 
-    const statusIcon = data.success ? '✅' : '❌';
-    const statusClass = data.success ? 'success' : 'error';
+    const actionHtml = renderActionResult(actionResult);
 
-    container.innerHTML = `
-    <div class="status-box">
-    <div class="status-header">
-    <span class="${statusClass}">${statusIcon}</span>
-    Estado del Sistema Ebtables
-    </div>
-    <div class="status-content">${escapeHtml(data.message || 'Sin información disponible')}</div>
-    </div>
-    `;
+    if (data.success) {
+        container.innerHTML = `
+        ${actionHtml}
+        <div class="success">✅ Estado obtenido correctamente</div>
+        <pre class="status-content">${escapeHtml(data.message || 'Sin información disponible')}</pre>
+        `;
+    } else {
+        container.innerHTML = `
+        ${actionHtml}
+        <div class="error">❌ Error: ${escapeHtml(data.message || 'Error desconocido')}</div>
+        `;
+    }
 
 } catch (error) {
+    const actionHtml = renderActionResult(actionResult);
     container.innerHTML = `
-    <div class="status-box">
-    <div class="status-header">
-    <span class="error">❌</span> Error de Conexión
-    </div>
-    <div class="status-content">
-    No se pudo conectar con el servidor.
-    Error: ${escapeHtml(error.message)}
-    </div>
-    </div>
+    ${actionHtml}
+    <div class="error">❌ Error al obtener el estado: ${escapeHtml(error.message)}</div>
     `;
+} finally {
+    if (btn) btn.disabled = false;
 }
 }
 
@@ -44,6 +46,28 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function getLastActionResult() {
+    const raw = sessionStorage.getItem('ebtablesLastActionResult');
+    if (!raw) return null;
+    sessionStorage.removeItem('ebtablesLastActionResult');
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function renderActionResult(result) {
+    if (!result) return '';
+    const statusClass = result.success ? 'success' : 'error';
+    const title = result.success ? '✅ Accion ejecutada' : '❌ Error ejecutando accion';
+    const message = escapeHtml(result.message || 'Sin detalles');
+    return `
+    <div class="${statusClass}">${title}</div>
+    <pre class="status-content">${message}</pre>
+    `;
 }
 
 // Cargar estado automáticamente al abrir la página

@@ -14,8 +14,9 @@
     **status**
         Muestra información sobre el estado del módulo, perfiles cargados y estadísticas de ejecución.
 
-    **auth** --ip IP --user USUARIO --password PASS
+    **auth** --ip IP --user USUARIO [--password PASS]
         Configura y almacena de forma segura las credenciales para un dispositivo específico.
+        La contraseña es opcional y se puede dejar vacía si el equipo lo permite.
 
     **config** --ip IP --actions "ACCIONES" [--profile PERFIL] [--dry-run]
         Aplica configuraciones técnicas basadas en sintaxis de bloques.
@@ -32,9 +33,6 @@
     **port-security** --ip IP --ports RANGO --macs LISTA [--dry-run]
         Establece filtrado de MAC estricto en los puertos indicados.
         `--macs` acepta direcciones separadas por espacios.
-
-    **profile-mod** --ip IP --auth-required [true|false]
-        Modifica el comportamiento del perfil para el dispositivo indicado.
 
 ## EJEMPLOS
     expect auth --ip 10.0.0.5 --user admin --password secret

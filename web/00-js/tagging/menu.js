@@ -31,11 +31,35 @@ function runTagging(event, action, btn) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action }),
             credentials: 'include'
-    }).catch(error => {
-        console.error("Error al ejecutar la acción:", error);
-    });
-return;
-}
+        }).then(async response => {
+            if (action === "status") return;
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = { success: false, message: "Respuesta invalida del servidor" };
+            }
+
+            if (!response.ok) {
+                storeActionResult({
+                    success: false,
+                    message: data.detail || data.message || "Error desconocido"
+                });
+                return;
+            }
+
+            storeActionResult({
+                success: Boolean(data.success),
+                message: data.message || "Accion ejecutada"
+            });
+        }).catch(error => {
+            if (action !== "status") {
+                storeActionResult({ success: false, message: error.message });
+            }
+            console.error("Error al ejecutar la accion:", error);
+        });
+        return;
+    }
 
 // Otras acciones → mostrar info.html
 iframe.location.href = "/web/tagging/info.html";
@@ -114,10 +138,11 @@ async function checkDependencies() {
     // Verificar VLANs
     const btnStart = document.getElementById('btnStart');
     try {
-        const vlansResp = await fetch('/admin/vlans/info', { credentials: 'include' });
-        const vlansData = await vlansResp.json();
+        const statusResp = await fetch('/admin/status', { credentials: 'include' });
+        const statusData = await statusResp.json();
         const vlansDiv = document.getElementById('dep-vlans');
-        if (vlansData.status === 1) {
+        const vlansStatus = statusData['vlans'] || 'DESCONOCIDO';
+        if (vlansStatus === 'ACTIVO') {
             vlansDiv.innerHTML = '✅ VLANs: Activo';
             vlansDiv.style.color = '#155724';
             // Habilitar botón START
@@ -136,6 +161,10 @@ async function checkDependencies() {
         btnStart.disabled = true;
         btnStart.title = 'Error al verificar dependencias';
     }
+}
+
+function storeActionResult(result) {
+    sessionStorage.setItem("taggingLastActionResult", JSON.stringify(result));
 }
 
 // Verificar dependencias al cargar

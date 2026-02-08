@@ -35,7 +35,7 @@ async function refreshStatus() {
     if (data.success) {
         container.innerHTML = `
         <div class="success">✅ Estado obtenido correctamente</div>
-        <div class="status-content">${escapeHtml(data.message)}</div>
+        <pre class="status-content">${escapeHtml(data.message)}</pre>
         `;
     } else {
         container.innerHTML = `

@@ -26,7 +26,7 @@ def get_secret_key():
     return secrets.token_urlsafe(32)
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=get_secret_key(), max_age=3600)
+app.add_middleware(SessionMiddleware, secret_key=get_secret_key(), max_age=600)
 
 from app.utils import global_functions as gf
 from app.controllers import main_controller
@@ -42,14 +42,6 @@ def _setup_app():
         except Exception:
             logging.exception("Error loading config")
     
-    # Clear logs at startup
-    logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
-    try:
-        gf.clear_logs(logs_dir)
-        logging.info("Logs cleared at startup")
-    except Exception as e:
-        logging.error(f"Error clearing logs: {e}")
-
     # Setup app routes and middleware via controller
     main_controller.setup_app(app)
 

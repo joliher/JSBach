@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", function() {
     ----------------------------- */
     async function loadWanInterface() {
     try {
-        const response = await fetch("/config/wan/wan.json", {
+        const response = await fetch("/admin/config/wan/wan.json", {
             credentials: "include"
     });
 
@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", function() {
     ----------------------------- */
     async function loadNatInterface() {
     try {
-        const response = await fetch("/config/nat/nat.json", {
+        const response = await fetch("/admin/config/nat/nat.json", {
             credentials: "include"
     });
 
@@ -104,6 +104,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (!iface) {
         return showError("La interfaz no puede estar vacía");
+    }
+
+    if (!/^[a-zA-Z0-9._-]+$/.test(iface)) {
+        return showError("Formato de interfaz inválido. Use caracteres alfanuméricos, puntos, guiones o guiones bajos");
     }
 
     const params = {

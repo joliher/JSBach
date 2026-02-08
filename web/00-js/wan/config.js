@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ----------------------------- */
     async function loadWanConfiguration() {
         try {
-            const response = await fetch("/config/wan/wan.json", {
+            const response = await fetch("/admin/config/wan/wan.json", {
                 credentials: "include"
             });
 
@@ -262,7 +262,7 @@ document.addEventListener("DOMContentLoaded", function () {
             showSuccess("✅ " + data.message);
 
             // Actualizar solo el contenedor de información (no sobrescribir formulario si el usuario está editando)
-            document.getElementById("wan-details").textContent = `${params.interface} (Modo: ${params.mode}, Estado: ${params.status === 1 ? 'Activo' : 'Inactivo'})`;
+            document.getElementById("wan-details").textContent = `${params.interface} (Modo: ${params.mode})`;
             // No recargar automáticamente el formulario para no interferir con la edición del usuario
 
         } catch (err) {

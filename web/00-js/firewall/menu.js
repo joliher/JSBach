@@ -141,12 +141,13 @@ async function checkDependencies() {
     let vlansReady = false;
     let taggingReady = false;
 
-    // Verificar VLANs
+    // Verificar VLANs y Tagging con /admin/status
     try {
-        const vlansResp = await fetch('/admin/vlans/info', { credentials: 'include' });
-        const vlansData = await vlansResp.json();
+        const statusResp = await fetch('/admin/status', { credentials: 'include' });
+        const statusData = await statusResp.json();
         const vlansDiv = document.getElementById('dep-vlans');
-        if (vlansData.status === 1) {
+        const vlansStatus = statusData['vlans'] || 'DESCONOCIDO';
+        if (vlansStatus === 'ACTIVO') {
             vlansDiv.innerHTML = '✅ VLANs: Activo';
             vlansDiv.style.color = '#155724';
             vlansReady = true;
@@ -161,22 +162,21 @@ async function checkDependencies() {
         }
     }
 
-    // Verificar Tagging
-    try {
-        const taggingResp = await fetch('/admin/tagging/info', { credentials: 'include' });
-        const taggingData = await taggingResp.json();
-        const taggingDiv = document.getElementById('dep-tagging');
-        if (taggingData.status === 1) {
-            taggingDiv.innerHTML = '✅ Tagging: Activo';
-            taggingDiv.style.color = '#155724';
-            taggingReady = true;
-        } else {
-            taggingDiv.innerHTML = '❌ Tagging: Inactivo (Requerido)';
-            taggingDiv.style.color = '#721c24';
-        }
-    } catch {
-        const taggingDiv = document.getElementById('dep-tagging');
-        if (taggingDiv) {
+    const taggingDiv = document.getElementById('dep-tagging');
+    if (taggingDiv) {
+        try {
+            const statusResp = await fetch('/admin/status', { credentials: 'include' });
+            const statusData = await statusResp.json();
+            const taggingStatus = statusData['tagging'] || 'DESCONOCIDO';
+            if (taggingStatus === 'ACTIVO') {
+                taggingDiv.innerHTML = '✅ Tagging: Activo';
+                taggingDiv.style.color = '#155724';
+                taggingReady = true;
+            } else {
+                taggingDiv.innerHTML = '❌ Tagging: Inactivo (Requerido)';
+                taggingDiv.style.color = '#721c24';
+            }
+        } catch {
             taggingDiv.innerHTML = '⚠️ Tagging: Error al verificar';
         }
     }

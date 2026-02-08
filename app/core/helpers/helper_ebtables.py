@@ -11,10 +11,12 @@ from ...utils.global_functions import (
     create_module_config_directory,
     create_module_log_directory
 )
+from ...utils.validators import validate_interface_name
 from ...utils.helpers import (
     load_json_config,
     save_json_config
 )
+from .helper_tagging import parse_vlan_range
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -87,6 +89,21 @@ def load_tagging_config() -> dict:
         return {"interfaces": [], "status": 0}
 
 
+def validate_wan_interface(wan_iface: str) -> Tuple[bool, str]:
+    """Validar que la interfaz WAN sea segura y exista en el sistema."""
+    if not wan_iface:
+        return False, "Interfaz WAN no encontrada"
+
+    valid, error = validate_interface_name(wan_iface)
+    if not valid:
+        return False, f"Interfaz WAN inválida: {error}"
+
+    if not os.path.exists(f"/sys/class/net/{wan_iface}"):
+        return False, f"Interfaz WAN no existe: {wan_iface}"
+
+    return True, ""
+
+
 def build_vlan_interface_map(vlans: List[dict], tagging_cfg: dict) -> Dict[int, List[str]]:
     """Construir mapa VLAN → interfaces físicas.
     
@@ -121,8 +138,12 @@ def build_vlan_interface_map(vlans: List[dict], tagging_cfg: dict) -> Dict[int, 
         # Procesar VLANs tagged
         vlan_tag_str = iface.get("vlan_tag", "").strip()
         if vlan_tag_str:
-            for vlan_id_str in vlan_tag_str.split(","):
-                vlan_id_str = vlan_id_str.strip()
+            tag_list = parse_vlan_range(vlan_tag_str)
+            if not tag_list:
+                logger.warning(f"VLAN tagged inválida en interfaz {iface_name}: {vlan_tag_str}")
+                continue
+
+            for vlan_id_str in tag_list:
                 try:
                     vlan_id = int(vlan_id_str)
                     if vlan_id in valid_vlan_ids:
@@ -630,13 +651,12 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
     
     Usa ebtables con:
     - FORWARD: redirige tráfico de interfaces VLAN 1 a FORWARD_VLAN_1
-    - INPUT: protege acceso desde interfaces VLAN 1
     - FORWARD_VLAN_1: protege tráfico entre VLANs
     
     Estructura de reglas:
     FORWARD:
       -i <interfaz_vlan1> -j FORWARD_VLAN_1    (redirige a cadena VLAN)
-    INPUT/FORWARD_VLAN_1:
+        FORWARD_VLAN_1:
       -s <whitelisted_mac> -j ACCEPT           (para cada MAC en whitelist)
       -j DROP                                   (rechaza MACs no whitelisted)
     """
@@ -677,10 +697,10 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
     else:
         logger.warning("No se encontraron interfaces configuradas para VLAN 1")
     
-    # PASO 3: Limpiar reglas de whitelist anteriores en INPUT y FORWARD_VLAN_1
+    # PASO 3: Limpiar reglas de whitelist anteriores en FORWARD_VLAN_1
     # (eliminar reglas con -s <mac> -j ACCEPT y el DROP final de whitelist)
     # IMPORTANTE: NO eliminar reglas de aislamiento (WAN -i/-o)
-    for chain_to_clean in ["INPUT", chain_name]:
+    for chain_to_clean in [chain_name]:
         success, output = run_ebtables(["-L", chain_to_clean, "--Ln"])
         if success:
             lines = output.strip().split('\n')
@@ -730,13 +750,6 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
             # Normalizar MAC
             normalized_mac = normalize_mac_address(mac_addr)
             
-            # Agregar en INPUT (no tiene reglas WAN, va al final)
-            success, msg = run_ebtables(["-A", "INPUT", "-s", normalized_mac, "-j", "ACCEPT"])
-            if not success:
-                logger.warning(f"Error agregando regla INPUT para {normalized_mac}: {msg}")
-            else:
-                logger.info(f"Regla INPUT -s {normalized_mac} -j ACCEPT agregada")
-            
             # Agregar en FORWARD_VLAN_1 en la posición correcta (después de WAN)
             success, msg = run_ebtables(["-I", chain_name, str(current_position), "-s", normalized_mac, "-j", "ACCEPT"])
             if not success:
@@ -745,16 +758,8 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
                 logger.info(f"Regla {chain_name} -s {normalized_mac} -j ACCEPT agregada en posición {current_position}")
                 current_position += 1  # Siguiente MAC va en la siguiente posición
     
-    # PASO 6: Agregar DROP final para whitelist
-    # En FORWARD_VLAN_1: si hay reglas WAN, eliminar su DROP y poner uno nuevo al final
-    # En INPUT: simplemente agregar DROP al final
-    
-    # INPUT: agregar DROP al final
-    success, msg = run_ebtables(["-A", "INPUT", "-j", "DROP"])
-    if not success:
-        logger.warning(f"Error agregando DROP final en INPUT: {msg}")
-    else:
-        logger.info(f"DROP final agregado a INPUT")
+    # PASO 6: Agregar DROP final para whitelist en FORWARD_VLAN_1
+    # Si hay reglas WAN, eliminar su DROP y poner uno nuevo al final
     
     # FORWARD_VLAN_1: eliminar DROP de aislamiento si existe, y agregar nuevo DROP al final
     verify_success, verify_output = run_ebtables(["-L", chain_name, "--Ln"])
@@ -780,7 +785,7 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
 def remove_mac_whitelist_rules(vlan_id: int) -> bool:
     """Remover todas las reglas de MAC whitelist de las cadenas ebtables.
     
-    Elimina las reglas -s <mac> -j ACCEPT y el DROP final de INPUT y FORWARD_VLAN_1.
+    Elimina las reglas -s <mac> -j ACCEPT y el DROP final de FORWARD_VLAN_1.
     
     Si la VLAN NO está aislada, también elimina las reglas de redirección en FORWARD
     para que el tráfico no pase por FORWARD_VLAN_1 innecesariamente.
@@ -796,8 +801,8 @@ def remove_mac_whitelist_rules(vlan_id: int) -> bool:
     vlan_1_cfg = ebtables_cfg.get("vlans", {}).get("1", {})
     vlan_is_isolated = vlan_1_cfg.get("isolated", False)
     
-    # Limpiar reglas de whitelist de INPUT y FORWARD_VLAN_1
-    for chain_to_clean in ["INPUT", chain_name]:
+    # Limpiar reglas de whitelist de FORWARD_VLAN_1
+    for chain_to_clean in [chain_name]:
         success, output = run_ebtables(["-L", chain_to_clean, "--Ln"])
         if success:
             lines = output.strip().split('\n')

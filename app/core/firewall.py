@@ -6,6 +6,7 @@ import os
 import re
 import json
 import logging
+import ipaddress
 from typing import Dict, Any, Tuple, List
 from ..utils.global_functions import (
     create_module_config_directory,
@@ -262,12 +263,11 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     logger.info("Cadenas INPUT_PROTECTION y FORWARD_PROTECTION eliminadas")
     
+    msg = "Firewall detenido:\n" + "\n".join(results)
     # Actualizar estado
     fw_cfg["status"] = 0
     if not _save_firewall_config(fw_cfg):
         msg += "\n\nAdvertencia: No se pudo actualizar estado en firewall.json (error de permisos)"
-    
-    msg = "Firewall detenido:\n" + "\n".join(results)
     logger.info("Firewall detenido correctamente")
     log_action("firewall", f"stop - SUCCESS: {msg}", "INFO")
     logger.info("=== FIN: firewall stop ===")
@@ -658,11 +658,11 @@ def enable_whitelist(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     elif not isinstance(whitelist, list):
         return False, f"Error: whitelist debe ser una lista"
     
-    # Validar cada IP en la whitelist
-    for ip in whitelist:
-        valid, error = validate_ip_address(ip)
+    # Validar cada regla en la whitelist (IPv4 ahora; IPv6 future-ready)
+    for rule in whitelist:
+        valid, error = _validate_whitelist_rule(rule)
         if not valid:
-            return False, f"IP inválida '{ip}': {error}"
+            return False, f"Regla inválida '{rule}': {error}"
     
     fw_cfg = _load_firewall_config()
     
@@ -770,8 +770,8 @@ def add_rule(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     rule = params["rule"].strip()
     
-    # Validar que la regla es una IP válida
-    valid, error = validate_ip_address(rule)
+    # Validar regla (IPv4 ahora; IPv6 future-ready)
+    valid, error = _validate_whitelist_rule(rule)
     if not valid:
         return False, f"Regla inválida '{rule}': {error}"
     
@@ -875,6 +875,72 @@ def reset_defaults(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     logger.info("=== FIN: reset_defaults ===")
     return success, f"Firewall restaurado a valores por defecto\n{msg}"
+
+
+def _validate_whitelist_rule(rule: str) -> Tuple[bool, str]:
+    if not rule or not isinstance(rule, str):
+        return False, "Regla vacía o inválida"
+
+    rule = rule.strip()
+    if not rule:
+        return False, "Regla vacía"
+
+    if '/' in rule:
+        base, proto = rule.rsplit('/', 1)
+        proto = proto.lower().strip()
+        if proto not in ("tcp", "udp"):
+            return False, "Protocolo inválido (use tcp o udp)"
+    else:
+        base = rule
+
+    base = base.strip()
+    if base == "" and proto:
+        return True, ""
+    if base.startswith(":"):
+        port = base[1:].strip()
+        if not port:
+            return False, "Puerto requerido después de ':'"
+        if not port.isdigit():
+            return False, "Puerto inválido"
+        port_num = int(port)
+        if port_num < 1 or port_num > 65535:
+            return False, "Puerto fuera de rango"
+        return True, ""
+
+    if base.startswith("/"):
+        return False, "Formato inválido: use /tcp o /udp sin prefijo"
+
+    ip_part = base
+    port_part = None
+    if ':' in base:
+        ip_part, port_part = base.split(":", 1)
+        ip_part = ip_part.strip()
+        port_part = port_part.strip()
+
+        if not port_part:
+            return False, "Puerto requerido después de ':'"
+        if not port_part.isdigit():
+            return False, "Puerto inválido"
+        port_num = int(port_part)
+        if port_num < 1 or port_num > 65535:
+            return False, "Puerto fuera de rango"
+
+    if not ip_part:
+        return False, "IP requerida"
+
+    valid, error = validate_ip_address(ip_part, allow_ipv6=True)
+    if not valid:
+        return False, error
+
+    try:
+        ip_obj = ipaddress.ip_address(ip_part)
+        if isinstance(ip_obj, ipaddress.IPv6Address):
+            return False, "IPv6 no soportado aún"
+    except ValueError:
+        return False, "IP inválida"
+
+    # IPv6 no se aplica aún a iptables, pero se mantiene la lógica para futuro soporte.
+    return True, ""
 
 
 # =============================================================================

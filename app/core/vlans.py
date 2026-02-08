@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from ..utils.global_functions import create_module_config_directory, create_module_log_directory, get_module_status, check_module_dependencies
 from ..utils.validators import validate_vlan_id, validate_ip_network
 from ..utils.helpers import (
@@ -19,7 +19,7 @@ CONFIG_FILE = os.path.abspath(
 _load_config = lambda: load_json_config(CONFIG_FILE, {"vlans": [], "status": 0})
 _save_config = lambda data: save_json_config(CONFIG_FILE, data)
 _update_status = lambda status: update_module_status(CONFIG_FILE, status)
-_run_cmd = lambda cmd, ignore_error=False: run_command(cmd)[0]
+_run_cmd = lambda cmd, ignore_error=False: run_command(cmd)
 
 # Aliases para funciones de helpers (compatibilidad)
 _initialize_default_vlans = lambda: initialize_default_vlans(CONFIG_FILE)
@@ -34,7 +34,7 @@ _bridge_exists = bridge_exists
 # -----------------------------
 
 
-def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     create_module_config_directory("vlans")
     create_module_log_directory("vlans")
     
@@ -51,14 +51,24 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     if not vlans:
         return False, "No hay VLANs configuradas"
+
+    if _bridge_exists() and _vlans_already_started(vlans):
+        return False, "VLANs ya iniciadas"
     
+    created_bridge = False
+    created_interfaces = []
+
     # Crear br0 si no existe
     if not _bridge_exists():
-        if not _run_cmd(["/usr/sbin/ip", "link", "add", "name", "br0", "type", "bridge", "vlan_filtering", "1"], ignore_error=True):
-            return False, "Error creando bridge br0"
+        success, msg = _run_cmd(["/usr/sbin/ip", "link", "add", "name", "br0", "type", "bridge", "vlan_filtering", "1"], ignore_error=True)
+        if not success:
+            return False, f"Error creando bridge br0: {msg}"
+        created_bridge = True
     
-    if not _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "up"]):
-        return False, "Error habilitando bridge br0"
+    success, msg = _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "up"])
+    if not success:
+        _rollback_start(created_bridge, created_interfaces)
+        return False, f"Error habilitando bridge br0: {msg}"
     
     # Crear subinterfaces VLAN y asignar IPs
     for vlan in vlans:
@@ -67,22 +77,29 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         iface_name = f"br0.{vlan_id}"
         
         if not os.path.exists(f"/sys/class/net/{iface_name}"):
-            if not _run_cmd(["/usr/sbin/ip", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True):
-                return False, f"Error creando interfaz VLAN {iface_name}"
+            success, msg = _run_cmd(["/usr/sbin/ip", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True)
+            if not success:
+                _rollback_start(created_bridge, created_interfaces)
+                return False, f"Error creando interfaz VLAN {iface_name}: {msg}"
+            created_interfaces.append(iface_name)
         
-        if not _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "up"]):
-            return False, f"Error habilitando interfaz VLAN {iface_name}"
+        success, msg = _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "up"])
+        if not success:
+            _rollback_start(created_bridge, created_interfaces)
+            return False, f"Error habilitando interfaz VLAN {iface_name}: {msg}"
         
         # Asignar IP de interfaz directamente
         if vlan_ip_interface:
-            if not _run_cmd(["/usr/sbin/ip", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True):
-                return False, f"Error asignando IP {vlan_ip_interface} a {iface_name}"
+            success, msg = _run_cmd(["/usr/sbin/ip", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True)
+            if not success:
+                _rollback_start(created_bridge, created_interfaces)
+                return False, f"Error asignando IP {vlan_ip_interface} a {iface_name}: {msg}"
     
     _update_status(1)
     return True, "VLANs iniciadas"
 
 
-def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     create_module_config_directory("vlans")
     create_module_log_directory("vlans")
     
@@ -100,23 +117,25 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Luego eliminar bridge
     if _bridge_exists():
-        if not _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "down"], ignore_error=True):
-            return False, "Error deteniendo bridge br0"
-        if not _run_cmd(["/usr/sbin/ip", "link", "del", "dev", "br0"], ignore_error=True):
-            return False, "Error eliminando bridge br0"
+        success, msg = _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "down"], ignore_error=True)
+        if not success:
+            return False, f"Error deteniendo bridge br0: {msg}"
+        success, msg = _run_cmd(["/usr/sbin/ip", "link", "del", "dev", "br0"], ignore_error=True)
+        if not success:
+            return False, f"Error eliminando bridge br0: {msg}"
     
     _update_status(0)
     return True, "VLANs detenidas"
 
 
-def restart(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def restart(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     ok, msg = stop()
     if not ok:
         return False, msg
     return start()
 
 
-def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     create_module_config_directory("vlans")
     create_module_log_directory("vlans")
     _initialize_default_vlans()
@@ -188,8 +207,6 @@ def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         status_lines.append("\n(Sin VLANs configuradas)")
     
     return True, "\n".join(status_lines)
-    
-    return True, f"{status_msg}{vlans_info}"
 
 
 def config(params: Dict[str, Any]) -> Tuple[bool, str]:
@@ -225,13 +242,10 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
                 return False, f"Falta parámetro obligatorio '{r}'"
         
         # Validar id
-        try:
-            vlan_id = int(params["id"])
-        except (ValueError, TypeError):
-            return False, f"Error: 'id' debe ser un número entero, recibido: {params['id']}"
-        
-        if vlan_id < 1 or vlan_id > 4094:
-            return False, f"Error: 'id' debe estar entre 1 y 4094, recibido: {vlan_id}"
+        valid, error = validate_vlan_id(params["id"])
+        if not valid:
+            return False, f"Error: {error}"
+        vlan_id = int(params["id"])
         
         # Validar name
         if not isinstance(params["name"], str):
@@ -274,19 +288,10 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
             
             if '/' not in ip_network:
                 return False, "Error: la IP de red debe incluir la máscara (ejemplo: 192.168.1.0/24)"
-            
-            try:
-                import ipaddress
-                network = ipaddress.IPv4Network(ip_network, strict=False)
-                
-                # Validar que sea una dirección de red (último octeto 0)
-                ip_parts = ip_network.split('/')[0].split('.')
-                last_octet = int(ip_parts[3])
-                
-                if last_octet != 0:
-                    return False, f"Error: la IP de red debe tener último octeto 0. Use {network.network_address}/{network.prefixlen}"
-            except ValueError as e:
-                return False, f"Error: formato de IP de red inválido: {str(e)}"
+
+            valid, error = validate_ip_network(ip_network)
+            if not valid:
+                return False, f"Error: {error}"
         
         # Validar que la IP de interfaz esté dentro de la red especificada
         if ip_interface and ip_network:
@@ -364,6 +369,44 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     else:
         return False, "Acción no válida. Use: add, remove, show"
+
+
+def _rollback_start(created_bridge: bool, created_interfaces: list) -> None:
+    for iface_name in created_interfaces:
+        _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "down"], ignore_error=True)
+        _run_cmd(["/usr/sbin/ip", "link", "del", "dev", iface_name], ignore_error=True)
+    if created_bridge:
+        _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "down"], ignore_error=True)
+        _run_cmd(["/usr/sbin/ip", "link", "del", "dev", "br0"], ignore_error=True)
+
+
+def _interface_has_ip(interface: str, ip_interface: str) -> bool:
+    if not ip_interface:
+        return True
+    try:
+        ip_addr = ip_interface.split("/")[0]
+        result = subprocess.run(
+            ["/usr/sbin/ip", "-4", "addr", "show", "dev", interface],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        return f"inet {ip_addr}" in result.stdout
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, IndexError):
+        return False
+
+
+def _vlans_already_started(vlans: list) -> bool:
+    for vlan in vlans:
+        vlan_id = str(vlan.get("id"))
+        iface_name = f"br0.{vlan_id}"
+        if not os.path.exists(f"/sys/class/net/{iface_name}"):
+            return False
+        if not _interface_has_ip(iface_name, vlan.get("ip_interface", "")):
+            return False
+
+    return True
 
 
 # -----------------------------

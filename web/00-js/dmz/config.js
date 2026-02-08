@@ -110,30 +110,9 @@ function isIpInNetwork(ip, networkCidr) {
     }
 }
 
-    // Añadir listener de submit (si el form existe)
-    // Registrar handler de click del botón de submit (compatibilidad navegador)
     const submitBtn = form.querySelector('button[type="submit"]');
     let submitting = false;
-    if (submitBtn) {
-        submitBtn.addEventListener('click', (ev) => {
-            // Evitar doble envío: prevenir el submit nativo y usar requestSubmit una sola vez
-            try {
-                ev.preventDefault();
-            } catch (e) {}
-
-            try {
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
-                    submitBtn.blur();
-                    form.submit();
-                }
-            } catch (err) {
-                console.warn('Fallback al submit directo debido a:', err);
-                try { submitBtn.click(); } catch(e) {}
-            }
-        });
-    } else {
+    if (!submitBtn) {
         console.warn('DMZ Config: botón de submit no encontrado en el formulario.');
     }
 
@@ -143,18 +122,25 @@ function isIpInNetwork(ip, networkCidr) {
     submitting = true;
     if (submitBtn) submitBtn.disabled = true;
 
+    const resetSubmit = () => {
+        submitting = false;
+        if (submitBtn) submitBtn.disabled = false;
+    };
+
     const ip = document.getElementById('ip').value.trim();
     const port = parseInt(document.getElementById('port').value);
     const protocol = document.getElementById('protocol').value;
 
     if (!ip || !port || !protocol) {
         showResult('❌ Todos los campos son obligatorios', false);
+        resetSubmit();
         return;
     }
 
     // Verificar que la IP NO contenga máscara
     if (ip.includes('/')) {
         showResult('❌ Error: la IP no debe incluir máscara de red. Introduzca solo la IP (ej: 192.168.2.10)', false);
+        resetSubmit();
         return;
     }
 
@@ -163,6 +149,7 @@ function isIpInNetwork(ip, networkCidr) {
     // Validar formato de IP
     if (octets.length !== 4 || octets.some(o => isNaN(o) || parseInt(o) < 0 || parseInt(o) > 255)) {
         showResult('❌ Error: formato de IP inválido', false);
+        resetSubmit();
         return;
     }
 
@@ -170,11 +157,13 @@ function isIpInNetwork(ip, networkCidr) {
 
     if (lastOctet === 0 || lastOctet === 255) {
         showResult('❌ Error: la IP no puede terminar en 0 o 255', false);
+        resetSubmit();
         return;
     }
 
     if (port < 1 || port > 65535) {
         showResult('❌ Puerto debe estar entre 1 y 65535', false);
+        resetSubmit();
         return;
     }
 
@@ -194,8 +183,7 @@ function isIpInNetwork(ip, networkCidr) {
 
             if (portInUse) {
                 showResult(`❌ El puerto ${port}/${protocol} ya está en uso por ${portInUse.ip}. Cada puerto solo puede redirigirse a un único destino.`, false);
-                submitting = false;
-                if (submitBtn) submitBtn.disabled = false;
+                resetSubmit();
                 return;
             }
         }
@@ -225,6 +213,7 @@ function isIpInNetwork(ip, networkCidr) {
     } catch (err) {
         console.error('Error enviando petición a /admin/dmz:', err);
         showResult('❌ Error de red al comunicarse con el servidor', false);
+        resetSubmit();
         return;
     }
 
@@ -232,8 +221,7 @@ function isIpInNetwork(ip, networkCidr) {
 
     if (!response) {
         showResult('❌ Sin respuesta del servidor', false);
-        submitting = false;
-        if (submitBtn) submitBtn.disabled = false;
+        resetSubmit();
         return;
     }
 
@@ -251,8 +239,7 @@ function isIpInNetwork(ip, networkCidr) {
             }
         }
         showResult(`❌ Error ${response.status}: ${errMsg}`, false);
-        submitting = false;
-        if (submitBtn) submitBtn.disabled = false;
+        resetSubmit();
         return;
     }
 
@@ -261,6 +248,7 @@ function isIpInNetwork(ip, networkCidr) {
         data = await response.json();
     } catch (err) {
         showResult('❌ Respuesta inválida del servidor', false);
+        resetSubmit();
         return;
     }
 
@@ -272,8 +260,7 @@ function isIpInNetwork(ip, networkCidr) {
         showResult(`❌ ${msg}`, false);
     }
 
-    submitting = false;
-    if (submitBtn) submitBtn.disabled = false;
+    resetSubmit();
 
     });
 

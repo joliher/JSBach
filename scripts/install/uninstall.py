@@ -233,11 +233,11 @@ if __name__ == "__main__":
     
     print(f"{RED}")
     print("=" * 60)
-    print("   DESINSTALADOR JSBach V4.0")
+    print("   DESINSTALADOR JSBach V4.2")
     print("=" * 60)
     print(f"{RESET}")
     
-    warn("Este script eliminará JSBach V4.0 del sistema")
+    warn("Este script eliminará JSBach V4.2 del sistema")
     warn("Se eliminarán: servicio, archivos, configuraciones y logs")
     
     if ask_yes_no("¿Deseas continuar con la desinstalación?", "n") == "n":
@@ -259,9 +259,9 @@ if __name__ == "__main__":
     remove_sudoers()
     
     # 5. Eliminar directorio del proyecto
-    target_path = input(f"{BLUE}[INFO]{RESET} Ruta del proyecto instalado [/opt/JSBach_V4.0]: ").strip()
+    target_path = input(f"{BLUE}[INFO]{RESET} Ruta del proyecto instalado [/opt/JSBach_V4.2]: ").strip()
     if not target_path:
-        target_path = "/opt/JSBach_V4.0"
+        target_path = "/opt/JSBach_V4.2"
     
     removed = remove_project_directory(target_path)
     
