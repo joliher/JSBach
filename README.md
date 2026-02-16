@@ -1,4 +1,4 @@
-# JSBach V4.2
+# JSBach V4.4
 
 **Sistema de gestión y administración de router con interfaz web y CLI**
 
@@ -9,7 +9,7 @@
 
 ## 📋 Descripción
 
-JSBach V4.2 es un sistema completo de gestión de router que permite configurar y administrar servicios de red a través de dos interfaces:
+JSBach V4.3 es un sistema completo de gestión de router que permite configurar y administrar servicios de red a través de dos interfaces:
 
 - **🌐 Interfaz Web** (puerto 8100): Panel de administración con interfaz gráfica
 - **⌨️ Interfaz CLI** (puerto 2200): Terminal interactivo vía TCP
@@ -40,7 +40,7 @@ JSBach V4.2 es un sistema completo de gestión de router que permite configurar 
 1. **Clonar el repositorio**:
 ```bash
 git clone https://github.com/joliher/JSBach
-cd JSBach_V4.2
+cd JSBach_V4.3
 ```
 
 2. **Ejecutar el instalador como root**:
@@ -49,7 +49,7 @@ sudo python3 scripts/install/install.py
 ```
 
 3. **Configurar durante la instalación**:
-   - Ruta de instalación (por defecto: `/opt/JSBach_V4.2`)
+   - Ruta de instalación (por defecto: `/opt/JSBach_V4.3`)
    - Puerto web (por defecto: `8100`)
    - Usuario y contraseña de administración
 
@@ -57,7 +57,7 @@ sudo python3 scripts/install/install.py
 
 - ✅ Instala dependencias del sistema (python3, python3-pip, python3-venv)
 - ✅ Crea el usuario del sistema **jsbach**
-- ✅ Copia los archivos del proyecto a `/opt/JSBach_V4.2`
+- ✅ Copia los archivos del proyecto a `/opt/JSBach_V4.3`
 - ✅ Crea un entorno virtual Python
 - ✅ Instala paquetes Python (FastAPI, uvicorn)
 - ✅ Configura permisos de archivos
@@ -151,7 +151,7 @@ Para información detallada sobre comandos y uso del sistema:
 Ejecuta el suite de pruebas para validar la estabilidad del sistema:
 
 ```bash
-cd /opt/JSBach_V4.2/scripts/tests
+cd /opt/JSBach_V4.3/scripts/tests
 sudo ../../venv/bin/python test_comprehensive.py
 ```
 
@@ -166,10 +166,10 @@ Este script realiza pruebas exhaustivas de:
 
 ## 🗑️ Desinstalación
 
-Para desinstalar completamente JSBach V4.2:
+Para desinstalar completamente JSBach V4.3:
 
 ```bash
-cd /opt/JSBach_V4.2/scripts/install
+cd /opt/JSBach_V4.3/scripts/install
 sudo python3 uninstall.py
 ```
 
@@ -191,7 +191,7 @@ El desinstalador te preguntará qué elementos deseas eliminar:
 ### Estructura del proyecto
 
 ```
-JSBach_V4.2/
+JSBach_V4.3/
 ├── app/
 │   ├── cli/          # Interfaz CLI (Servidor, Parser, Sesiones)
 │   │   ├── help/     # Documentación de módulos (Markdown)
@@ -211,19 +211,19 @@ JSBach_V4.2/
 
 ### Tecnologías utilizadas
 
-- **Backend**: Python 3.8+, FastAPI, Uvicorn
-- **Frontend**: HTML5, CSS3 modular, JavaScript vanilla
-- **CLI**: asyncio, socket TCP (puerto 2200)
-- **Networking**: iptables, iproute2, ebtables
-- **Sistema**: systemd, sudoers
+-   **Backend**: Python 3.8+, FastAPI, Uvicorn
+-   **Frontend**: HTML5, CSS3 modular, JavaScript vanilla
+-   **CLI**: asyncio, socket TCP (puerto 2200)
+-   **Networking**: iptables, iproute2, ebtables
+-   **Sistema**: systemd, sudoers
 
 ### Arquitectura
 
-- **Helpers centralizados**: Módulos compartidos en `app/utils/` para config, validación y logging
-- **API RESTful**: Endpoints en `/admin/` para gestión de módulos
-- **Frontend modular**: CSS y JavaScript embebido en cada página HTML
-- **Autenticación**: Sistema de sesiones con middleware de protección
-- **Logs estructurados**: Registro de acciones por módulo en `logs/`
+-   **Helpers centralizados**: Módulos compartidos en `app/utils/` para config, validación y logging
+-   **API RESTful**: Endpoints en `/admin/` para gestión de módulos
+-   **Frontend modular**: CSS y JavaScript embebido en cada página HTML
+-   **Autenticación**: Sistema de sesiones con middleware de protección
+-   **Logs estructurados**: Registro de acciones por módulo en `logs/`
 
 ---
 
@@ -231,32 +231,37 @@ JSBach_V4.2/
 
 ### Backend Modularizado
 
-- **Helpers centralizados**: Todas las funciones comunes (carga de configs, validación, logging) en `app/utils/`
-- **Reducción de código duplicado**: ~1,200 líneas de código reutilizable
-- **Gestión de errores consistente**: Manejo uniforme en todos los módulos
-- **Logging estructurado**: Registro detallado de todas las acciones
+-   **Helpers centralizados**: Todas las funciones comunes (carga de configs, validación, logging) en `app/utils/`
+-   **Reducción de código duplicado**: ~1,200 líneas de código reutilizable
+-   **Gestión de errores consistente**: Manejo uniforme en todos los módulos
+-   **Logging estructurado**: Registro detallado de todas las acciones
 
 ### Frontend Modular
 
-- **CSS separado**: 5 archivos CSS modulares (global, buttons, cards, forms, header)
-- **JavaScript separado**: 2 archivos JS (app.js, utils.js)
-- **Sin dependencias externas**: HTML/CSS/JS vanilla, sin frameworks
-- **Responsive**: Diseño adaptable a diferentes resoluciones
+-   **CSS separado**: 5 archivos CSS modulares (global, buttons, cards, forms, header)
+-   **JavaScript separado**: 2 archivos JS (app.js, utils.js)
+-   **Sin dependencias externas**: HTML/CSS/JS vanilla, sin frameworks
+-   **Responsive**: Diseño adaptable a diferentes resoluciones
 
 ### API RESTful
 
-- **Endpoints documentados**: API completa en `/admin/`
-- **Autenticación por sesión**: Middleware de protección
-- **Respuestas JSON**: Formato estándar para todas las respuestas
-- **Gestión de errores**: Códigos HTTP apropiados (200, 400, 404, etc.)
+-   **Endpoints documentados**: API completa en `/admin/`
+-   **Autenticación por sesión**: Middleware de protección
+-   **Respuestas JSON**: Formato estándar para todas las respuestas
+-   **Gestión de errores**: Códigos HTTP apropiados (200, 400, 404, etc.)
+
+### Seguridad Proactiva
+-   **Cadena de Seguridad Unificada**: Gestión centralizada de Blacklist y Whitelist en switches.
+-   **Shadow ACL (Ping-Pong)**: Técnica de doble buffer (IDs 100/101) para cambios atómicos sin "ventanas de red abierta".
+-   **Hardening de Scripts**: Detección determinista de errores del CLI y manejo inteligente de prompts.
 
 ### Seguridad
 
-- **Autenticación obligatoria**: Todas las rutas protegidas por login
-- **Hashing de contraseñas**: SHA256 para almacenamiento seguro
-- **Validación de inputs**: Sanitización de parámetros en todos los módulos
-- **Logs de auditoría**: Registro de todas las acciones administrativas
+-   **Autenticación obligatoria**: Todas las rutas protegidas por login
+-   **Hashing de contraseñas**: SHA256 para almacenamiento seguro
+-   **Validación de inputs**: Sanitización de parámetros en todos los módulos
+-   **Logs de auditoría**: Registro de todas las acciones administrativas
 
 ---
 
-**JSBach V4.2** - Sistema profesional de gestión de router 🚀
+**JSBach V4.4** - Sistema profesional de gestión de router 🚀

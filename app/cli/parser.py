@@ -19,9 +19,9 @@ class CommandParser:
     
     # Acciones específicas por módulo
     MODULE_ACTIONS = {
-        'firewall': ['enable_whitelist', 'disable_whitelist', 'add_rule', 'remove_rule', 'aislar', 'desaislar', 'restrict', 'unrestrict'],
-        'dmz': ['add_destination', 'remove_destination', 'isolate_dmz_host', 'unisolate_dmz_host', 'aislar', 'desaislar', 'eliminar'],
-        'expect': ['auth', 'profile-mod', 'reset', 'port-security'],
+        'firewall': ['enable_whitelist', 'disable_whitelist', 'add_rule', 'remove_rule', 'isolate', 'unisolate', 'restrict', 'unrestrict'],
+        'dmz': ['add_destination', 'remove_destination', 'isolate', 'unisolate', 'eliminar'],
+        'expect': ['auth', 'config', 'reset', 'mac_table', 'isolate', 'unisolate', 'get_state', 'list_switches', 'add_switch', 'remove_switch', 'update_switch', 'security_mode', 'add_to_whitelist', 'remove_from_whitelist', 'apply_whitelist', 'get_whitelist'],
     }
     
     def parse(self, command_line: str) -> Dict:

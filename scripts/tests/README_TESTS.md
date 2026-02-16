@@ -1,4 +1,4 @@
-# JSBach V4.2 - Test Suite
+# JSBach V4.3 - Test Suite
 
 Suite de pruebas para validar la refactorización de módulos (Fases 1-4).
 
@@ -17,7 +17,7 @@ Suite de pruebas para validar la refactorización de módulos (Fases 1-4).
 
 **Uso:**
 ```bash
-cd /opt/JSBach_V4.2/scripts/tests
+cd /opt/JSBach_V4.3/scripts/tests
 sudo ../../venv/bin/python test_basics.py
 ```
 
@@ -61,7 +61,7 @@ sudo ../../venv/bin/python test_basics.py
 
 **Uso:**
 ```bash
-cd /opt/JSBach_V4.2/scripts/tests
+cd /opt/JSBach_V4.3/scripts/tests
 sudo ../../venv/bin/python test_comprehensive.py
 ```
 
@@ -73,20 +73,20 @@ sudo ../../venv/bin/python test_comprehensive.py
 
 ### Test básico (sin sudo elevado):
 ```bash
-cd /opt/JSBach_V4.2/scripts/tests
+cd /opt/JSBach_V4.3/scripts/tests
 sudo ../../venv/bin/python test_basics.py
 ```
 
 ### Test exhaustivo (RECOMENDADO):
 ```bash
-cd /opt/JSBach_V4.2/scripts/tests
+cd /opt/JSBach_V4.3/scripts/tests
 sudo ../../venv/bin/python test_comprehensive.py
 ```
 
 ### Verificar instalación de dependencias:
 ```bash
-cd /opt/JSBach_V4.2/scripts/tests
-../../venv/bin/python -c "import app.core.wan; import app.core.vlans; print('✅ Módulos OK')"
+cd /opt/JSBach_V4.3/scripts/tests
+../../venv/bin/python -c "import app.modules.wan.wan; import app.modules.vlans.vlans; print('✅ Módulos OK')"
 ```
 
 ---
@@ -118,7 +118,7 @@ cd /opt/JSBach_V4.2/scripts/tests
 ### Error: "ModuleNotFoundError"
 ```bash
 # Verificar que PROJECT_ROOT está correctamente configurado
-cd /opt/JSBach_V4.2/scripts/tests
+cd /opt/JSBach_V4.3/scripts/tests
 grep PROJECT_ROOT test_*.py
 ```
 
@@ -130,8 +130,8 @@ sudo ../venv/bin/python test_comprehensive.py
 
 ### Tests fallan en módulos específicos:
 1. Verificar que el servicio JSBach está corriendo
-2. Revisar logs en `/opt/JSBach_V4.2/logs/{module}/`
-3. Verificar configuración en `/opt/JSBach_V4.2/config/{module}/`
+2. Revisar logs en `/opt/JSBach_V4.3/logs/{module}/`
+3. Verificar configuración en `/opt/JSBach_V4.3/config/{module}/`
 
 ---
 

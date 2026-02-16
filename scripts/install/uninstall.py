@@ -57,34 +57,21 @@ def ensure_root():
 #   Detener y eliminar servicio systemd
 ###############
 def remove_systemd_service():
-    service_path = "/etc/systemd/system/jsbach.service"
+    services = ["jsbach-cli.service", "jsbach.service"]
     
-    if not os.path.exists(service_path):
-        warn("El servicio systemd no existe")
-        return
-    
-    info("Deteniendo y eliminando servicio systemd")
-    
-    # Detener el servicio
-    cmd("systemctl stop jsbach")
-    result = subprocess.run("/usr/bin/systemctl stop jsbach", shell=True, 
-                          stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        warn(f"No se pudo detener el servicio: {result.stderr.strip()}")
-    
-    # Deshabilitar el servicio
-    cmd("systemctl disable jsbach")
-    result = subprocess.run("/usr/bin/systemctl disable jsbach", shell=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        warn(f"No se pudo deshabilitar el servicio: {result.stderr.strip()}")
-    
-    # Eliminar el archivo del servicio
-    try:
-        os.remove(service_path)
-        success(f"Servicio systemd eliminado: {service_path}")
-    except Exception as e:
-        warn(f"No se pudo eliminar {service_path}: {e}")
+    for srv in services:
+        service_path = f"/etc/systemd/system/{srv}"
+        if not os.path.exists(service_path):
+            continue
+        
+        info(f"Deteniendo y eliminando servicio systemd: {srv}")
+        subprocess.run(f"/usr/bin/systemctl stop {srv}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(f"/usr/bin/systemctl disable {srv}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            os.remove(service_path)
+            success(f"Servicio eliminado: {service_path}")
+        except Exception as e:
+            warn(f"No se pudo eliminar {service_path}: {e}")
     
     # Recargar systemd
     cmd("systemctl daemon-reload")
@@ -179,11 +166,15 @@ def clean_iptables_rules():
             subprocess.run("/usr/sbin/iptables -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run("/usr/sbin/iptables -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
+            # Limpiar ebtables
+            subprocess.run("/usr/sbin/ebtables -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run("/usr/sbin/ebtables -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
             # Desactivar IP forwarding
             subprocess.run("/usr/sbin/sysctl -w net.ipv4.ip_forward=0", shell=True, 
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
-            success("Reglas de iptables limpiadas")
+            success("Reglas de iptables y ebtables limpiadas")
     else:
         info("Reglas de iptables conservadas")
 
@@ -233,11 +224,11 @@ if __name__ == "__main__":
     
     print(f"{RED}")
     print("=" * 60)
-    print("   DESINSTALADOR JSBach V4.2")
+    print("   DESINSTALADOR JSBach V4.4")
     print("=" * 60)
     print(f"{RESET}")
     
-    warn("Este script eliminará JSBach V4.2 del sistema")
+    warn("Este script eliminará JSBach V4.4 del sistema")
     warn("Se eliminarán: servicio, archivos, configuraciones y logs")
     
     if ask_yes_no("¿Deseas continuar con la desinstalación?", "n") == "n":
@@ -259,9 +250,9 @@ if __name__ == "__main__":
     remove_sudoers()
     
     # 5. Eliminar directorio del proyecto
-    target_path = input(f"{BLUE}[INFO]{RESET} Ruta del proyecto instalado [/opt/JSBach_V4.2]: ").strip()
+    target_path = input(f"{BLUE}[INFO]{RESET} Ruta del proyecto instalado [/opt/JSBach_V4.3]: ").strip()
     if not target_path:
-        target_path = "/opt/JSBach_V4.2"
+        target_path = "/opt/JSBach_V4.3"
     
     removed = remove_project_directory(target_path)
     

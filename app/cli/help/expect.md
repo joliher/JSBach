@@ -1,45 +1,74 @@
 # EXPECT(8) -- Manual de usuario de JSBach
 
 ## NOMBRE
-    expect - Automatización y gestión de switches remotos
+    expect - Automatización y gestión de switches remotos (V4.4)
 
 ## SINOPSIS
     **expect** [ACCIÓN] [OPCIÓN]...
 
 ## DESCRIPCIÓN
-    El módulo **expect** automatiza la configuración de switches (Cisco, TP-Link) mediante scripts interactivos. Permite gestionar puertos, VLANs y seguridad física sin necesidad de acceder manualmente a la consola del dispositivo.
+    El módulo **expect** permite la orquestación y control de switches físicos (Cisco, TP-Link). Esta versión introduce la **Arquitectura de Seguridad por Capas**, que permite aplicar políticas de aislamiento y confianza de forma independiente sobre diferentes objetivos (VLANs o Puertos).
+
+    Características principales:
+    - **Zero-Disk Execution**: Los comandos se inyectan directamente vía variables de entorno, eliminando el uso de archivos temporales sensibles.
+    - **Shadow ACL (Ping-Pong) Multicapa**:
+        - **Blacklist**: Utiliza IDs 100/101 para bloqueo global (Puertos 2-max).
+        - **Whitelist**: Utiliza IDs 200/201 para control Zero-Trust (VLAN 1).
+    - **Atomicidad**: El intercambio (BIND) de listas es atómico, garantizando que el switch nunca se quede sin protección durante la sincronización.
 
 ## ACCIONES
 
-    **status**
-        Muestra información sobre el estado del módulo, perfiles cargados y estadísticas de ejecución.
-
     **auth** --ip IP --user USUARIO [--password PASS]
-        Configura y almacena de forma segura las credenciales para un dispositivo específico.
-        La contraseña es opcional y se puede dejar vacía si el equipo lo permite.
+        Configura y almacena las credenciales para un dispositivo.
 
-    **config** --ip IP --actions "ACCIONES" [--profile PERFIL] [--dry-run]
-        Aplica configuraciones técnicas basadas en sintaxis de bloques.
-        Use '/' para separar múltiples bloques (ej: puerto y global).
-        
-        **Sintaxis de Bloque**: `ports:<RANGO>,mode:<MODO>,<PARAMETROS>`
-        **Jerarquía**: El parámetro `mode` debe definirse ANTES que vlan/tag/untag.
-        
-        Ejemplo: `expect config --ip 1.1.1.1 --actions "ports:1-10,mode:access,vlan:100"`
+    **mac_table** --ip IP
+        Consulta la tabla de direcciones MAC activa en el switch (modo lectura rápida).
 
-    **reset** --ip IP [--profile PERFIL]
-        Realiza un remocio de configuración (*Soft Reset*) de todos los puertos físicos.
+    **security_mode** --ip IP --mode blacklist|whitelist
+        Cambia la política global del switch.
+        **blacklist**: Permisivo. Bloquea solo MACs en 'isolate'.
+        **whitelist**: Restrictivo. Bloquea todo excepto MACs autorizadas.
+        Esta acción sincroniza inmediatamente el switch usando Shadow ACL.
 
-    **port-security** --ip IP --ports RANGO --macs LISTA [--dry-run]
-        Establece filtrado de MAC estricto en los puertos indicados.
-        `--macs` acepta direcciones separadas por espacios.
+    **isolate** --ip IP --mac MAC
+        Aísla una MAC. Tiene prioridad absoluta sobre cualquier otra regla.
+        Ej: `expect isolate --ip 10.0.1.5 --mac AA:BB:CC:DD:EE:FF`
+
+    **unisolate** --ip IP --mac MAC
+        Levanta el aislamiento de una dirección MAC.
+
+    **add_to_whitelist** --ip IP --mac MAC
+        Añade una MAC a la lista blanca local (sin aplicar al switch).
+
+    **remove_from_whitelist** --ip IP --mac MAC
+        Elimina una MAC de la lista blanca local.
+
+    **apply_whitelist** --ip IP
+        Sincroniza la lista blanca local y el modo de seguridad con el switch.
+        Ejecuta el ciclo Shadow Swap (Ping-Pong) de forma atómica.
+
+    **get_whitelist** --ip IP
+        Consulta la whitelist y el modo de seguridad guardados para ese switch.
+
+    **config** --ip IP --actions "ACCIONES" [--dry_run]
+        Aplica configuraciones avanzadas mediante bloques (ej: VLANs, Puertos).
+
+    **reset** --ip IP
+        Limpia la configuración de los puertos y borra el estado de seguridad local.
+
+    **get_state** [--ip IP]
+        Muestra el estado completo (aislamientos, whitelist, modo) del sistema.
+
+    **list_switches**
+        Muestra los switches registrados y sus perfiles (Cisco, TP-Link, etc).
 
 ## EJEMPLOS
-    expect auth --ip 10.0.0.5 --user admin --password secret
-    expect config --ip 10.0.0.5 --actions "hostname:SW-PISO1 / ports:1,mode:trunk,tag:10,20"
-    expect port-security --ip 10.0.0.5 --ports 2-4 --macs "AA:BB:CC:DD:EE:FF"
+    expect security_mode --ip 10.0.1.5 --mode whitelist
+    expect add_to_whitelist --ip 10.0.1.5 --mac 00:AA:BB:CC:DD:EE
+    expect apply_whitelist --ip 10.0.1.5
+    expect isolate --ip 10.0.1.5 --mac 11:22:33:44:55:66
 
 ## NOTAS
-    - El modo `access` solo permite el parámetro `vlan`.
-    - Los modos `trunk` y `general` requieren `tag` o `untag`.
-    - Use `--dry-run` para visualizar el script generado antes de enviarlo al switch.
+    - El aislamiento (Deny) siempre se procesa antes que la Whitelist (Permit).
+    - Los nombres de las ACL en el switch siguen el patrón `JSBACH_SECURITY_{id}`.
+    - Se utilizan alternativamente los IDs 100 y 101 para garantizar la atomicidad.

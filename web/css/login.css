@@ -1,0 +1,125 @@
+/* /web/css/login.css */
+:root {
+    --bg: #050505;
+    --card: #121212;
+    --accent: #e11d48;
+    --accent-hover: #be123c;
+    --text: #ffffff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 17px;
+    background: radial-gradient(circle at center, #171717 0%, #050505 100%);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    padding: 20px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Decorative Circles Effect */
+body::before,
+body::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(225, 29, 72, 0.04) 0%, transparent 70%);
+    z-index: -1;
+}
+
+body::before {
+    width: 400px;
+    height: 400px;
+    top: -100px;
+    left: -100px;
+}
+
+body::after {
+    width: 300px;
+    height: 300px;
+    bottom: -50px;
+    right: -50px;
+}
+
+.login-box {
+    background: var(--card);
+    padding: 2.5rem;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 350px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+label {
+    display: block;
+    margin-top: 1.2rem;
+    margin-bottom: 0.5rem;
+    text-align: left;
+    font-size: 15px;
+    font-weight: 600;
+    color: #cbd5e0;
+}
+
+input {
+    width: 100%;
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    font-size: 16px;
+    background: #0a0a0a;
+    color: #fff;
+    transition: border-color 0.2s;
+    text-align: center;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+button {
+    width: 100%;
+    margin-top: 2rem;
+    padding: 0.9rem;
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+button:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.error {
+    margin-top: 1rem;
+    color: #ff6b6b;
+    text-align: center;
+    font-size: 14px;
+}

@@ -1,0 +1,16 @@
+#!/usr/bin/expect -f
+set timeout 30
+spawn $env(PROTOCOL) $env(IP)
+expect "$env(LOGIN_PROMPT)"
+send "$env(USER)\r"
+expect "$env(PASSWORD_PROMPT)"
+send "$env(EXPECT_PASS)\r"
+expect "$env(EXEC_PROMPT)"
+send "en\r"
+expect "$env(PRIV_PROMPT)"
+send "$env(MAC_TABLE_CMD)\r"
+expect "$env(PRIV_PROMPT)"
+send "exit\r"
+expect "$env(EXEC_PROMPT)"
+send "exit\r"
+expect eof

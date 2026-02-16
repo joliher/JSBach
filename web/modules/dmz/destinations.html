@@ -1,0 +1,63 @@
+<!-- /web/modules/dmz/destinations.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Destinos DMZ</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-destinations" class="section active">
+                    <div class="container">
+                        <h2>📋 Destinos DMZ Configurados</h2>
+                        <div class="info-box" id="dest-info">
+                            <strong>WAN Interface:</strong> <span id="wan-iface">Consultando...</span> |
+                            <strong>VLANs:</strong> <span id="vlans-state">Consultando...</span>
+                        </div>
+
+                        <div id="destinations-table-container">
+                            <table id="destinationsTable">
+                                <thead>
+                                    <tr>
+                                        <th>IP DESTINO</th>
+                                        <th>PUERTO</th>
+                                        <th>PROTOCOLO</th>
+                                        <th>ESTADO</th>
+                                        <th>ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="loading">Cargando lista de destinos...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button class="btn btn-blue" onclick="loadDestinations()">🔄 Actualizar Lista</button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/destinations.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

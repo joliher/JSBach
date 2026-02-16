@@ -1,22 +1,131 @@
-<!-- web/index.html -->
+<!-- /web/index.html -->
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <title>Router JSBach</title>
-    
-    <link rel="stylesheet" href="/web/00-css/index.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <title>JSBach Router - Dashboard</title>
+    <link rel="stylesheet" href="/web/css/global.css">
 </head>
+
 <body>
-    <div class="container">
-        <!-- Cabecera -->
+    <div class="container-main">
         <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
 
-        <!-- Menú y contenido principal -->
-        <div class="bottom">
-            <iframe src="/web/status.html" class="left-frame" name="menu"></iframe>
-            <iframe src="/web/info.html" class="right-frame" name="body"></iframe>
+        <div class="content-wrapper">
+            <main class="main-area">
+
+                <!-- DASHBOARD SECTION -->
+                <section id="section-dashboard" class="section active section-transition">
+                    <div class="container" style="background: transparent; border: none; box-shadow: none; padding: 0;">
+                        <h1
+                            style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; color: var(--text-primary);">
+                            🎼 JSBach Router</h1>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 40px;">
+                            Panel de Orquestación en Tiempo Real. Gestione la conectividad, seguridad y servicios de su
+                            red perimetral.
+                        </p>
+
+                        <div id="wan-interface-info" class="info-box"
+                            style="display: none; background: rgba(16, 185, 129, 0.1); border-color: var(--success); margin-bottom: 30px; border-left-width: 4px;">
+                            <strong>🌐 WAN ACTIVA:</strong>
+                            Iface <span id="wan-interface"
+                                style="color:var(--text-primary); font-family: monospace;"></span>
+                            (<span id="wan-mode" style="font-weight: 800;"></span>)
+                        </div>
+
+                        <div style="margin-bottom: 25px;">
+                            <h2 style="border: none; margin: 0; padding: 0; font-weight: 800; letter-spacing: -1px;">💎
+                                MÓDULOS DEL SISTEMA</h2>
+                        </div>
+
+                        <div class="dashboard-grid">
+                            <div class="module-card-square" id="card-wan"
+                                onclick="location.href='/web/modules/wan/status.html'">
+                                <div class="status-indicator" id="status-wan"></div>
+                                <div class="icon-wrapper">🌐</div>
+                                <div class="name">WAN</div>
+                                <div class="description">Conectividad Externa</div>
+                            </div>
+                            <div class="module-card-square" id="card-nat"
+                                onclick="location.href='/web/modules/nat/status.html'">
+                                <div class="status-indicator" id="status-nat"></div>
+                                <div class="icon-wrapper">🔄</div>
+                                <div class="name">NAT</div>
+                                <div class="description">Traducción de Red</div>
+                            </div>
+                            <div class="module-card-square" id="card-firewall"
+                                onclick="location.href='/web/modules/firewall/status.html'">
+                                <div class="status-indicator" id="status-firewall"></div>
+                                <div class="icon-wrapper">🔥</div>
+                                <div class="name">Firewall</div>
+                                <div class="description">Seguridad Perimetral</div>
+                            </div>
+                            <div class="module-card-square" id="card-vlans"
+                                onclick="location.href='/web/modules/vlans/status.html'">
+                                <div class="status-indicator" id="status-vlans"></div>
+                                <div class="icon-wrapper">🔷</div>
+                                <div class="name">VLANs</div>
+                                <div class="description">Segmentación L2</div>
+                            </div>
+                            <div class="module-card-square" id="card-tagging"
+                                onclick="location.href='/web/modules/tagging/status.html'">
+                                <div class="status-indicator" id="status-tagging"></div>
+                                <div class="icon-wrapper">🏷️</div>
+                                <div class="name">Tagging</div>
+                                <div class="description">Marcado 802.1Q</div>
+                            </div>
+                            <div class="module-card-square" id="card-dmz"
+                                onclick="location.href='/web/modules/dmz/status.html'">
+                                <div class="status-indicator" id="status-dmz"></div>
+                                <div class="icon-wrapper">🏝️</div>
+                                <div class="name">DMZ</div>
+                                <div class="description">Zona Especial</div>
+                            </div>
+                            <div class="module-card-square" id="card-ebtables"
+                                onclick="location.href='/web/modules/ebtables/status.html'">
+                                <div class="status-indicator" id="status-ebtables"></div>
+                                <div class="icon-wrapper">🛡️</div>
+                                <div class="name">Ebtables</div>
+                                <div class="description">Control de Bridge</div>
+                            </div>
+                            <div class="module-card-square" id="card-expect"
+                                onclick="location.href='/web/modules/expect/switches.html'">
+                                <div class="status-indicator" id="status-expect"></div>
+                                <div class="icon-wrapper">⌨️</div>
+                                <div class="name">Expect</div>
+                                <div class="description">Gestión SSH</div>
+                            </div>
+                        </div>
+
+                        <div
+                            style="margin-top: 50px; padding: 25px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(10px);">
+                            <div>
+                                <h4 style="margin:0; color:var(--text-primary); font-weight: 800;">⚙️ ORQUESTACIÓN
+                                    GLOBAL</h4>
+                                <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: var(--text-secondary);">Apague
+                                    todos los servicios de red de forma segura.</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <span id="stop-message" style="font-weight: 600; font-size: 0.85rem;"></span>
+                                <button class="btn btn-red" onclick="stopAllModules()"
+                                    style="padding: 12px 24px; font-weight: 700;">🛑 DETENER SISTEMA</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
         </div>
     </div>
+
+    <script src="/web/js/index.js"></script>
 </body>
+
 </html>

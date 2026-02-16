@@ -30,15 +30,15 @@
     **restart**
         Reinicia el subsistema de redirección de puertos.
 
-    **aislar** --ip IP
+    **isolate** --ip IP
         Bloquea preventivamente todo el tráfico de red del host especificado (WAN <-> Host y Host <-> Router).
 
-    **desaislar** --ip IP
+    **unisolate** --ip IP
         Restaura la conectividad normal del servidor en la DMZ.
 
 ## EJEMPLOS
     dmz config --ip 192.168.10.100 --port 443 --protocol tcp
-    dmz aislar --ip 192.168.10.100
+    dmz isolate --ip 192.168.10.100
     dmz status
 
 ## NOTAS

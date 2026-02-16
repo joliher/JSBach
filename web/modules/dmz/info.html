@@ -1,0 +1,61 @@
+<!-- /web/modules/dmz/info.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Información DMZ</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-info" class="section active">
+                    <div class="container">
+                        <h2>📖 Módulo DMZ - Manual de Usuario</h2>
+                        <div class="info-box">El módulo DMZ (Zona Desmilitarizada) permite exponer servicios internos a
+                            Internet de forma controlada y segura mediante el reenvío de puertos.</div>
+
+                        <h3>🚀 Operaciones del Módulo</h3>
+                        <ul>
+                            <li><b>START:</b> Activa las reglas de redirección (DNAT) configuradas en la interfaz WAN
+                                hacia los destinos internos.</li>
+                            <li><b>STOP:</b> Elimina todas las redirecciones activas de la DMZ.</li>
+                            <li><b>STATUS:</b> Muestra las reglas PREROUTING actuales en la tabla NAT de iptables
+                                asociadas a la DMZ.</li>
+                        </ul>
+
+                        <h3>⚙️ Configuración de Destinos</h3>
+                        <p>Para exponer un servicio debe indicar:</p>
+                        <ul>
+                            <li><b>IP de Destino:</b> La dirección IP del dispositivo en su red local (normalmente en
+                                una VLAN aislada).</li>
+                            <li><b>Puerto:</b> El puerto del servicio (ej: 80 para Web, 22 para SSH).</li>
+                            <li><b>Protocolo:</b> TCP o UDP según los requisitos del servicio.</li>
+                        </ul>
+
+                        <div class="warning-box">
+                            <strong>⚠️ SEGURIDAD:</strong> Al exponer un host en la DMZ, este queda accesible desde el
+                            exterior. Se recomienda encarecidamente que los hosts DMZ estén en una VLAN aislada (AISLADA
+                            en Firewall) para evitar que un posible compromiso del servidor afecte al resto de la red
+                            interna.
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

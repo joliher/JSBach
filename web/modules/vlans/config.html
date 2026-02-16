@@ -1,0 +1,89 @@
+<!-- /web/modules/vlans/config.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Configuración VLANs</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-config" class="section active">
+                    <div class="container">
+                        <h2>🏷️ Gestión de VLANs</h2>
+                        <div class="info-box">
+                            <strong>ℹ️ Información:</strong> Administre las VLANs del sistema. Las VLANs 1 y 2 están
+                            protegidas por el sistema.
+                        </div>
+
+                        <h3>VLANs configuradas</h3>
+                        <div id="vlans-table-container">
+                            <table id="vlansTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>IP Interfaz</th>
+                                        <th>IP Red</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="loading">Cargando VLANs...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="form-result" style="margin: 20px 0; font-weight: 600;"></div>
+
+                        <h3 style="margin-top: 40px;">➕ Añadir Nueva VLAN</h3>
+                        <form id="vlan-form" class="grid-form"
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label>ID VLAN (1-4094)</label>
+                                <input type="number" id="vlan-id" min="1" max="4094" placeholder="100" required>
+                                <small style="color: var(--text-secondary); display: block; margin-top: 5px;">💡 Si el
+                                    ID existe, se actualizará.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre</label>
+                                <input type="text" id="vlan-name" placeholder="Ej: Servers" required>
+                            </div>
+                            <div class="form-group">
+                                <label>IP Interfaz</label>
+                                <input type="text" id="vlan-ip-interface" placeholder="192.168.10.1/24" required>
+                            </div>
+                            <div class="form-group">
+                                <label>IP Red</label>
+                                <input type="text" id="vlan-ip-network" placeholder="192.168.10.0/24" required>
+                            </div>
+                            <div style="grid-column: 1 / -1; margin-top: 10px;">
+                                <button type="submit" class="btn btn-accent" style="width: 100%; padding: 15px;">💾
+                                    Guardar VLAN</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,58 @@
+<!-- /web/modules/firewall/info.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Información Firewall</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-info" class="section active">
+                    <div class="container">
+                        <h2>📖 Módulo Firewall - Manual de Usuario</h2>
+                        <div class="info-box">Este módulo gestiona la seguridad entre redes (VLANs) y el acceso al
+                            propio router mediante un sistema de **Whitelist Dinámica**.</div>
+
+                        <h3>🔐 Conceptos de Seguridad</h3>
+                        <ul>
+                            <li><b>Whitelist:</b> Por defecto, el firewall deniega todo tráfico que no esté
+                                explícitamente permitido en esta lista.</li>
+                            <li><b>Aislamiento (Isolated):</b> Si está activo, los dispositivos de esta VLAN no podrán
+                                comunicarse con ninguna otra VLAN de la red.</li>
+                            <li><b>Restricción (Restricted):</b> Si está activo, los dispositivos de esta VLAN tendrán
+                                denegado el acceso administrativo al router.</li>
+                            <li><b>Allowed IPs:</b> Direcciones IP específicas que están exentas del bloqueo y pueden
+                                acceder al router incluso si la restricción está activa (útil para IPs de gestión).</li>
+                        </ul>
+
+                        <h3>👁️ Visualización</h3>
+                        <p>En la sección <b>VER VLANS</b> puede comprobar de un vistazo el nivel de blindaje actual de
+                            su infraestructura.</p>
+
+                        <div class="warning-box">
+                            <strong>⚠️ DEPENDENCIA CRÍTICA:</strong> El Firewall depende de que las interfaces VLAN
+                            estén correctamente configuradas e iniciadas. Sin el módulo VLANs activo, las políticas de
+                            seguridad no podrán aplicarse sobre el tráfico segmentado.
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

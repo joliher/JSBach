@@ -1,0 +1,55 @@
+<!-- /web/modules/dmz/sidebar.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <style>
+        .dependency-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            margin-bottom: 15px;
+        }
+
+        .dep-item {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+
+<body class="sidebar">
+    <h3>📡 DMZ</h3>
+    <div class="status-box desactivo" id="module-status">Estado: Cargando...</div>
+
+    <div class="dependency-warning">
+        <strong>⚠️ Dependencias:</strong><br>
+        <div id="dep-tagging" class="dep-item">🔄 Tagging: Comprobando...</div>
+        <div id="dep-firewall" class="dep-item">🔄 Firewall: Comprobando...</div>
+    </div>
+
+    <button type="button" id="btnStart" onclick="irAccion('start')">🚀 DMZ START</button>
+    <button type="button" id="btnStop" onclick="irAccion('stop')">🛑 DMZ STOP</button>
+    <button type="button" id="btnRestart" onclick="irAccion('restart')">🔄 DMZ RESTART</button>
+    <button type="button" id="btnStatus" onclick="irAccion('status')">📊 DMZ STATUS</button>
+
+    <h4>Configuración y Vistas</h4>
+    <button type="button" id="btnDestinations" onclick="irSeccion('destinations')">📋 VER DESTINOS</button>
+    <button type="button" id="btnConfig" onclick="irSeccion('config')">➕ AÑADIR DESTINO</button>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+
+    <button type="button" id="btnInfo" onclick="irSeccion('info')">ℹ️ VER INFO</button>
+
+    <script src="js/sidebar.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

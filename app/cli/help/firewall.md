@@ -36,10 +36,10 @@
     **remove_rule** --vlan_id ID --rule REGLA
         Elimina una regla de la whitelist, denegando de nuevo su acceso.
 
-    **aislar** --vlan_id ID
+    **isolate** --vlan_id ID
         Bloquea todo el acceso a Internet (FORWARD) para la red especificada.
 
-    **desaislar** --vlan_id ID
+    **unisolate** --vlan_id ID
         Restaura el acceso a Internet (sujeto a la configuración de whitelist).
 
     **restrict** --vlan_id ID
@@ -50,10 +50,10 @@
 
 ## EJEMPLOS
     firewall enable_whitelist --vlan_id 10 --whitelist 192.168.10.5,192.168.10.20
-    firewall aislar --vlan_id 1
+    firewall isolate --vlan_id 1
     firewall status
 
 ## NOTAS
-    - El aislamiento (**aislar**) tiene prioridad máxima sobre cualquier regla de forwarding.
+    - El aislamiento (**isolate**) tiene prioridad máxima sobre cualquier regla de forwarding.
     - Las restricciones (**restrict**) solo afectan al tráfico dirigido a la IP del propio router.
     - Las VLANs 1 y 2 no permiten whitelist.

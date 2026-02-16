@@ -1,0 +1,121 @@
+<!-- /web/modules/expect/switches.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Switches</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-switches" class="section active">
+                    <div class="container">
+                        <h2>🧩 Gestión de Switches</h2>
+                        <div class="info-box">
+                            <strong>📡 Administración de Switches:</strong> Registre y gestione los dispositivos físicos
+                            de su red.
+                            <br>
+                            <strong style="color:var(--accent-color);">⚠️ Seguridad:</strong> Por protección, las
+                            contraseñas <b>no son editables</b> directamente en la tabla. Para cambiarlas, debe eliminar
+                            y volver a registrar el switch, o editar manualmente el archivo de configuración.
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+                            <!-- Panel Izquierdo: Registro -->
+                            <div>
+                                <h3>➕ Registrar Nuevo Switch</h3>
+                                <form id="switch-form" class="grid-form"
+                                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                    <input type="hidden" id="sw-original-ip">
+                                    <div class="form-group" style="grid-column: 1 / -1;">
+                                        <label>Nombre del Dispositivo</label>
+                                        <input type="text" id="sw-name" required placeholder="Ej: Core-Switch-01">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Dirección IP</label>
+                                        <input type="text" id="sw-ip" required placeholder="Ej: 192.168.1.10">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Usuario</label>
+                                        <input type="text" id="sw-user" required placeholder="admin">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Protocolo</label>
+                                        <select id="sw-protocol">
+                                            <option value="telnet">Telnet</option>
+                                            <option value="ssh">SSH</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Perfil de Hardware</label>
+                                        <select id="sw-profile">
+                                            <option value="cisco_ios">Cisco IOS</option>
+                                            <option value="tp_link">TP-Link</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Contraseña</label>
+                                        <input type="password" id="sw-pass" placeholder="••••••••">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Máx. Puertos</label>
+                                        <input type="number" id="sw-max-ports" min="1" max="52" value="24">
+                                    </div>
+                                    <div class="form-group"
+                                        style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
+                                        <input type="checkbox" id="sw-no-pass" style="width: auto; margin: 0;">
+                                        <label style="margin-bottom: 0;">Sin contraseña de acceso</label>
+                                    </div>
+                                    <div style="grid-column: 1 / -1; margin-top: 10px;">
+                                        <button type="submit" class="btn btn-green" style="width: 100%;">💾 Registrar
+                                            Switch</button>
+                                    </div>
+                                </form>
+                                <div id="result-switches" style="margin-top: 15px;"></div>
+                            </div>
+
+                            <!-- Panel Derecho: Tabla -->
+                            <div>
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <h3>📡 Dispositivos Activos</h3>
+                                    <button class="btn btn-accent btn-small" onclick="loadSwitchesForTable()">🔄
+                                        Actualizar</button>
+                                </div>
+                                <div class="table-responsive" style="margin-top: 0;">
+                                    <table id="switches-table">
+                                        <thead>
+                                            <tr>
+                                                <th>NOMBRE</th>
+                                                <th>IP / PERFIL</th>
+                                                <th style="width: 100px;">ACCIONES</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/switches.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

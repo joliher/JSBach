@@ -29,7 +29,7 @@
 ## EJEMPLOS
     jsbach@admin> wan status
     jsbach@admin> help firewall
-    jsbach@admin> firewall aislar --vlan_id 1
+    jsbach@admin> firewall isolate --vlan_id 1
 
 ## NOTAS
     - La sesión tiene un tiempo de espera de inactividad de 300 segundos.

@@ -1,0 +1,59 @@
+<!-- /web/modules/vlans/info.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Información VLANs</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-info" class="section active">
+                    <div class="container">
+                        <h2>📖 Módulo VLANs - Manual de Usuario</h2>
+                        <div class="info-box">Este módulo permite segmentar la red física en múltiples redes lógicas
+                            independientes para mejorar la seguridad y eficiencia.</div>
+
+                        <h3>🚀 Control del Servicio</h3>
+                        <p>Gestione el ciclo de vida de las interfaces virtuales:</p>
+                        <ul>
+                            <li><b>START:</b> Levanta todas las interfaces VLAN configuradas.</li>
+                            <li><b>STOP:</b> Desactiva las interfaces VLAN (cuidado: puede afectar a la conectividad).
+                            </li>
+                            <li><b>RESTART:</b> Reinicia el servicio para aplicar nuevos cambios de IDs o IPs.</li>
+                        </ul>
+
+                        <h3>⚙️ Configuración de VLANs</h3>
+                        <p>Cada VLAN requiere:</p>
+                        <ul>
+                            <li><b>ID VLAN:</b> Un número entre 1 y 4094.</li>
+                            <li><b>Nombre:</b> Una etiqueta descriptiva (ej: VoIP, Guest, CCTV).</li>
+                            <li><b>IP Interfaz:</b> La dirección IP del router en esa VLAN (ej: 192.168.20.1/24).</li>
+                            <li><b>IP Red:</b> El identificador de red (ej: 192.168.20.0/24).</li>
+                        </ul>
+
+                        <div class="warning-box">
+                            <strong>⚠️ RESTRICCIÓN:</strong> Las VLANs 1 y 2 están reservadas por el sistema para
+                            gestión y servicios críticos. No intente eliminarlas.
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

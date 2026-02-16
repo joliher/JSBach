@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test suite COMPLETO para JSBach V4.2 - Refactorización Fases 1-4
+Test suite COMPLETO para JSBach V4.3 - Refactorización Fases 1-4
 ===============================================================================
 Incluye pruebas de:
 1. Happy path (funcionalidad normal)

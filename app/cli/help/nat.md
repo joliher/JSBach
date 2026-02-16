@@ -35,4 +35,5 @@
 
 ## NOTAS
     - La interfaz WAN debe estar operativa y con IP asignada previamente.
+    - NAT no requiere que VLANs esté activo, solo WAN.
     - El IP Forwarding es un parámetro global del sistema kernel.

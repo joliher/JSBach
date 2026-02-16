@@ -1,0 +1,87 @@
+<!-- /web/modules/tagging/config.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Configuración Tagging</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-config" class="section active">
+                    <div class="container">
+                        <h2>🏷️ Configuración de VLAN Tagging</h2>
+                        <div class="info-box">
+                            <strong>📌 Información:</strong> Configure el etiquetado en las interfaces físicas. Una
+                            interfaz puede operar en modo <b>UNTAG</b> (Acceso) o <b>TAG</b> (Troncal/Trunk).
+                        </div>
+
+                        <h3>Interfaces configuradas</h3>
+                        <div id="tagging-table-container">
+                            <table id="taggingTable">
+                                <thead>
+                                    <tr>
+                                        <th>INTERFAZ</th>
+                                        <th>CONFIGURACIÓN VLAN</th>
+                                        <th>ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="3" class="loading">Cargando interfaces...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="config-result" style="margin: 20px 0; font-weight: 600;"></div>
+
+                        <h3 style="margin-top: 40px;">➕ Añadir Nueva Interface</h3>
+                        <form id="tagging-form" class="grid-form"
+                            style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label>Nombre de la interface</label>
+                                <input type="text" id="iface-name" placeholder="Ej: eth1" required>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="form-group">
+                                    <label>VLAN Untag (Acceso)</label>
+                                    <input type="text" id="iface-untag" placeholder="Ej: 10">
+                                    <small style="color: var(--text-secondary); display: block; margin-top: 5px;">💡 ID
+                                        de VLAN para tráfico sin etiqueta.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>VLAN Tag (Troncal)</label>
+                                    <input type="text" id="iface-tag" placeholder="Ej: 10,20,30-40">
+                                    <small style="color: var(--text-secondary); display: block; margin-top: 5px;">💡
+                                        Múltiples VLANs permitidas.</small>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button type="submit" class="btn btn-accent" style="width: 100%; padding: 15px;">💾
+                                    Guardar Interface</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

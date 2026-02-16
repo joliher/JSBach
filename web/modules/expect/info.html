@@ -1,0 +1,59 @@
+<!-- /web/modules/expect/info.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Información Expect</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-info" class="section active">
+                    <div class="container">
+                        <h2>📖 Módulo Expect - Manual de Usuario</h2>
+                        <div class="info-box">Este módulo centraliza la orquestación remota de dispositivos de red
+                            mediante scripts automatizados.</div>
+
+                        <h3>🚀 Orquestación</h3>
+                        <p>La orquestación permite enviar comandos de configuración a múltiples switches de forma
+                            simultánea o secuencial. Puede configurar puertos, VLANs o parámetros globales del sistema.
+                        </p>
+
+                        <h3>🧩 Gestión de Switches</h3>
+                        <p>En la sección <b>SWITCHES</b> puede registrar sus dispositivos:</p>
+                        <ul>
+                            <li><b>Protocolos:</b> Soporte para Telnet y SSH.</li>
+                            <li><b>Perfiles:</b> Adaptadores específicos para Cisco IOS, TP-Link, etc.</li>
+                            <li><b>Credenciales:</b> Nombre de usuario y contraseña (o IP sin clave).</li>
+                        </ul>
+
+                        <h3>📶 Control MAC</h3>
+                        <p>Permite visualizar la tabla dinámica del switch y realizar <b>Aislamientos</b>. El sistema
+                            mantiene un registro local de las MACs bloqueadas para asegurar que la regla persista aunque
+                            el switch reinicie o limpie su tabla dinámica.</p>
+
+                        <div class="warning-box">
+                            <strong>⚠️ PRECAUCIÓN:</strong> Asegúrese de tener conectividad IP con los switches antes de
+                            iniciar una tarea de orquestación masiva.
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

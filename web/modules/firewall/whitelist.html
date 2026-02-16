@@ -1,0 +1,51 @@
+<!-- /web/modules/firewall/whitelist.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Configurar Whitelist</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-whitelist" class="section active">
+                    <div class="container">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <h2 style="margin:0; border:none; padding:0;">🛡️ Gestión de Whitelist por VLAN</h2>
+                            <button class="btn btn-red" onclick="resetDefaults()">🔄 Reset Totall</button>
+                        </div>
+
+                        <div class="info-box">
+                            <strong>Aislamiento (Isolate):</strong> Impide comunicación entre VLANs.<br>
+                            <strong>Restricción (Restrict):</strong> Impide acceso a la IP del router.<br>
+                            <strong>Whitelist:</strong> Lista de IPs externas (o internas) permitidas cuando hay
+                            restricción.
+                        </div>
+
+                        <div id="whitelist-content">
+                            <div class="loading">Cargando módulos y configuración de red...</div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/whitelist.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test suite para JSBach V4.2 - Validación de módulos tras refactorización
+Test suite para JSBach V4.3 - Validación de módulos tras refactorización
 ===============================================================================
 
 Plan de pruebas:
@@ -169,7 +169,7 @@ def main():
 	runner = ModuleTestRunner()
     
 	print("\n" + "="*70)
-	print("🚀 INICIANDO PRUEBAS DE MÓDULOS JSBATCH V4.2")
+	print("🚀 INICIANDO PRUEBAS DE MÓDULOS JSBATCH V4.3")
 	print("="*70)
 	print("⚠️  NOTA: Las pruebas respetan dependencias entre módulos")
 	print("="*70)

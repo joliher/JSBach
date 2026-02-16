@@ -1,0 +1,60 @@
+<!-- /web/modules/tagging/info.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Información Tagging</title>
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-info" class="section active">
+                    <div class="container">
+                        <h2>📖 Módulo Tagging - Manual de Usuario</h2>
+                        <div class="info-box">Este módulo permite gestionar el etiquetado de tráfico (VLAN Tagging) en
+                            las interfaces físicas del router utilizando el estándar IEEE 802.1Q.</div>
+
+                        <h3>🚀 Operaciones Principales</h3>
+                        <ul>
+                            <li><b>START:</b> Aplica todas las configuraciones de etiquetado a las interfaces físicas.
+                            </li>
+                            <li><b>STOP:</b> Limpia todas las reglas de VLAN en las interfaces integradas.</li>
+                            <li><b>RESTART:</b> Reinicia el servicio para aplicar cambios en los modos de acceso o
+                                troncal.</li>
+                        </ul>
+
+                        <h3>⚙️ Modos de Configuración</h3>
+                        <p>Cada interfaz física puede configurarse de dos maneras:</p>
+                        <ul>
+                            <li><b>UNTAG (Modo Acceso):</b> La interfaz procesa el tráfico de una sola VLAN de forma
+                                transparente para los dispositivos conectados.</li>
+                            <li><b>TAG (Modo Troncal/Trunk):</b> La interfaz transporta paquetes con etiqueta de
+                                múltiples VLANs, permitiendo la conexión a otros switches o routers gestionables.</li>
+                        </ul>
+
+                        <div class="warning-box">
+                            <strong>⚠️ RESTRICCIÓN:</strong> Una interfaz física no puede ser UNTAG y TAG al mismo
+                            tiempo para el mismo rango de IDs. Asegúrese de que las VLANs especificadas hayan sido
+                            creadas previamente en el módulo <b>VLANs</b>.
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

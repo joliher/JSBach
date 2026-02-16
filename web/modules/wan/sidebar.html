@@ -1,0 +1,34 @@
+<!-- /web/modules/wan/sidebar.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="sidebar">
+    <h3>🌐 WAN</h3>
+    <div class="status-box desconectado" id="module-status">Estado: Cargando...</div>
+
+    <button type="button" id="btnStart" onclick="irAccion('start')">🚀 WAN START</button>
+    <button type="button" id="btnStop" onclick="irAccion('stop')">🛑 WAN STOP</button>
+    <button type="button" id="btnRestart" onclick="irAccion('restart')">🔄 WAN RESTART</button>
+    <button type="button" id="btnStatus" onclick="irAccion('status')">📊 WAN STATUS</button>
+
+    <h4>Configuración</h4>
+    <button type="button" id="btnConfig" onclick="irSeccion('config')">⚙️ WAN CONFIG</button>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+
+    <button type="button" id="btnInfo" onclick="irSeccion('info')">ℹ️ VER INFO</button>
+
+    <script src="js/sidebar.js"></script>
+<script src="/web/js/utils.js"></script>
+</body>
+
+</html>

@@ -2,7 +2,7 @@ def create_cli_systemd_service(target_path, venv_path):
     info("Creando servicio systemd para CLI")
     cli_path = os.path.join(target_path, "cli_server.py")
     service_content = f"""[Unit]
-Description=JSBach V4.2 CLI Service
+Description=JSBach V4.4 CLI Service
 BindsTo=jsbach.service
 PartOf=jsbach.service
 After=jsbach.service
@@ -123,10 +123,10 @@ def create_config_directory(target_path):
             if os.path.isfile(s):
                 shutil.copy2(s, d)
         
-        # Establecer permisos para perfiles
+        # Establecer permisos restrictivos para perfiles (jsbach:jsbach 700 para dirs, 600 para archivos)
         subprocess.run(f"chown -R jsbach:jsbach {os.path.join(config_dir, 'expect')}", shell=True)
-        subprocess.run(f"chmod -R 750 {os.path.join(config_dir, 'expect')}", shell=True)
-        subprocess.run(f"find {dst_profiles} -type f -name '*.json' -exec chmod 640 {{}} \\;", shell=True)
+        subprocess.run(f"chmod -R 700 {os.path.join(config_dir, 'expect')}", shell=True)
+        subprocess.run(f"find {dst_profiles} -type f -exec chmod 600 {{}} \\;", shell=True)
         success("Perfiles de Expect copiados correctamente")
 
     # Generar secrets.env
@@ -273,37 +273,46 @@ def set_directory_permissions(target_path):
     # Cambiar owner de todo el proyecto a jsbach:jsbach
     subprocess.run(f"chown -R jsbach:jsbach {target_path}", shell=True)
     
-    # Config: jsbach puede crear/modificar archivos (rwx para user, rx para group)
+    # Config: Muy restrictivo (700) - Solo jsbach puede acceder
     config_dir = os.path.join(target_path, "config")
     if os.path.exists(config_dir):
-        info(f"  Config: 750 (rwxr-x---) - jsbach puede crear/modificar")
-        subprocess.run(f"chmod -R 750 {config_dir}", shell=True)
-        # Archivos .json en config deben ser 640 (rw-r-----)
-        subprocess.run(f"find {config_dir} -type f -name '*.json' -exec chmod 640 {{}} \\;", shell=True)
+        info(f"  Config: 700 (rwx------) - Acceso exclusivo para jsbach")
+        subprocess.run(f"chmod -R 700 {config_dir}", shell=True)
+        # Archivos .json en config: 600 (rw-------)
+        subprocess.run(f"find {config_dir} -type f -exec chmod 600 {{}} \\;", shell=True)
     
-    # Core: solo lectura y ejecución para jsbach (r-x)
-    core_dir = os.path.join(target_path, "app", "core")
-    if os.path.exists(core_dir):
-        info(f"  Core: 550 (r-xr-x---) - solo lectura/ejecución")
-        subprocess.run(f"chmod 550 {core_dir}", shell=True)
-        # Archivos .py en core: 440 (r--r-----)
-        subprocess.run(f"find {core_dir} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
+    # Modules: solo lectura y ejecución para jsbach (r-x)
+    modules_dir = os.path.join(target_path, "app", "modules")
+    if os.path.exists(modules_dir):
+        info(f"  Modules: 550 (r-xr-x---)")
+        subprocess.run(f"chmod 550 {modules_dir}", shell=True)
+        # Archivos .py en modules: 440 (r--r-----)
+        subprocess.run(f"find {modules_dir} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
+        
+        # Scripts de Expect: Necesitan ser rwx para jsbach (700)
+        expect_scripts = os.path.join(modules_dir, "expect", "scripts")
+        if os.path.exists(expect_scripts):
+            info(f"  Expect Scripts: 700 (rwx------)")
+            subprocess.run(f"chmod 700 {expect_scripts}", shell=True)
+            subprocess.run(f"chmod 600 {expect_scripts}/*", shell=True)
     
     # App (otros directorios): lectura/ejecución
     app_dir = os.path.join(target_path, "app")
     if os.path.exists(app_dir):
         info(f"  App: 550 (r-xr-x---) para directorios")
-        for subdir in ["cli", "controllers", "utils"]:
+        for subdir in ["api", "cli", "utils"]:
             subdir_path = os.path.join(app_dir, subdir)
             if os.path.exists(subdir_path):
                 subprocess.run(f"chmod 550 {subdir_path}", shell=True)
                 subprocess.run(f"find {subdir_path} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
     
-    # Logs: jsbach puede escribir
+    # Logs: jsbach escribe (740) - otros solo lectura (si tienen acceso al grupo)
     logs_dir = os.path.join(target_path, "logs")
     if os.path.exists(logs_dir):
-        info(f"  Logs: 750 (rwxr-x---) - jsbach puede escribir")
-        subprocess.run(f"chmod -R 750 {logs_dir}", shell=True)
+        info(f"  Logs: 740 (rwxr-----) - Solo lectura para el grupo")
+        subprocess.run(f"chmod -R 740 {logs_dir}", shell=True)
+        # Los archivos de log individuales: 640 (rw-r-----)
+        subprocess.run(f"find {logs_dir} -type f -exec chmod 640 {{}} \\;", shell=True)
     
     # Web: solo lectura
     web_dir = os.path.join(target_path, "web")
@@ -336,7 +345,7 @@ def set_directory_permissions(target_path):
 def create_systemd_service(target_path, venv_path, port):
     info("Creando servicio systemd")
     service_content = f"""[Unit]
-Description=JSBach V4.2 Web Service
+Description=JSBach V4.4 Web Service
 After=network.target
 
 [Service]
@@ -470,10 +479,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ensure_root()
-    info("Instalador JSBach V4.2")
+    info("Instalador JSBach V4.4")
 
     # Preguntar ruta de instalación
-    target_path = ask("Ruta de instalación del proyecto", "/opt/JSBach_V4.2")
+    target_path = ask("Ruta de instalación del proyecto", "/opt/JSBach_V4.4")
     target_path = target_path.rstrip("/")
 
     if target_path == "/":
@@ -550,7 +559,7 @@ if __name__ == "__main__":
         info(f"Puede iniciar sesión con usuario '{username}' y contraseña vacía")
     
     print()
-    info("Para administrar el servicio JSBach V4.2, usa los siguientes comandos:")
+    info("Para administrar el servicio JSBach V4.3, usa los siguientes comandos:")
     print("  systemctl status jsbach      # Ver estado del servicio")
     print("  systemctl restart jsbach     # Reiniciar el servicio")
     print("  systemctl stop jsbach        # Detener el servicio")

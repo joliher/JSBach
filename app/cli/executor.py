@@ -5,7 +5,7 @@ Ejecuta los comandos parseados y devuelve los resultados
 
 import logging
 from typing import Dict
-from app.controllers.admin_router import execute_module_action
+from app.api.admin_router import execute_module_action
 
 
 class CommandExecutor:
@@ -22,7 +22,7 @@ class CommandExecutor:
                 return "❌ Comando no soportado"
                 
             # Ejecutar usando la función existente de admin_router
-            success, message = execute_module_action(
+            success, message = await execute_module_action(
                 module_name=module,
                 action=action,
                 params=params

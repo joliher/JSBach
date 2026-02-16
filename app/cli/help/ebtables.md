@@ -17,10 +17,10 @@
     **start / stop / restart**
         Gestiona la activación global de las reglas de capa 2 en el kernel.
 
-    **aislar** --vlan_id ID
+    **isolate** --vlan_id ID
         Activa el modo PVLAN: los hosts de la VLAN solo podrán comunicarse con la puerta de enlace (Internet), bloqueando el tráfico entre ellos.
 
-    **desaislar** --vlan_id ID
+    **unisolate** --vlan_id ID
         Desactiva el aislamiento de capa 2 en la VLAN indicada.
 
     **enable_whitelist / disable_whitelist**
@@ -36,11 +36,12 @@
         Lista todas las direcciones MAC autorizadas actualmente.
 
 ## EJEMPLOS
-    ebtables aislar --vlan_id 10
+    ebtables isolate --vlan_id 10
     ebtables add_mac --mac AA:BB:CC:DD:EE:FF
     ebtables show_whitelist
 
 ## NOTAS
-    - El aislamiento PVLAN previene ataques como ARP Spoofing y escaneo interno.
-    - El filtrado por MAC es una funcionalidad exclusiva de la **VLAN 1**.
+    - El aislamiento PVLAN previene ataques como ARP Spoofing y escaneo interno en el router.
+    - El filtrado por MAC en este módulo solo afecta al bridge interno del router.
+    - **RECOMENDACIÓN**: Para seguridad en puertos físicos de switches, utilice el módulo **expect**, que implementa la **Cadena de Seguridad Unificada (JSBACH_SECURITY)** directamente en el hardware.
     - Requiere que las interfaces estén configuradas en el módulo **Tagging**.
