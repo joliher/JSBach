@@ -7,6 +7,7 @@ import json
 from typing import Tuple, List, Dict, Any, Optional
 from app.utils.global_helpers import run_command
 from app.utils.validators import validate_ip_address
+from app.utils import crypto_helper, sanitization_helper
 
 def check_ip_reachability(ip: str) -> bool:
     """Checks if an IP is reachable via ICMP (ping)."""
@@ -134,8 +135,8 @@ def sanitize_config_value(value: str) -> str:
     """Sanitiza valores de configuración para evitar inyecciones e inestabilidades."""
     if not isinstance(value, str):
         return str(value)
-    # Bloquear caracteres de control y redirección: ; & | ' ` $ > < ! \ { } [ ]
-    return re.sub(r"[;&|'`$><!\\{}\[\]]", "", value).strip()
+    # Usar sanitización específica para comandos CLI
+    return sanitization_helper.sanitize_cli_command(value)
 
 def get_secrets(ip: str, secrets_json: str) -> Tuple[Optional[str], Optional[str]]:
     """Lee las credenciales asociadas a una IP desde el archivo de secretos."""
@@ -145,7 +146,20 @@ def get_secrets(ip: str, secrets_json: str) -> Tuple[Optional[str], Optional[str
         with open(secrets_json, 'r') as f:
             secrets = json.load(f)
             creds = secrets.get(ip, {})
-            return creds.get("user"), creds.get("password")
+            user = creds.get("user")
+            password = creds.get("password")
+            
+            # Intentar descifrar si parece estar cifrado
+            if password and not password.startswith("$") and len(password) > 32:
+                try:
+                    key = crypto_helper.get_master_key()
+                    if key:
+                        password = crypto_helper.decrypt_string(password, key)
+                except Exception:
+                    # Si falla el descifrado, devolvemos el original (podría ser plano)
+                    pass
+            
+            return user, password
     except Exception:
         return None, None
 

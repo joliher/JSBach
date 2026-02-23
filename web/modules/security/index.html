@@ -1,0 +1,152 @@
+<!-- /web/modules/security/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>JSBach - Seguridad</title>
+    <link rel="stylesheet" href="../../css/global.css">
+    <style>
+        .security-container {
+            max-width: 800px;
+            padding: 30px;
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+        }
+
+        .mfa-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .status-on {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-off {
+            background: var(--error);
+            color: white;
+        }
+
+        .setup-area {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+
+        #qr-container img {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .code-input {
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 5px;
+            width: 200px;
+            margin: 10px auto;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--accent);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-security" class="section active">
+                    <div class="security-container">
+                        <h1>🛡️ Seguridad de Acceso</h1>
+                        <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                            Proteja su cuenta con capas adicionales de seguridad.
+                        </p>
+
+                        <div class="mfa-status">
+                            <div style="font-size: 2rem;">📱</div>
+                            <div style="flex-grow: 1;">
+                                <h3 style="margin: 0;">Autenticación de Dos Factores (MFA/TOTP)</h3>
+                                <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: var(--text-secondary);">
+                                    Requiere un código generado por una aplicación (Google Authenticator, Authy, etc.)
+                                    para iniciar sesión.
+                                </p>
+                            </div>
+                            <div id="mfa-badge" class="status-badge status-off">Desactivado</div>
+                        </div>
+
+                        <div id="mfa-actions">
+                            <button id="btn-enable" class="btn btn-accent" onclick="startMfaSetup()">Activar
+                                MFA</button>
+                            <button id="btn-disable" class="btn btn-red" style="display: none;"
+                                onclick="showDisableArea()">Desactivar MFA</button>
+                        </div>
+
+                        <div id="setup-area" class="setup-area">
+                            <h3>Configurar Authenticator</h3>
+                            <p>Escanee este código QR con su aplicación de autenticación:</p>
+                            <div id="qr-container"></div>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary);">O ingrese manualmente este
+                                código: <strong id="mfa-secret-text" style="color: var(--accent);"></strong></p>
+
+                            <div style="margin-top: 30px;">
+                                <p>Ingrese el código de 6 dígitos generado por la app para confirmar:</p>
+                                <input type="text" id="verify-code" class="code-input" maxlength="6"
+                                    placeholder="000000">
+                                <br>
+                                <button class="btn btn-accent" onclick="confirmEnableMfa()"
+                                    style="margin-top: 15px;">Confirmar y Activar</button>
+                                <button class="btn" onclick="cancelSetup()"
+                                    style="margin-top: 15px; background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancelar</button>
+                            </div>
+                        </div>
+
+                        <div id="disable-area" class="setup-area">
+                            <h3>Desactivar MFA</h3>
+                            <p>Para desactivar MFA, ingrese su código actual de 6 dígitos:</p>
+                            <input type="text" id="disable-code" class="code-input" maxlength="6" placeholder="000000">
+                            <br>
+                            <button class="btn btn-red" onclick="confirmDisableMfa()"
+                                style="margin-top: 15px;">Desactivar Permanentemente</button>
+                            <button class="btn" onclick="cancelSetup()"
+                                style="margin-top: 15px; background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancelar</button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/security.js"></script>
+</body>
+
+</html>

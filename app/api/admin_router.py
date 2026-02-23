@@ -7,6 +7,7 @@ from typing import Optional, Any, Tuple
 
 try:
     from fastapi import APIRouter, HTTPException, Depends, Request, Response
+    from fastapi.responses import JSONResponse
 except Exception:  # pragma: no cover - fallback for test environment without fastapi
     class APIRouter:
         def __init__(self, *args, **kwargs):
@@ -225,3 +226,70 @@ async def get_expect_profile(profile_id: str, _: None = Depends(require_login)):
             return json.load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# -----------------------------
+# MFA Management
+# -----------------------------
+@router.get("/security/mfa/status")
+async def get_mfa_status(request: Request, _: str = Depends(require_login)):
+    user = request.session["user"]
+    auth_file = os.path.join(CONFIG_DIR, "cli_users.json")
+    from app.utils.auth_helper import load_users
+    data = load_users(auth_file)
+    for u in data.get("users", []):
+        if u["username"] == user:
+            return {"enabled": u.get("mfa_enabled", False)}
+    return {"enabled": False}
+
+@router.post("/security/mfa/setup")
+async def setup_mfa(request: Request, _: str = Depends(require_login)):
+    user = request.session["user"]
+    from app.utils import mfa_helper
+    secret = mfa_helper.generate_mfa_secret()
+    uri = mfa_helper.get_totp_uri(user, secret)
+    qr_code = mfa_helper.generate_qr_base64(uri)
+    
+    # IMPORTANTE: No guardamos el secreto aún como habilitado. 
+    # Lo guardamos temporalmente en la sesión para el paso de verificación.
+    request.session["temp_mfa_secret"] = secret
+    
+    return {"qr_code": qr_code, "secret": secret}
+
+@router.post("/security/mfa/enable")
+async def enable_mfa(request: Request, body: dict, _: str = Depends(require_login)):
+    user = request.session["user"]
+    code = body.get("code")
+    secret = request.session.get("temp_mfa_secret")
+    
+    if not secret:
+        raise HTTPException(status_code=400, detail="Debe iniciar el proceso de configuración primero")
+    
+    from app.utils import mfa_helper
+    if mfa_helper.verify_totp_code(secret, code):
+        from app.utils.auth_helper import save_mfa_secret
+        auth_file = os.path.join(CONFIG_DIR, "cli_users.json")
+        save_mfa_secret(user, secret, True, auth_file)
+        del request.session["temp_mfa_secret"]
+        return {"success": True, "message": "MFA habilitado correctamente"}
+    else:
+        raise HTTPException(status_code=401, detail="Código inválido")
+
+@router.post("/security/mfa/disable")
+async def disable_mfa(request: Request, body: dict, _: str = Depends(require_login)):
+    user = request.session["user"]
+    code = body.get("code")
+    
+    auth_file = os.path.join(CONFIG_DIR, "cli_users.json")
+    from app.utils.auth_helper import load_users, save_mfa_secret
+    data = load_users(auth_file)
+    user_data = next((u for u in data.get("users", []) if u["username"] == user), None)
+    
+    if not user_data or not user_data.get("mfa_enabled"):
+        return {"success": True, "message": "MFA ya estaba deshabilitado"}
+        
+    from app.utils import mfa_helper
+    if mfa_helper.verify_totp_code(user_data["mfa_secret"], code):
+        save_mfa_secret(user, None, False, auth_file)
+        return {"success": True, "message": "MFA deshabilitado"}
+    else:
+        raise HTTPException(status_code=401, detail="Código inválido")

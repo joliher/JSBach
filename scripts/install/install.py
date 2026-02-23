@@ -129,19 +129,22 @@ def create_config_directory(target_path):
         subprocess.run(f"find {dst_profiles} -type f -exec chmod 600 {{}} \\;", shell=True)
         success("Perfiles de Expect copiados correctamente")
 
-    # Generar secrets.env
+        # Generar secrets.env
     secrets_file = os.path.join(config_dir, "secrets.env")
     if not os.path.exists(secrets_file):
-        info(f"Generando clave secreta en {secrets_file}")
+        info(f"Generando llaves secretas en {secrets_file}")
         import secrets
+        import base64
         secret_key = secrets.token_urlsafe(32)
+        crypto_key = base64.b64encode(os.urandom(32)).decode('utf-8')
         with open(secrets_file, "w") as f:
             f.write(f"JSBACH_SECRET_KEY={secret_key}\n")
+            f.write(f"JSBACH_CRYPTO_KEY={crypto_key}\n")
         
         # Permisos estrictos para el archivo de secretos (solo root/jsbach lectura)
         subprocess.run(f"chown jsbach:jsbach {secrets_file}", shell=True)
         subprocess.run(f"chmod 600 {secrets_file}", shell=True)
-        success("Clave secreta generada correctamente")
+        success("Llaves secretas generadas correctamente")
 
 ###############
 #   QOL       #
@@ -256,7 +259,7 @@ def create_venv(target_path):
     if result.returncode != 0:
         error(f"Fallo al crear el entorno virtual: {result.stderr.strip()}")
     # Instalar paquetes
-    result = subprocess.run(f"{venv_path}/bin/pip install fastapi[all] uvicorn requests", shell=True,
+    result = subprocess.run(f"{venv_path}/bin/pip install fastapi[all] uvicorn requests cryptography argon2-cffi pyotp slowapi qrcode pillow", shell=True,
                             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
         error(f"Fallo al instalar paquetes en el entorno virtual: {result.stderr.strip()}")
@@ -305,6 +308,11 @@ def set_directory_permissions(target_path):
             if os.path.exists(subdir_path):
                 subprocess.run(f"chmod 550 {subdir_path}", shell=True)
                 subprocess.run(f"find {subdir_path} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
+                
+                # Crypto Helper: Reforzar permisos si existe
+                crypto_helper = os.path.join(subdir_path, "crypto_helper.py")
+                if os.path.exists(crypto_helper):
+                    subprocess.run(f"chmod 440 {crypto_helper}", shell=True)
     
     # Logs: jsbach escribe (740) - otros solo lectura (si tienen acceso al grupo)
     logs_dir = os.path.join(target_path, "logs")

@@ -1,0 +1,29 @@
+<!-- /web/modules/security/sidebar.html -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+</head>
+
+<body class="sidebar">
+    <h3>🛡️ SEGURIDAD</h3>
+
+    <button type="button" id="btnMfa" onclick="irAccion('mfa')" class="active">💻 MFA / TOTP</button>
+    <button type="button" id="btnLogs" onclick="irAccion('logs')" disabled style="opacity: 0.5;">📋 Auditoría
+        (Pronto)</button>
+
+    <script>
+        function irAccion(accion) {
+            // En este módulo por ahora solo tenemos una vista
+            window.parent.location.href = 'index.html';
+        }
+    </script>
+</body>
+
+</html>

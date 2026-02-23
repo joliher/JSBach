@@ -1,0 +1,41 @@
+/* /web/modules/security/css/sidebar.css */
+body.sidebar {
+    background: rgba(15, 23, 42, 0.4);
+    height: 100vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+body.sidebar h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+}
+
+body.sidebar button {
+    width: 100%;
+    text-align: left;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+body.sidebar button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+body.sidebar button.active {
+    background: var(--accent-gradient);
+    color: white;
+    border: none;
+}

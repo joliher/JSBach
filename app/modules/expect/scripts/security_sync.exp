@@ -1,15 +1,15 @@
 #!/usr/bin/expect -f
 set timeout 180
 spawn $env(PROTOCOL) $env(IP)
-expect "$env(LOGIN_PROMPT)"
-send "$env(USER)\r"
-expect "$env(PASSWORD_PROMPT)"
-send "$env(EXPECT_PASS)\r"
-expect "$env(EXEC_PROMPT)"
-send "en\r"
-expect "$env(PRIV_PROMPT)"
-send "configure\r"
-expect "$env(CONFIG_PROMPT)"
+expect -- "$env(LOGIN_PROMPT)"
+send -- "$env(USER)\r"
+expect -- "$env(PASSWORD_PROMPT)"
+send -- "$env(EXPECT_PASS)\r"
+expect -- "$env(EXEC_PROMPT)"
+send -- "en\r"
+expect -- "$env(PRIV_PROMPT)"
+send -- "configure\r"
+expect -- "$env(CONFIG_PROMPT)"
 
 # Inyectar comandos desde la variable de entorno enviada por el backend
 set prompt_config $env(CONFIG_PROMPT)
@@ -18,20 +18,24 @@ if {[info exists env(CLI_COMMANDS)]} {
     foreach cmd $commands {
         set trimmed_cmd [string trim $cmd]
         if {$trimmed_cmd != ""} {
-            send "$trimmed_cmd\r"
+            send -- "$trimmed_cmd\r"
             expect {
                 -re {(\(config(-if)?\)#|#|>)} { }
                 timeout { exit 1 }
+                eof { exit 1 }
             }
         }
     }
 }
 
-send "exit\r"
-expect "$env(PRIV_PROMPT)"
-send "$env(SAVE_CMD)\r"
-expect "$env(PRIV_PROMPT)"
-send "exit\r"
-expect "$env(EXEC_PROMPT)"
-send "exit\r"
-expect eof
+send -- "exit\r"
+expect -- "$env(PRIV_PROMPT)"
+send -- "$env(SAVE_CMD)\r"
+expect -- "$env(PRIV_PROMPT)"
+send -- "exit\r"
+expect -- "$env(EXEC_PROMPT)"
+send -- "exit\r"
+expect {
+    timeout { exit 1 }
+    eof { exit 0 }
+}

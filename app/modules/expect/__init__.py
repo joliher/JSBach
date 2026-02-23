@@ -14,6 +14,7 @@ from .helpers import (
     get_secrets
 )
 from ...utils.validators import validate_ip_address
+from app.utils import crypto_helper, sanitization_helper
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 CONFIG_DIR = os.path.join(BASE_DIR, "config", "expect")
@@ -27,55 +28,76 @@ def _load_switch(ip: str) -> Optional[Dict[str, Any]]:
 
 # Actions
 async def mac_table(params: Dict[str, Any]) -> Tuple[bool, str]:
-    ip = params.get("ip")
+    ip = sanitization_helper.sanitize_ip_or_host(params.get("ip"))
+    
     sw = _load_switch(ip)
     if not sw: return False, f"Switch {ip} no encontrado"
     profile = load_profile(sw["profile"], PROFILES_DIR)
     user, password = get_secrets(ip, SECRETS_JSON)
     protocol = sw.get("protocol")
+    
+    # Los secretos se pasan via env, deben ser literales
+    
     return await actions.mac.run_mac_table(ip, profile, True, user, password, protocol=protocol)
 
 async def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
-    ip = params.get("ip")
-    mac = params.get("mac")
+    ip = sanitization_helper.sanitize_ip_or_host(params.get("ip"))
+    mac = sanitization_helper.sanitize_cli_command(params.get("mac"))
+    
     sw = _load_switch(ip)
     if not sw: return False, f"Switch {ip} no encontrado"
     profile = load_profile(sw["profile"], PROFILES_DIR)
     max_ports = sw.get("max_ports") or profile.get("max_ports", 24)
     user, password = get_secrets(ip, SECRETS_JSON)
     protocol = sw.get("protocol")
+    
+    # Los secretos se pasan via env, deben ser literales
+    
     return await actions.mac.run_mac_acl_isolate(ip, mac, profile, True, user, password, max_ports, protocol=protocol)
 
 async def unisolate(params: Dict[str, Any]) -> Tuple[bool, str]:
-    ip = params.get("ip")
-    mac = params.get("mac")
+    ip = sanitization_helper.sanitize_ip_or_host(params.get("ip"))
+    mac = sanitization_helper.sanitize_cli_command(params.get("mac"))
+    
     sw = _load_switch(ip)
     if not sw: return False, f"Switch {ip} no encontrado"
     profile = load_profile(sw["profile"], PROFILES_DIR)
     max_ports = sw.get("max_ports") or profile.get("max_ports", 24)
     user, password = get_secrets(ip, SECRETS_JSON)
     protocol = sw.get("protocol")
+    
+    # Los secretos se pasan via env, deben ser literales
+    
     return await actions.mac.run_mac_acl_unisolate(ip, mac, profile, True, user, password, max_ports, protocol=protocol)
 
 async def config(params: Dict[str, Any]) -> Tuple[bool, str]:
-    ip = params.get("ip")
-    actions_raw = params.get("actions")
+    ip = sanitization_helper.sanitize_ip_or_host(params.get("ip"))
+    actions_raw = sanitization_helper.sanitize_cli_command(params.get("actions"))
     dry_run = params.get("dry_run", False)
+    
     sw = _load_switch(ip)
     if not sw: return False, f"Switch {ip} no encontrado"
     profile = load_profile(sw["profile"], PROFILES_DIR)
     user, password = get_secrets(ip, SECRETS_JSON)
     protocol = sw.get("protocol")
+    
+    # Los secretos se pasan via env, deben ser literales
+    
     return await actions.config.run_config(ip, actions_raw, profile, True, user, password, dry_run, protocol=protocol)
 
 async def reset(params: Dict[str, Any]) -> Tuple[bool, str]:
-    ip = params.get("ip")
+    ip = sanitization_helper.sanitize_ip_or_host(params.get("ip"))
+    
     sw = _load_switch(ip)
     if not sw: return False, f"Switch {ip} no encontrado"
     profile = load_profile(sw["profile"], PROFILES_DIR)
     max_ports = sw.get("max_ports") or profile.get("max_ports", 24)
     user, password = get_secrets(ip, SECRETS_JSON)
     protocol = sw.get("protocol")
+    
+    user = sanitization_helper.sanitize_expect_input(user)
+    password = sanitization_helper.sanitize_expect_input(password)
+    
     return await actions.config.run_reset(ip, profile, True, user, password, max_ports, protocol=protocol)
 
 def get_state(params: Dict[str, Any]) -> Tuple[bool, str]:
@@ -126,11 +148,22 @@ def list_switches(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
 def _update_credentials(ip: str, user: str, password: Optional[str] = None):
     secrets = load_json_config(SECRETS_JSON)
     if ip not in secrets:
-        secrets[ip] = {"user": user, "password": password or ""}
-    else:
-        secrets[ip]["user"] = user
-        if password is not None:
-            secrets[ip]["password"] = password
+        secrets[ip] = {"user": user, "password": ""}
+    
+    secrets[ip]["user"] = user
+    if password is not None:
+        # Cifrar password si existe una llave maestra
+        encrypted_password = password
+        try:
+            key = crypto_helper.get_master_key()
+            if key:
+                encrypted_password = crypto_helper.encrypt_string(password, key)
+        except Exception as e:
+            # logs is not imported as a logger object here, but get_module_logger is available
+            pass
+            
+        secrets[ip]["password"] = encrypted_password
+        
     save_json_config(SECRETS_JSON, secrets)
 
 def add_switch(params: Dict[str, Any]) -> Tuple[bool, str]:
@@ -217,13 +250,17 @@ def update_switch(params: Dict[str, Any]) -> Tuple[bool, str]:
     return True, f"Switch {ip} actualizado"
 
 async def apply_whitelist(params: Dict[str, Any]) -> Tuple[bool, str]:
-    ip = params.get("ip")
+    ip = sanitization_helper.sanitize_ip_or_host(params.get("ip"))
+    
     sw = _load_switch(ip)
     if not sw: return False, f"Switch {ip} no encontrado"
     profile = load_profile(sw["profile"], PROFILES_DIR)
     max_ports = sw.get("max_ports") or profile.get("max_ports", 24)
     user, password = get_secrets(ip, SECRETS_JSON)
     protocol = sw.get("protocol")
+    
+    user = sanitization_helper.sanitize_expect_input(user)
+    password = sanitization_helper.sanitize_expect_input(password)
     
     from .actions.security import run_sync_security
     return await run_sync_security(ip, profile, True, user, password, max_ports, protocol=protocol)

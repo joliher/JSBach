@@ -23,7 +23,12 @@
             <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
         </div>
 
-        <button onclick="login()">Acceder al Sistema</button>
+        <div class="form-group" id="mfa-group" style="display: none;">
+            <label for="mfa_code">Código de Seguridad (MFA)</label>
+            <input type="text" id="mfa_code" placeholder="000 000" maxlength="6">
+        </div>
+
+        <button id="login-btn" onclick="login()">Acceder al Sistema</button>
 
         <div class="error" id="error"></div>
     </div>

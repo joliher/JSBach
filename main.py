@@ -6,21 +6,8 @@ import uvicorn
 
 # Load secret key
 def get_secret_key():
-    config_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config')
-    secrets_file = os.path.join(config_dir, 'secrets.env')
-    
-    if os.path.exists(secrets_file):
-        try:
-            with open(secrets_file, 'r') as f:
-                for line in f:
-                    if line.startswith('JSBACH_SECRET_KEY='):
-                        return line.split('=', 1)[1].strip()
-        except Exception:
-            pass
-            
-    # Fallback: generate random key in memory (session will be lost on restart)
+    """Genera una clave aleatoria en memoria (las sesiones se invalidan al reiniciar)."""
     import secrets
-    logging.warning("No secrets.env found or unreadable. Using random session key (sessions will be invalid after restart).")
     return secrets.token_urlsafe(32)
 
 app = FastAPI()
