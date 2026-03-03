@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <title>JSBach - Estado DHCP</title>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-status" class="section active">
+                    <div class="container">
+                        <h2>📊 Estado del Servicio DHCP</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 25px;">
+                            Monitorización en tiempo real del servidor dnsmasq y asignación dinámica de IPs.
+                        </p>
+
+                        <div class="button-group" style="margin-bottom: 20px;">
+                            <button class="btn btn-accent" onclick="fetchStatus()">🔄 Actualizar Estado</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <div id="status-container" class="output">
+                                <div class="loading">Cargando estado...</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="/web/js/utils.js"></script>
+    <script src="js/status.js"></script>
+</body>
+
+</html>

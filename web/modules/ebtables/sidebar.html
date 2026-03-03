@@ -5,7 +5,9 @@
 <head>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/web/css/global.css">
     <link rel="stylesheet" href="css/sidebar.css">
@@ -30,6 +32,12 @@
     <div class="status-box desactivo" id="module-status">Estado: Cargando...</div>
 
     <div class="dependency-warning">
+        <strong>⚠️ Nota Importante:</strong><br>
+        Al pulsar <strong>START</strong> se redirigirá todo el tráfico de las interfaces a cadenas ebtables específicas.
+        El aislamiento requiere que el módulo esté activo.
+    </div>
+
+    <div class="dependency-warning">
         <strong>⚠️ Dependencias:</strong><br>
         <div id="dep-wan" class="dep-item">🔄 WAN: Comprobando...</div>
         <div id="dep-vlans" class="dep-item">🔄 VLANs: Comprobando...</div>
@@ -49,7 +57,7 @@
     <button type="button" id="btnInfo" onclick="irSeccion('info')">ℹ️ VER INFO</button>
 
     <script src="js/sidebar.js"></script>
-<script src="/web/js/utils.js"></script>
+    <script src="/web/js/utils.js"></script>
 </body>
 
 </html>

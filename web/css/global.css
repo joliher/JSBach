@@ -432,8 +432,8 @@ button[type="submit"]:hover {
 /* --- DASHBOARD PREMIUM ENHANCEMENTS --- */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
     margin-top: 30px;
 }
 
@@ -448,7 +448,7 @@ button[type="submit"]:hover {
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 20px;
+    padding: 15px;
     transition: transform 0.3s ease-out, border-color 0.3s ease, background 0.3s ease;
     /* Optimized transition properties */
     cursor: pointer;
@@ -482,8 +482,7 @@ button[type="submit"]:hover {
 }
 
 .module-card-square .icon-wrapper {
-    font-size: 3.2rem;
-    /* Slightly smaller for balance */
+    font-size: 2.5rem;
     margin-bottom: 12px;
     transition: transform 0.2s ease;
 }
@@ -494,7 +493,7 @@ button[type="submit"]:hover {
 
 .module-card-square .name {
     font-weight: 800;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--text-primary);
     letter-spacing: 0.5px;
     text-transform: uppercase;

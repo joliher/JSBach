@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <title>JSBach - Seguridad Wi-Fi</title>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+            <main class="main-area">
+                <section id="section-config" class="section active">
+                    <div class="container">
+                        <h2>🛡️ Seguridad y Aislamiento</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                            Controle cómo interactúan los clientes de la red Wi-Fi con el resto de su infraestructura.
+                        </p>
+
+                        <div class="form-grid"
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                            <div class="form-group">
+                                <label>Aislamiento de Red (WAN Only)</label>
+                                <div id="iso-control" style="margin-top: 10px;">
+                                    <button type="button" class="btn" onclick="toggleSecurity('isolate', this)"
+                                        id="btn-iso">Cargando...</button>
+                                </div>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                    Si está activado, los clientes Wi-Fi solo podrán acceder a Internet a través de
+                                    la WAN, sin acceso a otras VLANs o redes locales.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label>Restricción de Administración</label>
+                                <div id="res-control" style="margin-top: 10px;">
+                                    <button type="button" class="btn" onclick="toggleSecurity('restrict', this)"
+                                        id="btn-res">Cargando...</button>
+                                </div>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                    Bloquea el acceso a la interfaz de administración del router (puerto 8100) desde
+                                    la red Wi-Fi.
+                                </p>
+                            </div>
+                        </div>
+
+                        <hr style="margin: 30px 0; border: none; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+
+                        <h3>🔒 Filtrado MAC (Blacklist)</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Añada direcciones MAC que estarán bloqueadas permanentemente a nivel L2, sin acceso a la red ni al portal cautivo.
+                        </p>
+                        <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                            <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
+                                <div style="flex: 1;">
+                                    <label for="new-mac">Bloquear Nueva MAC</label>
+                                    <input type="text" id="new-mac" class="form-control" placeholder="Ej: 00:11:22:33:44:55">
+                                </div>
+                                <button type="button" class="btn btn-primary" onclick="addWifiMac()" style="margin-bottom: 1px;">Añadir MAC</button>
+                            </div>
+                        </div>
+
+                        <div class="table-container" style="margin-top: 20px; overflow-x: auto;">
+                            <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                        <th style="padding: 12px; color: var(--text-secondary);">Dirección MAC</th>
+                                        <th style="padding: 12px; color: var(--text-secondary); text-align: right;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mac-list-table">
+                                    <tr><td colspan="2" style="text-align: center; padding: 20px;">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="config-message" style="margin-top: 20px;"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <script src="/web/js/utils.js"></script>
+    <script src="js/config.js"></script>
+</body>
+
+</html>

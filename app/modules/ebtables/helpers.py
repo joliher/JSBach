@@ -43,7 +43,12 @@ def ensure_dirs():
 
 def load_ebtables_config() -> dict:
     """Cargar configuración de ebtables."""
-    return load_json_config(EBTABLES_CONFIG_FILE, {"vlans": {}, "status": 0})
+    return load_json_config(EBTABLES_CONFIG_FILE, {"vlans": {}, "status": 0, "wifi": {"isolated": False}})
+
+def load_wifi_config() -> Dict[str, Any]:
+    """Cargar configuración de Wi-Fi."""
+    WIFI_CONFIG_FILE = os.path.join(BASE_DIR, "config", "wifi", "wifi.json")
+    return load_json_config(WIFI_CONFIG_FILE, {})
 
 
 def save_ebtables_config(data: dict):
@@ -346,9 +351,9 @@ def run_ebtables(args: List[str], timeout: int = 30) -> Tuple[bool, str]:
 # GESTIÓN DE CADENAS
 # =============================================================================
 
-def create_vlan_chain(vlan_id: int) -> bool:
-    """Crear cadena FORWARD_VLAN_X para una VLAN específica."""
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
+def create_vlan_chain(vlan_id: Any) -> bool:
+    """Crear cadena para una VLAN específica o Wi-Fi."""
+    chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
     
     # Verificar si ya existe
     success, output = run_ebtables(["-L", chain_name])
@@ -366,9 +371,9 @@ def create_vlan_chain(vlan_id: int) -> bool:
     return True
 
 
-def delete_vlan_chain(vlan_id: int) -> bool:
-    """Eliminar cadena FORWARD_VLAN_X de una VLAN."""
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
+def delete_vlan_chain(vlan_id: Any) -> bool:
+    """Eliminar cadena de una VLAN o Wi-Fi."""
+    chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
     
     # Verificar si existe
     success, output = run_ebtables(["-L", chain_name])
@@ -403,12 +408,9 @@ def delete_vlan_chain(vlan_id: int) -> bool:
     return True
 
 
-def add_vlan_interface_to_forward(vlan_id: int, vlan_interface: str, position: int = 1) -> bool:
-    """Agregar regla en FORWARD que redirecciona tráfico VLAN a su cadena.
-    
-    Regla: ebtables -A FORWARD -i <vlan_interface> -j FORWARD_VLAN_X
-    """
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
+def add_vlan_interface_to_forward(vlan_id: Any, vlan_interface: str, position: int = 1) -> bool:
+    """Agregar regla en FORWARD que redirecciona tráfico VLAN/Wi-Fi a su cadena."""
+    chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
     
     # Verificar si ya existe esta regla
     success, output = run_ebtables(["-L", "FORWARD", "--Ln"])
@@ -473,18 +475,21 @@ def apply_isolation(vlan_id: int, wan_iface: str, vlan_interfaces: List[str]) ->
         wan_iface: Interfaz WAN (ej: eth0)
         vlan_interfaces: Lista de interfaces físicas en esta VLAN
     """
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
+    chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
     
-    # Validar conflictos de VLANs antes de aplicar aislamiento
-    tagging_cfg = load_tagging_config()
-    conflict_ok, conflict_msg = check_interface_vlan_conflict(vlan_id, vlan_interfaces, tagging_cfg)
-    if not conflict_ok:
-        logger.error(f"Conflicto de VLAN: {conflict_msg}")
-        return False
+    # Validar conflictos de VLANs antes de aplicar aislamiento (solo para VLANs numéricas)
+    if str(vlan_id).isdigit():
+        tagging_cfg = load_tagging_config()
+        conflict_ok, conflict_msg = check_interface_vlan_conflict(int(vlan_id), vlan_interfaces, tagging_cfg)
+        if not conflict_ok:
+            logger.error(f"Conflicto de VLAN: {conflict_msg}")
+            return False
     
-    logger.info(f"Aplicando aislamiento a VLAN {vlan_id} - Interfaces: {vlan_interfaces}")
+    logger.info(f"Aplicando aislamiento a {vlan_id} - Interfaces: {vlan_interfaces}")
     
     # Asegurar que la cadena existe
+    # create_vlan_chain usa f"FORWARD_VLAN_{vlan_id}" internamente. 
+    # Mejor refactorizar create_vlan_chain o usar una lógica consistente.
     if not create_vlan_chain(vlan_id):
         logger.error(f"No se pudo crear cadena {chain_name}")
         return False
@@ -560,14 +565,9 @@ def apply_isolation(vlan_id: int, wan_iface: str, vlan_interfaces: List[str]) ->
     return True
 
 
-def remove_isolation(vlan_id: int, vlan_interfaces: List[str] = None) -> bool:
-    """Remover aislamiento de una VLAN (eliminar todas las reglas).
-    
-    Args:
-        vlan_id: ID de la VLAN
-        vlan_interfaces: Lista de interfaces de la VLAN (para remover reglas de FORWARD)
-    """
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
+def remove_isolation(vlan_id: Any, vlan_interfaces: List[str] = None) -> bool:
+    """Remover aislamiento de una VLAN o Wi-Fi."""
+    chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
     
     # Eliminar reglas en FORWARD que redireccionan a esta cadena
     if vlan_interfaces:
@@ -654,219 +654,129 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
     - FORWARD: redirige tráfico de interfaces VLAN 1 a FORWARD_VLAN_1
     - FORWARD_VLAN_1: protege tráfico entre VLANs
     
-        Estructura de reglas:
-    FORWARD:
-      -i <interfaz_vlan1> -j FORWARD_VLAN_1    (redirige a cadena VLAN)
-        FORWARD_VLAN_1:
-            -s <whitelisted_mac> -j ACCEPT           (tráfico saliente)
-            -i <wan_iface> -d <whitelisted_mac> -j ACCEPT  (tráfico de vuelta desde WAN)
-            -i ! <wan_iface> -d <whitelisted_mac> -j DROP  (bloqueo de origen no WAN)
       -j DROP                                   (rechaza MACs no whitelisted)
     """
-    if vlan_id != 1:
-        logger.warning(f"MAC whitelist solo soportada para VLAN 1, no VLAN {vlan_id}")
-        return False
+
+def apply_mac_filter_rules(vlan_id: Any, wan_iface: str, blacklist: list) -> bool:
+    """Aplicar reglas de MAC blacklist para una VLAN o Wi-Fi.
+    
+    Bloquea las MACs en la lista. El resto sigue su curso (aislado o no).
+    """
+    if vlan_id == "wifi":
+        chain_name = "FORWARD_WIFI"
+    else:
+        chain_name = f"FORWARD_VLAN_{vlan_id}"
+    
+    logger.info(f"Aplicando MAC blacklist a {vlan_id} (cadena: {chain_name})")
     
     # Validar que las MACs sean válidas
-    for mac in whitelist:
+    for mac in blacklist:
         if not validate_mac_address(mac):
-            logger.error(f"MAC inválida en whitelist: {mac}")
+            logger.error(f"MAC inválida en blacklist: {mac}")
             return False
     
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
-    
-    # PASO 1: Asegurar que la cadena FORWARD_VLAN_1 existe
+    # PASO 1: Asegurar que la cadena existe
     if not create_vlan_chain(vlan_id):
         logger.error(f"No se pudo crear cadena {chain_name}")
         return False
     
-    # PASO 2: Obtener interfaces de VLAN 1 y redirigir su tráfico a FORWARD_VLAN_1
-    # Cargar configuración de VLANs y tagging
+    # PASO 2: Obtener interfaces y redirigir tráfico
     vlans_cfg = load_vlans_config()
     tagging_cfg = load_tagging_config()
-    
-    # Construir mapa de interfaces por VLAN
     vlan_iface_map = build_vlan_interface_map(vlans_cfg.get("vlans", []), tagging_cfg)
-    vlan_1_interfaces = vlan_iface_map.get(vlan_id, [])
     
-    # Agregar reglas en FORWARD para redirigir tráfico de VLAN 1 a su cadena
-    # Esto asegura que el tráfico pase por FORWARD_VLAN_1 donde están las reglas de MAC whitelist
-    if vlan_1_interfaces:
-        for vlan_iface in vlan_1_interfaces:
-            if not add_vlan_interface_to_forward(vlan_id, vlan_iface, position=1):
-                logger.warning(f"No se pudo agregar regla FORWARD para {vlan_iface}")
-            else:
-                logger.info(f"Tráfico de {vlan_iface} redirigido a {chain_name}")
+    if vlan_id == "wifi":
+        wifi_cfg = load_wifi_config()
+        vlan_interfaces = [wifi_cfg.get("interface")] if wifi_cfg.get("interface") else []
     else:
-        logger.warning("No se encontraron interfaces configuradas para VLAN 1")
+        vlan_interfaces = vlan_iface_map.get(vlan_id, [])
     
-    # PASO 3: Limpiar reglas de whitelist anteriores en FORWARD_VLAN_1
-    # (eliminar reglas con -s <mac> -j ACCEPT y el DROP final de whitelist)
-    # IMPORTANTE: NO eliminar reglas de aislamiento (WAN -i/-o)
-    for chain_to_clean in [chain_name]:
-        success, output = run_ebtables(["-L", chain_to_clean, "--Ln"])
-        if success:
-            lines = output.strip().split('\n')
-            # Buscar y eliminar reglas con -s/-d <mac> -j ACCEPT o DROP
-            for line in lines:
-                if ('-s ' in line or '-d ' in line) and ('-j ACCEPT' in line or '-j DROP' in line):
-                    parts = line.split()
-                    try:
-                        if '-s' in parts:
-                            s_idx = parts.index('-s')
-                            if s_idx + 1 < len(parts):
-                                mac = parts[s_idx + 1]
-                                if '-j' in parts:
-                                    j_idx = parts.index('-j')
-                                    if j_idx + 1 < len(parts):
-                                        target = parts[j_idx + 1]
-                                        run_ebtables(["-D", chain_to_clean, "-s", mac, "-j", target])
-                                        logger.info(f"Regla antigua {chain_to_clean} -s {mac} -j {target} eliminada")
-                        if '-d' in parts:
-                            d_idx = parts.index('-d')
-                            if d_idx + 1 < len(parts):
-                                mac = parts[d_idx + 1]
-                                if '-j' in parts:
-                                    j_idx = parts.index('-j')
-                                    if j_idx + 1 < len(parts):
-                                        target = parts[j_idx + 1]
-                                        if '-i' in parts:
-                                            i_idx = parts.index('-i')
-                                            if i_idx + 1 < len(parts):
-                                                in_iface = parts[i_idx + 1]
-                                                if in_iface == '!':
-                                                    run_ebtables(["-D", chain_to_clean, "-i", "!", wan_iface, "-d", mac, "-j", target])
-                                                else:
-                                                    run_ebtables(["-D", chain_to_clean, "-i", in_iface, "-d", mac, "-j", target])
-                                        else:
-                                            run_ebtables(["-D", chain_to_clean, "-d", mac, "-j", target])
-                                        logger.info(f"Regla antigua {chain_to_clean} -d {mac} -j {target} eliminada")
-                    except (ValueError, IndexError):
-                        continue
-            
-            # Eliminar DROP final SOLO si no hay reglas WAN (no está aislada)
-            # Si hay reglas WAN, dejamos su DROP y agregaremos el nuestro después
-            has_wan_rules = '-i ' in output and '-o ' in output  # Reglas de aislamiento
-            if '-j DROP' in output and not has_wan_rules:
-                # Es un DROP de whitelist anterior, podemos eliminarlo
-                run_ebtables(["-D", chain_to_clean, "-j", "DROP"])
-                logger.info(f"DROP de whitelist anterior eliminado de {chain_to_clean}")
+    if vlan_interfaces:
+        for vlan_iface in vlan_interfaces:
+            # Asegurar redirección en FORWARD
+            add_vlan_interface_to_forward(vlan_id, vlan_iface, position=1)
     
-    # PASO 4: Determinar posición de inserción de reglas de whitelist
-    # La whitelist debe ser más restrictiva: insertar al inicio de la cadena
-    insert_position = 1
-    
-    # PASO 5: Aplicar reglas para cada MAC whitelisted
-    if whitelist:
-        current_position = insert_position
-        for mac_addr in whitelist:
-            # Normalizar MAC
+    # PASO 3: Limpiar reglas de MAC filter anteriores
+    # Buscamos reglas con -s <mac> -j DROP o -d <mac> -j DROP
+    success, output = run_ebtables(["-L", chain_name, "--Ln"])
+    if success:
+        lines = output.strip().split('\n')
+        # Limpiar de atrás hacia adelante para no alterar índices durante el borrado
+        for line in reversed(lines):
+            if (('-s ' in line) or ('-d ' in line)) and ('-j DROP' in line):
+                # Solo borrar si NO es el DROP final de aislamiento (el final no tiene MAC)
+                if any(m in line for m in [':']) or '-s' in line or '-d' in line:
+                   # Extraer parámetros para borrar de forma precisa
+                   parts = line.split()
+                   try:
+                       if '-s' in parts:
+                           mac = parts[parts.index('-s') + 1]
+                           run_ebtables(["-D", chain_name, "-s", mac, "-j", "DROP"])
+                       elif '-d' in parts:
+                           mac = parts[parts.index('-d') + 1]
+                           run_ebtables(["-D", chain_name, "-d", mac, "-j", "DROP"])
+                   except: continue
+
+    # PASO 4: Aplicar reglas de Blacklist (al principio de la cadena)
+    if blacklist:
+        for mac_addr in blacklist:
             normalized_mac = normalize_mac_address(mac_addr)
-            
-            # Agregar en FORWARD_VLAN_1 en la posición correcta (después de WAN)
-            success_src, msg_src = run_ebtables(["-I", chain_name, str(current_position), "-s", normalized_mac, "-j", "ACCEPT"])
-            if not success_src:
-                logger.warning(f"Error agregando regla {chain_name} -s {normalized_mac}: {msg_src}")
-            else:
-                logger.info(f"Regla {chain_name} -s {normalized_mac} -j ACCEPT agregada en posición {current_position}")
-                current_position += 1
-
-            success_dst, msg_dst = run_ebtables(["-I", chain_name, str(current_position), "-i", wan_iface, "-d", normalized_mac, "-j", "ACCEPT"])
-            if not success_dst:
-                logger.warning(f"Error agregando regla {chain_name} -i {wan_iface} -d {normalized_mac}: {msg_dst}")
-            else:
-                logger.info(f"Regla {chain_name} -i {wan_iface} -d {normalized_mac} -j ACCEPT agregada en posición {current_position}")
-                current_position += 1
-
-            success_block, msg_block = run_ebtables(["-I", chain_name, str(current_position), "-i", "!", wan_iface, "-d", normalized_mac, "-j", "DROP"])
-            if not success_block:
-                logger.warning(f"Error agregando regla {chain_name} -i ! {wan_iface} -d {normalized_mac}: {msg_block}")
-            else:
-                logger.info(f"Regla {chain_name} -i ! {wan_iface} -d {normalized_mac} -j DROP agregada en posición {current_position}")
-                current_position += 1
+            # Bloquear como origen
+            run_ebtables(["-I", chain_name, "1", "-s", normalized_mac, "-j", "DROP"])
+            # Bloquear como destino
+            run_ebtables(["-I", chain_name, "1", "-d", normalized_mac, "-j", "DROP"])
     
-    # PASO 6: Agregar DROP final para whitelist en FORWARD_VLAN_1
-    # Si hay reglas WAN, eliminar su DROP y poner uno nuevo al final
-    
-    # FORWARD_VLAN_1: eliminar DROP de aislamiento si existe, y agregar nuevo DROP al final
-    verify_success, verify_output = run_ebtables(["-L", chain_name, "--Ln"])
-    if verify_success and '-j DROP' in verify_output:
-        # Eliminar DROP existente (puede ser de aislamiento)
-        run_ebtables(["-D", chain_name, "-j", "DROP"])
-        logger.info(f"DROP anterior eliminado de {chain_name}")
-    
-    # Agregar nuevo DROP al final
-    success, msg = run_ebtables(["-A", chain_name, "-j", "DROP"])
-    if not success:
-        logger.warning(f"Error agregando DROP final en {chain_name}: {msg}")
-    else:
-        logger.info(f"DROP final agregado a {chain_name}")
-    
-    logger.info(f"MAC whitelist aplicada a VLAN 1 con {len(whitelist)} entradas")
-    logger.info(f"Tráfico de VLAN 1 redirigido a {chain_name} para control de MACs")
+    logger.info(f"MAC blacklist aplicada a {vlan_id} con {len(blacklist)} entradas")
     return True
 
 
-def remove_mac_whitelist_rules(vlan_id: int) -> bool:
-    """Remover todas las reglas de MAC whitelist de las cadenas ebtables.
+def remove_mac_filter_rules(vlan_id: Any) -> bool:
+    """Remover todas las reglas de MAC blacklist de las cadenas ebtables.
     
-    Elimina las reglas -s <mac> -j ACCEPT y el DROP final de FORWARD_VLAN_1.
-    
-    Si la VLAN NO está aislada, también elimina las reglas de redirección en FORWARD
-    para que el tráfico no pase por FORWARD_VLAN_1 innecesariamente.
+    Elimina las reglas -s <mac> -j DROP y -d <mac> -j DROP.
     """
-    if vlan_id != 1:
-        logger.warning(f"MAC whitelist solo soportada para VLAN 1, no VLAN {vlan_id}")
-        return False
-    
-    chain_name = f"FORWARD_VLAN_{vlan_id}"
-    
-    # Verificar si la VLAN está aislada
-    ebtables_cfg = load_ebtables_config()
-    vlan_1_cfg = ebtables_cfg.get("vlans", {}).get("1", {})
-    vlan_is_isolated = vlan_1_cfg.get("isolated", False)
-    
-    # Limpiar reglas de whitelist de FORWARD_VLAN_1
-    for chain_to_clean in [chain_name]:
-        success, output = run_ebtables(["-L", chain_to_clean, "--Ln"])
-        if success:
-            lines = output.strip().split('\n')
-            
-            # Eliminar todas las reglas con -s <mac> -j ACCEPT
-            for line in lines:
-                if '-s ' in line and '-j ACCEPT' in line:
-                    parts = line.split()
-                    try:
-                        s_idx = parts.index('-s')
-                        if s_idx + 1 < len(parts):
-                            mac = parts[s_idx + 1]
-                            run_ebtables(["-D", chain_to_clean, "-s", mac, "-j", "ACCEPT"])
-                            logger.info(f"Regla {chain_to_clean} -s {mac} -j ACCEPT eliminada")
-                    except (ValueError, IndexError):
-                        continue
-            
-            # Eliminar DROP final si existe
-            if '-j DROP' in output:
-                run_ebtables(["-D", chain_to_clean, "-j", "DROP"])
-                logger.info(f"DROP final eliminado de {chain_to_clean}")
-    
-    # Si la VLAN NO está aislada, eliminar las reglas de redirección en FORWARD
-    # porque ya no son necesarias (el aislamiento las necesita, pero la whitelist sola no)
-    if not vlan_is_isolated:
-        # Obtener interfaces de VLAN 1
-        vlans_cfg = load_vlans_config()
-        tagging_cfg = load_tagging_config()
-        vlan_iface_map = build_vlan_interface_map(vlans_cfg.get("vlans", []), tagging_cfg)
-        vlan_1_interfaces = vlan_iface_map.get(vlan_id, [])
-        
-        # Eliminar reglas de redirección en FORWARD para cada interfaz de VLAN 1
-        for vlan_iface in vlan_1_interfaces:
-            if remove_vlan_interface_from_forward(vlan_iface):
-                logger.info(f"Regla de redirección eliminada para {vlan_iface} (VLAN no aislada)")
-            else:
-                logger.warning(f"No se pudo eliminar regla de redirección para {vlan_iface}")
+    if vlan_id == "wifi":
+        chain_name = "FORWARD_WIFI"
     else:
-        logger.info("VLAN 1 está aislada, manteniendo reglas de redirección en FORWARD")
+        chain_name = f"FORWARD_VLAN_{vlan_id}"
     
-    logger.info(f"MAC whitelist removida de VLAN {vlan_id}")
+    # Verificar si está aislada
+    ebtables_cfg = load_ebtables_config()
+    is_isolated = False
+    if vlan_id == "wifi":
+        is_isolated = ebtables_cfg.get("wifi", {}).get("isolated", False)
+    else:
+        is_isolated = ebtables_cfg.get("vlans", {}).get(str(vlan_id), {}).get("isolated", False)
+    
+    # Limpiar reglas de blacklist de la cadena
+    success, output = run_ebtables(["-L", chain_name, "--Ln"])
+    if success:
+        lines = output.strip().split('\n')
+        for line in reversed(lines):
+            if ('-s ' in line or '-d ' in line) and ('-j DROP' in line):
+                parts = line.split()
+                try:
+                    if '-s' in parts:
+                        mac = parts[parts.index('-s') + 1]
+                        run_ebtables(["-D", chain_name, "-s", mac, "-j", "DROP"])
+                    elif '-d' in parts:
+                        mac = parts[parts.index('-d') + 1]
+                        run_ebtables(["-D", chain_name, "-d", mac, "-j", "DROP"])
+                except: continue
+    
+    # Si NO está aislada, podemos eliminar la redirección en FORWARD si ya no hay filtros
+    if not is_isolated:
+        if vlan_id == "wifi":
+            wifi_cfg = load_wifi_config()
+            vlan_interfaces = [wifi_cfg.get("interface")] if wifi_cfg.get("interface") else []
+        else:
+            vlans_cfg = load_vlans_config()
+            tagging_cfg = load_tagging_config()
+            vlan_iface_map = build_vlan_interface_map(vlans_cfg.get("vlans", []), tagging_cfg)
+            vlan_interfaces = vlan_iface_map.get(vlan_id, [])
+        
+        for vlan_iface in vlan_interfaces:
+            remove_vlan_interface_from_forward(vlan_iface)
+    
+    logger.info(f"MAC blacklist removida de {vlan_id}")
     return True

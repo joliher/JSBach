@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../css/global.css">
+</head>
+
+<body class="sidebar">
+    <h3>🌐 DHCP</h3>
+    <div class="status-box desactivo" id="module-status">Estado: Cargando...</div>
+
+    <button type="button" id="btnStart" onclick="irAccion('start')">🚀 DHCP START</button>
+    <button type="button" id="btnStop" onclick="irAccion('stop')">🛑 DHCP STOP</button>
+    <button type="button" id="btnRestart" onclick="irAccion('restart')">🔄 DHCP RESTART</button>
+    <button type="button" id="btnStatus" onclick="irAccion('status')">📊 MONITOR</button>
+    <button type="button" id="btnLeases" onclick="irSeccion('leases')">📋 CONCESIONES (LEASES)</button>
+
+    <div class="menu-divider" style="margin: 15px 0; border-top: 1px solid rgba(255,255,255,0.05);"></div>
+
+    <button type="button" id="btnConfig" onclick="irSeccion('config')">⚙️ CONFIGURACIÓN</button>
+    <button type="button" id="btnInfo" onclick="irSeccion('info')">ℹ️ INFORMACIÓN</button>
+
+    <script src="js/sidebar.js"></script>
+    <script src="/web/js/utils.js"></script>
+</body>
+
+</html>

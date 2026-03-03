@@ -5,7 +5,9 @@
 <head>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
     <meta charset="UTF-8">
     <title>JSBach - Configuración Aislamiento (PVLAN)</title>
     <link rel="stylesheet" href="/web/css/global.css">
@@ -28,6 +30,10 @@
             transform: translateY(-2px);
         }
 
+        .vlan-info {
+            cursor: pointer;
+        }
+
         .vlan-info h4 {
             margin: 0;
             color: var(--text-primary);
@@ -37,6 +43,86 @@
             margin: 5px 0 0;
             font-size: 0.9rem;
             color: var(--text-secondary);
+        }
+
+        .whitelist-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: none;
+            /* Hidden by default */
+            width: 100%;
+        }
+
+        .whitelist-section.active {
+            display: block;
+        }
+
+        .mac-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .mac-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mac-remove {
+            color: var(--error);
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .mac-input-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .mac-input-group input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+
+        .vlan-card {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .vlan-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .vlan-action {
+            display: flex;
+            gap: 12px;
         }
     </style>
 </head>
@@ -56,6 +142,10 @@
                             <strong>ℹ️ Información:</strong> El aislamiento PVLAN opera en Capa 2. Las VLANs marcadas
                             como **Aisladas** solo podrán comunicarse con la WAN, bloqueando cualquier tráfico directo
                             hacia otras VLANs o hosts internos.
+                            <br><br>
+                            <strong>⚠️ Nota sobre EBTABLES START:</strong> Al iniciar el módulo, se crean las cadenas
+                            jerárquicas necesarias y se **redirige todo el tráfico** de las interfaces físicas a estas
+                            cadenas para su procesamiento.
                         </div>
 
                         <div id="message-container" style="margin-bottom: 20px; font-weight: 600;"></div>
@@ -70,7 +160,7 @@
     </div>
 
     <script src="js/config.js"></script>
-<script src="/web/js/utils.js"></script>
+    <script src="/web/js/utils.js"></script>
 </body>
 
 </html>

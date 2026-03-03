@@ -38,4 +38,20 @@ _setup_app()
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    uvicorn.run(app, host="0.0.0.0", port=8100, log_level="info")
+    # El puerto principal del sistema es para la configuración y control. 
+    # Sin embargo, install.py levanta la aplicación. Si PORTAL_PORT está definido,
+    # este archivo debería quizás escuchar en ese puerto.
+    # Actually, main.py is the primary web application. 
+    # But wait, does main.py serve BOTH the admin panel AND the portal on the same port?
+    # Yes, right now they are on the same port unless separate. We should bind to 80/8100 appropriately.
+    # Currently it seems the installer sets system control port to `port` (e.g. 8100).
+    # Since portal traffic is redirected to the router IP, it just needs to hit the FastAPI port.
+    # Let's ensure the web app runs on the main `port` but we also configure the portal logic accurately later.
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8100)
+    args, unknown = parser.parse_known_args()
+    
+    # El puerto principal del sistema viene por argumentos desde systemd
+    app_port = args.port
+    uvicorn.run(app, host="0.0.0.0", port=app_port, log_level="info")

@@ -152,6 +152,93 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         results.append(f"VLAN {vlan_id} ({vlan_name}): Configurada")
     
+    # Procesar Wi-Fi si está activo
+    wifi_cfg_mod = mh.load_module_config(BASE_DIR, "wifi", {})
+    if wifi_cfg_mod.get("status") == 1:
+        # Load directly from wifi.json to ensure test interfaces like dummy0 are caught
+        wifi_json_cfg = mh.load_json_config(os.path.join(BASE_DIR, "config", "wifi", "wifi.json"), wifi_cfg_mod)
+        wifi_iface = wifi_json_cfg.get("interface", "wlp3s0")
+        wifi_net = f"{wifi_json_cfg.get('ip_address')}/{wifi_json_cfg.get('netmask')}"
+        if wifi_iface and wifi_net:
+            logger.info(f"Configurando Firewall para Wi-Fi AP ({wifi_iface})")
+            
+            # Cargar preferencias de seguridad del firewall para Wi-Fi
+            wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": True})
+            
+            # 1. INPUT_WIFI (Restricción)
+            _run_command(["/usr/sbin/iptables", "-N", "INPUT_WIFI"])
+            _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"])
+            
+            # Verificar si ya está vinculada a INPUT
+            success_link, _ = _run_command(["/usr/sbin/iptables", "-C", "INPUT", "-i", wifi_iface, "-j", "INPUT_WIFI"])
+            if not success_link:
+                _run_command(["/usr/sbin/iptables", "-I", "INPUT", "2", "-i", wifi_iface, "-j", "INPUT_WIFI"])
+            
+            # Permitir DHCP, DNS, ICMP
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "67:68", "-j", "ACCEPT"])
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "tcp", "--dport", str(wifi_json_cfg.get("portal_port", 8500)), "-j", "ACCEPT"])
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "icmp", "-j", "ACCEPT"])
+            
+            # Aplicar restricción si está habilitada (bloquear acceso al router)
+            if wifi_fw_cfg.get("restricted", True):
+                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "DROP"])
+                logger.info("Wi-Fi: Acceso al router RESTRINGIDO")
+            else:
+                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "ACCEPT"])
+                logger.info("Wi-Fi: Acceso al router PERMITIDO")
+            
+            # 2. FORWARD_WIFI (Aislamiento)
+            _run_command(["/usr/sbin/iptables", "-N", "FORWARD_WIFI"])
+            _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"])
+            
+            # Verificar si ya está vinculada a FORWARD
+            success_fwd, _ = _run_command(["/usr/sbin/iptables", "-C", "FORWARD", "-i", wifi_iface, "-j", "FORWARD_WIFI"])
+            if not success_fwd:
+                # Insertar en posición 2 (después de ESTABLISHED,RELATED que pondremos en la 1)
+                _run_command(["/usr/sbin/iptables", "-I", "FORWARD", "2", "-i", wifi_iface, "-j", "FORWARD_WIFI"])
+            
+            # Cargar configuración WAN para identificar la interfaz de salida
+            wan_cfg_mod = _load_wan_config()
+            wan_iface = wan_cfg_mod.get("interface")
+            
+            # Aplicar aislamiento si está habilitado (Solo permitir salida a Internet vía WAN)
+            if wifi_fw_cfg.get("isolated", True):
+                if wan_iface:
+                    _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-o", wan_iface, "-j", "ACCEPT"])
+                    logger.info(f"Wi-Fi: AISLAMIENTO activado (solo salida por {wan_iface})")
+                else:
+                    logger.warning("Wi-Fi: AISLAMIENTO activado pero no hay interfaz WAN configurada.")
+                
+                # Bloquear todo lo que no sea WAN (VLANs, otras subredes locales)
+                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "DROP"])
+            else:
+                # Permitir resto (Acceso libre)
+                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "ACCEPT"])
+                logger.info("Wi-Fi: AISLAMIENTO desactivado (acceso libre)")
+            
+            # 3. Portal Cautivo
+            # Cargamos configuración extendida de wifi
+            p_enabled = wifi_cfg_mod.get("portal_enabled", False)
+            p_port = wifi_cfg_mod.get("portal_port", 8100)
+            
+            # Cargar MACs autorizadas
+            p_auth_file = os.path.join(BASE_DIR, "config", "wifi", "portal_auth.json")
+            p_auth_data = mh.load_json_config(p_auth_file, {"authorized_macs": []})
+            p_auth_macs = p_auth_data.get("authorized_macs", [])
+            
+            from .helpers import setup_wifi_portal
+            if setup_wifi_portal(p_enabled, p_port, p_auth_macs):
+                logger.info(f"Portal Cautivo Wi-Fi: {'Habilitado' if p_enabled else 'Deshabilitado'} (Puerto: {p_port})")
+            
+            # Añadir regla de estado global al inicio de FORWARD para permitir tráfico de vuelta
+            # (Se hace aquí para asegurar que al menos una red lo necesite)
+            # Usamos -A (Append) o una posición baja para no desplazar reglas de bloqueo críticas del portal
+            if _run_command(["/usr/sbin/iptables", "-C", "FORWARD", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"])[0] == False:
+                _run_command(["/usr/sbin/iptables", "-A", "FORWARD", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"])
+            
+            results.append(f"Wi-Fi AP ({wifi_iface}): Configurada (A:{'SÍ' if wifi_fw_cfg.get('isolated') else 'NO'} R:{'SÍ' if wifi_fw_cfg.get('restricted') else 'NO'} P:{'SÍ' if p_enabled else 'NO'})")
+    
     # Guardar configuración
     fw_cfg["status"] = 1
     if not _save_firewall_config(fw_cfg):
@@ -250,6 +337,18 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         results.append(f"VLAN {vlan_id}: Desactivada")
     
+    # Limpiar Wi-Fi
+    wifi_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    wifi_iface = wifi_cfg.get("interface", "wlp3s0")
+    if wifi_iface:
+        _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-i", wifi_iface, "-j", "INPUT_WIFI"])
+        _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"])
+        _run_command(["/usr/sbin/iptables", "-X", "INPUT_WIFI"])
+        
+        _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-i", wifi_iface, "-j", "FORWARD_WIFI"])
+        _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"])
+        _run_command(["/usr/sbin/iptables", "-X", "FORWARD_WIFI"])
+    
     # FIX BUG #7: Eliminar vínculos y cadenas protegidas
     # Limpiar contenido
     _run_command(["/usr/sbin/iptables", "-F", "INPUT_PROTECTION"])
@@ -329,15 +428,123 @@ def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
 
 # =============================================================================
+# WI-FI SECURITY HELPERS
+# =============================================================================
+
+def isolate_wifi(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    """Aislar el módulo Wi-Fi de todas las VLANs internas."""
+    logger.info("=== INICIO: isolate_wifi ===")
+    fw_cfg = _load_firewall_config()
+    wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": False, "restricted": True})
+    
+    # 1. Actualizar configuración
+    wifi_fw_cfg["isolated"] = True
+    fw_cfg["wifi"] = wifi_fw_cfg
+    _save_firewall_config(fw_cfg)
+    
+    # 2. Aplicar reglas si el módulo Wi-Fi está activo
+    wifi_mod_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    if wifi_mod_cfg.get("status") == 1:
+        logger.info("Wi-Fi activo, aplicando reglas de aislamiento inmediatamente")
+        # Forzar reinicio del firewall para aplicar el bucle de aislamiento de VLANs
+        start()
+        msg = "Wi-Fi aislado de redes locales correctamente."
+    else:
+        msg = "Preferencia de aislamiento guardada (se aplicará al iniciar el Wi-Fi)."
+    
+    logger.info(msg)
+    log_action("firewall", f"wifi: isolate - SUCCESS")
+    return True, msg
+
+def unisolate_wifi(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    """Permitir que el Wi-Fi acceda a las VLANs internas (quitar reglas de aislamiento)."""
+    logger.info("=== INICIO: unisolate_wifi ===")
+    fw_cfg = _load_firewall_config()
+    wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": True})
+    
+    # 1. Actualizar configuración
+    wifi_fw_cfg["isolated"] = False
+    fw_cfg["wifi"] = wifi_fw_cfg
+    _save_firewall_config(fw_cfg)
+    
+    # 2. Aplicar reglas si el módulo Wi-Fi está activo
+    wifi_mod_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    if wifi_mod_cfg.get("status") == 1:
+        logger.info("Wi-Fi activo, eliminando reglas de aislamiento inmediatamente")
+        # Forzar reinicio del firewall para limpiar el bucle de aislamiento
+        start()
+        msg = "Aislamiento de Wi-Fi desactivado correctamente."
+    else:
+        msg = "Preferencia de acceso local guardada (se aplicará al iniciar el Wi-Fi)."
+    
+    logger.info(msg)
+    log_action("firewall", f"wifi: unisolate - SUCCESS")
+    return True, msg
+
+def restrict_wifi(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    """Restringir acceso al router desde el módulo Wi-Fi."""
+    logger.info("=== INICIO: restrict_wifi ===")
+    fw_cfg = _load_firewall_config()
+    wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": False})
+    
+    # 1. Actualizar configuración
+    wifi_fw_cfg["restricted"] = True
+    fw_cfg["wifi"] = wifi_fw_cfg
+    _save_firewall_config(fw_cfg)
+    
+    # 2. Aplicar reglas si el módulo Wi-Fi está activo
+    wifi_mod_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    if wifi_mod_cfg.get("status") == 1:
+        start()
+        msg = "Acceso al router desde Wi-Fi restringido correctamente."
+    else:
+        msg = "Preferencia de restricción guardada."
+    
+    logger.info(msg)
+    log_action("firewall", f"wifi: restrict - SUCCESS")
+    return True, msg
+
+def unrestrict_wifi(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    """Permitir acceso total al router desde el módulo Wi-Fi."""
+    logger.info("=== INICIO: unrestrict_wifi ===")
+    fw_cfg = _load_firewall_config()
+    wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": True})
+    
+    # 1. Actualizar configuración
+    wifi_fw_cfg["restricted"] = False
+    fw_cfg["wifi"] = wifi_fw_cfg
+    _save_firewall_config(fw_cfg)
+    
+    # 2. Aplicar reglas si el módulo Wi-Fi está activo
+    wifi_mod_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    if wifi_mod_cfg.get("status") == 1:
+        start()
+        msg = "Acceso al router desde Wi-Fi permitido correctamente."
+    else:
+        msg = "Preferencia de acceso libre guardada."
+    
+    logger.info(msg)
+    log_action("firewall", f"wifi: unrestrict - SUCCESS")
+    return True, msg
+
+
+# =============================================================================
 # AISLAMIENTO (FORWARD_PROTECTION)
 # =============================================================================
 
 def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    """Aislar una VLAN (añadir regla en FORWARD_PROTECTION)."""
+    """Aislar una VLAN o el módulo Wi-Fi (reglas en FORWARD_PROTECTION o FORWARD_WIFI)."""
     logger.info("=== INICIO: isolate ===")
     
-    if not params or "vlan_id" not in params:
-        return False, "Error: vlan_id requerido"
+    if not params:
+        return False, "Error: Parámetros requeridos"
+    
+    # Soporte para módulo Wi-Fi
+    if params.get("module") == "wifi":
+        return isolate_wifi(params)
+    
+    if "vlan_id" not in params:
+        return False, "Error: vlan_id o module='wifi' requerido"
     
     vlan_id = params["vlan_id"]
     from_start = params.get("from_start", False)
@@ -433,11 +640,18 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
 
 def unisolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    """Desaislar una VLAN (eliminar regla de FORWARD_PROTECTION)."""
+    """Desaislar una VLAN o el módulo Wi-Fi."""
     logger.info("=== INICIO: unisolate ===")
     
-    if not params or "vlan_id" not in params:
-        return False, "Error: vlan_id requerido"
+    if not params:
+        return False, "Error: Parámetros requeridos"
+    
+    # Soporte para módulo Wi-Fi
+    if params.get("module") == "wifi":
+        return unisolate_wifi(params)
+    
+    if "vlan_id" not in params:
+        return False, "Error: vlan_id o module='wifi' requerido"
     
     vlan_id = params["vlan_id"]
     
@@ -505,15 +719,18 @@ def unisolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 # =============================================================================
 
 def restrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    """Restringir acceso al router desde una VLAN (INPUT_VLAN_X).
-    
-    VLANs 1-2: DROP total
-    Otras VLANs: Permitir DHCP, DNS, ICMP; DROP resto
-    """
+    """Restringir acceso al router desde una VLAN o el módulo Wi-Fi."""
     logger.info("=== INICIO: restrict ===")
     
-    if not params or "vlan_id" not in params:
-        return False, "Error: vlan_id requerido"
+    if not params:
+        return False, "Error: Parámetros requeridos"
+    
+    # Soporte para módulo Wi-Fi
+    if params.get("module") == "wifi":
+        return restrict_wifi(params)
+    
+    if "vlan_id" not in params:
+        return False, "Error: vlan_id o module='wifi' requerido"
     
     suppress_log = bool(params.get("suppress_log", False))
     
@@ -582,11 +799,18 @@ def restrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
 
 def unrestrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    """Eliminar restricciones de una VLAN (INPUT_VLAN_X)."""
+    """Eliminar restricciones de una VLAN o del módulo Wi-Fi."""
     logger.info("=== INICIO: unrestrict ===")
     
-    if not params or "vlan_id" not in params:
-        return False, "Error: vlan_id requerido"
+    if not params:
+        return False, "Error: Parámetros requeridos"
+    
+    # Soporte para módulo Wi-Fi
+    if params.get("module") == "wifi":
+        return unrestrict_wifi(params)
+    
+    if "vlan_id" not in params:
+        return False, "Error: vlan_id o module='wifi' requerido"
     
     suppress_log = bool(params.get("suppress_log", False))
     
@@ -945,6 +1169,45 @@ def _validate_whitelist_rule(rule: str) -> Tuple[bool, str]:
     return True, ""
 
 
+def get_vlans_state(params: Dict[str, Any] = None) -> Tuple[bool, List[Dict[str, Any]]]:
+    """Obtener el estado de seguridad de todas las VLANs y Wi-Fi."""
+    fw_cfg = _load_firewall_config()
+    states = []
+    
+    # 1. Procesar VLANs configuradas en el sistema
+    vlans_cfg = _load_vlans_config()
+    for vlan in vlans_cfg.get("vlans", []):
+        v_id = str(vlan.get("id"))
+        v_name = vlan.get("name", f"VLAN {v_id}")
+        v_fw = fw_cfg.get("vlans", {}).get(v_id, {})
+        
+        states.append({
+            "id": v_id,
+            "name": v_name,
+            "isolated": v_fw.get("isolated", False),
+            "restricted": v_fw.get("restricted", False),
+            "type": "vlan"
+        })
+    
+    # 2. Procesar Red Wi-Fi
+    wifi_mod_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    wifi_active = wifi_mod_cfg.get("status") == 1
+    
+    # Cargar preferencias de seguridad del firewall para Wi-Fi
+    wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": True})
+    
+    states.append({
+        "id": "WIFI",
+        "name": "Punto de Acceso Wi-Fi",
+        "isolated": wifi_fw_cfg.get("isolated", True),
+        "restricted": wifi_fw_cfg.get("restricted", True),
+        "active": wifi_active,
+        "type": "wifi"
+    })
+    
+    return True, states
+
+
 # =============================================================================
 # WHITELIST DE ACCIONES PERMITIDAS
 # =============================================================================
@@ -954,6 +1217,7 @@ ALLOWED_ACTIONS = {
     "stop": stop,
     "restart": restart,
     "status": status,
+    "get_vlans_state": get_vlans_state,
     "isolate": isolate,
     "unisolate": unisolate,
     "restrict": restrict,

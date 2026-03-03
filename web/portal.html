@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSBach - Acceso a la Red</title>
+    <style>
+        :root {
+            --primary: #0084ff;
+            --primary-hover: #0073e6;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(0, 132, 255, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(0, 132, 255, 0.05) 0%, transparent 40%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .portal-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 0%, #0084ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 20px;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .message.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            display: block;
+        }
+
+        .message.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+            display: block;
+        }
+
+        .footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 480px) {
+            .portal-card {
+                width: 85%;
+                padding: 30px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="portal-card">
+        <div class="logo">JSBach V4.2</div>
+        <div class="subtitle">Bienvenido a la red inalámbrica</div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" placeholder="Tu nombre de usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" id="submit-btn" class="btn">Conectarse a Internet</button>
+        </form>
+
+        <div id="status-msg" class="message"></div>
+
+        <div class="footer">
+            &copy; 2026 JSBach Router Framework<br>
+            Tu privacidad y seguridad son nuestra prioridad.
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('submit-btn');
+            const msg = document.getElementById('status-msg');
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+
+            btn.disabled = true;
+            btn.textContent = 'Verificando...';
+            msg.className = 'message';
+            msg.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/portal/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    msg.textContent = data.message || 'Acceso concedido. Redirigiendo...';
+                    msg.className = 'message success';
+                    msg.style.display = 'block';
+                    btn.textContent = '¡Hecho!';
+
+                    // Esperar un momento y redirigir a google o similar para verificar
+                    setTimeout(() => {
+                        window.location.href = "http://www.google.com/generate_204";
+                    }, 2000);
+                } else {
+                    msg.textContent = data.detail || 'Error de autenticación';
+                    msg.className = 'message error';
+                    msg.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Conectarse a Internet';
+                }
+            } catch (err) {
+                msg.textContent = 'Error de conexión con el router';
+                msg.className = 'message error';
+                msg.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Conectarse a Internet';
+            }
+        });
+    </script>
+</body>
+
+</html>

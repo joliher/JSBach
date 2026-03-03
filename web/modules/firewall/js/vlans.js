@@ -1,5 +1,3 @@
-/* /web/modules/firewall/js/vlans.js */
-
 async function loadVlansState() {
     const container = document.getElementById("vlans-content");
     container.innerHTML = '<div class="loading">Consultando políticas por VLAN...</div>';
@@ -18,20 +16,37 @@ async function loadVlansState() {
             let html = `<table>
                 <thead>
                     <tr>
-                        <th>VLAN ID</th>
+                        <th>ID / TIPO</th>
                         <th>NOMBRE</th>
-                        <th>AISLAMIENTO</th>
+                        <th>AISLAMIENTO LOCAL</th>
                         <th>RESTRICCIÓN ROUTER</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
             states.forEach(s => {
-                html += `<tr>
+                if (s.type === "wifi") return; // Omitimos Wi-Fi, centralizado en web/modules/wifi/
+
+                let rowStyle = "";
+                let nameExtra = "";
+                // Celdas base (estilo badge JSBach)
+                let isoStyle = s.isolated ? 'rgba(239, 68, 68, 0.15); color:var(--error); border: 1px solid rgba(239, 68, 68, 0.3);' : 'rgba(16, 185, 129, 0.15); color:var(--success); border: 1px solid rgba(16, 185, 129, 0.3);';
+                let resStyle = s.restricted ? 'rgba(239, 68, 68, 0.15); color:var(--error); border: 1px solid rgba(239, 68, 68, 0.3);' : 'rgba(16, 185, 129, 0.15); color:var(--success); border: 1px solid rgba(16, 185, 129, 0.3);';
+
+                let isoLabel = s.isolated ? 'AISLADA' : 'ABIERTA';
+                let resLabel = s.restricted ? 'RESTRINGIDO' : 'ACCESO';
+
+                let isolatedCell = `<span class="badge" style="${isoStyle}">${isoLabel}</span>`;
+                let restrictedCell = `<span class="badge" style="${resStyle}">${resLabel}</span>`;
+
+                html += `<tr style="${rowStyle}">
                     <td><code>${s.id}</code></td>
-                    <td><b>${s.name}</b></td>
-                    <td><span class="badge" style="background:${s.isolated ? 'rgba(239, 68, 68, 0.1); color:var(--error);' : 'rgba(16, 185, 129, 0.1); color:var(--success);'}">${s.isolated ? 'AISLADA' : 'ABIERTA'}</span></td>
-                    <td><span class="badge" style="background:${s.restricted ? 'rgba(239, 68, 68, 0.1); color:var(--error);' : 'rgba(16, 185, 129, 0.1); color:var(--success);'}">${s.restricted ? 'RESTRINGIDO' : 'ACCESO'}</span></td>
+                    <td>
+                        <b>${s.name}</b>
+                        ${nameExtra}
+                    </td>
+                    <td>${isolatedCell}</td>
+                    <td>${restrictedCell}</td>
                 </tr>`;
             });
             html += `</tbody></table>`;

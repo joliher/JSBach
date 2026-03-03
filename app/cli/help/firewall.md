@@ -36,21 +36,22 @@
     **remove_rule** --vlan_id ID --rule REGLA
         Elimina una regla de la whitelist, denegando de nuevo su acceso.
 
-    **isolate** --vlan_id ID
-        Bloquea todo el acceso a Internet (FORWARD) para la red especificada.
+    **isolate** --vlan_id ID | --module wifi
+        Bloquea todo el acceso a Internet (FORWARD) para la red especificada o el Wi-Fi.
 
-    **unisolate** --vlan_id ID
+    **unisolate** --vlan_id ID | --module wifi
         Restaura el acceso a Internet (sujeto a la configuración de whitelist).
 
-    **restrict** --vlan_id ID
-        Limita los servicios accesibles del router (solo DNS/DHCP/ICMP) para esa VLAN.
+    **restrict** --vlan_id ID | --module wifi
+        Limita los servicios accesibles del router (solo DNS/DHCP/ICMP) para esa red.
 
-    **unrestrict** --vlan_id ID
-        Elimina las restricciones del modo restrict en la VLAN indicada.
+    **unrestrict** --vlan_id ID | --module wifi
+        Elimina las restricciones del modo restrict en la red indicada.
 
 ## EJEMPLOS
     firewall enable_whitelist --vlan_id 10 --whitelist 192.168.10.5,192.168.10.20
     firewall isolate --vlan_id 1
+    firewall isolate --module wifi
     firewall status
 
 ## NOTAS

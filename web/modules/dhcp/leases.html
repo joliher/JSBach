@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <title>JSBach - Concesiones DHCP</title>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+
+            <main class="main-area">
+                <section id="section-leases" class="section active">
+                    <div class="container">
+                        <h2>📋 Concesiones DHCP Activas</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 25px;">
+                            Lista de direcciones IP asignadas actualmente y sus dispositivos asociados.
+                        </p>
+
+                        <div class="button-group" style="margin-bottom: 20px;">
+                            <button class="btn btn-accent" onclick="fetchLeases()">🔄 Actualizar Lista</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>IP ADDRESS</th>
+                                        <th>MAC ADDRESS</th>
+                                        <th>HOSTNAME</th>
+                                        <th>CLIENT ID</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leases-body">
+                                    <tr>
+                                        <td colspan="4" class="loading">Cargando concesiones...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="/web/js/utils.js"></script>
+    <script src="js/leases.js"></script>
+</body>
+
+</html>

@@ -53,7 +53,7 @@ from app.utils.global_helpers import io_helpers as ioh
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-ALLOWED_MODULES = ["wan", "nat", "firewall", "vlans", "tagging", "dmz", "ebtables", "expect"]
+ALLOWED_MODULES = ["wan", "nat", "firewall", "vlans", "tagging", "dmz", "ebtables", "expect", "dhcp", "wifi"]
 
 # Config directory for JSBach_V4.0
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
@@ -146,7 +146,7 @@ async def get_config_file(module_name: str, config_file: str, _: None = Depends(
 
 # -----------------------------
 # Core executor
-async def execute_module_action(module_name: str, action: str, params: Optional[dict] = None) -> Tuple[bool, str]:
+async def execute_module_action(module_name: str, action: str, params: Optional[dict] = None) -> Tuple[bool, Any]:
     if action == "start":
         deps_ok, deps_msg = mh.check_module_dependencies(BASE_DIR, module_name)
         if not deps_ok:
@@ -197,7 +197,7 @@ async def execute_module_action(module_name: str, action: str, params: Optional[
                         log_message = f"(JSON extenso omitido: {len(log_message)} bytes)"
 
             ioh.log_action(module_name, f"{action} - {'SUCCESS' if success else 'ERROR'}: {log_message}")
-            return bool(success), str(message)
+            return bool(success), message
         ioh.log_action(module_name, f"Resultado inesperado de la acción '{action}'")
         return True, str(result)
     except Exception as e:

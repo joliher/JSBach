@@ -45,7 +45,11 @@ def _run_command(cmd):
 
 def load_firewall_config():
     """Load firewall configuration."""
-    return load_json_config(FIREWALL_CONFIG_FILE, {"vlans": {}, "status": 0})
+    return load_json_config(FIREWALL_CONFIG_FILE, {
+        "vlans": {}, 
+        "wifi": {"isolated": True, "restricted": True},
+        "status": 0
+    })
 
 
 def load_vlans_config():
@@ -445,3 +449,85 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
     except Exception as e:
         logger.error(f"Error parseando regla whitelist '{rule}': {e}")
         return False
+
+# ==========================================
+# Captive Portal Management
+# ==========================================
+
+def setup_wifi_portal(portal_enabled: bool, portal_port: int, authorized_macs: List[str]):
+    """Configura las reglas de iptables para el Portal Cautivo Wi-Fi."""
+    wifi_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
+    wifi_iface = wifi_cfg.get("interface", "wlp3s0")
+    wifi_ip = wifi_cfg.get("ip_address", "10.0.99.1")
+    
+    # 1. Limpiar reglas previas del portal (NAT y FILTER)
+    # Tabla NAT
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-F", "WIFI_PORTAL_REDIRECT"])
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-X", "WIFI_PORTAL_REDIRECT"])
+    
+    # Tabla FILTER
+    _run_command(["/usr/sbin/iptables", "-F", "WIFI_PORTAL_INPUT"])
+    _run_command(["/usr/sbin/iptables", "-X", "WIFI_PORTAL_INPUT"])
+    _run_command(["/usr/sbin/iptables", "-F", "WIFI_PORTAL_FORWARD"])
+    _run_command(["/usr/sbin/iptables", "-X", "WIFI_PORTAL_FORWARD"])
+    
+    if not portal_enabled:
+        # Desvincular si existen
+        _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
+        _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
+        _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
+        return True
+
+    # 2. Crear Cadenas
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "WIFI_PORTAL_REDIRECT"])
+    _run_command(["/usr/sbin/iptables", "-N", "WIFI_PORTAL_INPUT"])
+    _run_command(["/usr/sbin/iptables", "-N", "WIFI_PORTAL_FORWARD"])
+
+    # 3. Reglas de Bypass para MACs autorizadas
+    for mac in authorized_macs:
+        # En NAT: No redirigir
+        _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
+        # En FILTER: Saltar el bloqueo del portal
+        _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
+        _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
+
+    # 4. Reglas de Restricción para el resto
+    
+    # --- NAT: Redirigir HTTP (80) al portal local ---
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-p", "tcp", "--dport", "80", "-j", "DNAT", "--to-destination", f"{wifi_ip}:{portal_port}"])
+
+    # --- FILTER (INPUT): Acceso al Router ---
+    # Permitir DNS, DHCP y Acceso al Portal
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "67:68", "-j", "ACCEPT"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "tcp", "--dport", str(portal_port), "-j", "ACCEPT"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "icmp", "-j", "ACCEPT"])
+    # Bloquear el resto hacia el router
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "21027", "-j", "ACCEPT"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-j", "DROP"])
+
+    # --- FILTER (FORWARD): Acceso a Internet/Otras Redes ---
+    # Permitir DNS hacia afuera
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
+    
+    # REJECT HTTPS (443) y GCM (5228) para que el dispositivo no espere al timeout y salte antes al portal 80
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "tcp", "--match", "multiport", "--dports", "443,5228", "-j", "REJECT", "--reject-with", "tcp-reset"])
+    
+    # Bloquear todo lo demás
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-j", "DROP"])
+
+    # 5. Vincular Cadenas
+    # NAT table
+    success_nat, _ = _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "PREROUTING", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
+    if not success_nat:
+        _run_command(["/usr/sbin/iptables", "-t", "nat", "-I", "PREROUTING", "1", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
+
+    # FILTER (INPUT): Posición 1 (antes de INPUT_WIFI y otras)
+    _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
+    _run_command(["/usr/sbin/iptables", "-I", "INPUT", "1", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
+
+    # FILTER (FORWARD): Posición 1 (Prioridad máxima para interceptar conexiones establecidas)
+    _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
+    _run_command(["/usr/sbin/iptables", "-I", "FORWARD", "1", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
+
+    return True

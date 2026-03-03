@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <title>JSBach - Configuración Wi-Fi</title>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+            <main class="main-area">
+                <section id="section-config" class="section active">
+                    <div class="container">
+                        <h2>⚙️ Configuración de Red Inalámbrica</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                            Configure los parámetros de su punto de acceso, seguridad y segmento de red.
+                        </p>
+
+                        <form id="wifi-form" onsubmit="event.preventDefault(); saveConfig();">
+                            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="form-group">
+                                    <label for="ssid">SSID (Nombre de Red)</label>
+                                    <input type="text" id="ssid" placeholder="JSBach_WiFi" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="security">Protocolo de Seguridad</label>
+                                    <select id="security" onchange="togglePasswordField()">
+                                        <option value="open">Abierta (Sin contraseña)</option>
+                                        <option value="wpa2" selected>WPA2-PSK (Recomendado)</option>
+                                        <option value="wpa3">WPA3-SAE (Moderno)</option>
+                                        <option value="mixed">WPA2/WPA3 Mixed</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="password-group">
+                                    <label for="password">Contraseña (Mín. 8 caracteres)</label>
+                                    <div
+                                        style="position: relative; display: flex; align-items: center; max-width: 450px;">
+                                        <input type="password" id="password" placeholder="••••••••" required
+                                            minlength="8" style="padding-right: 45px; max-width: 100%;">
+                                        <button type="button" id="togglePassword"
+                                            style="position: absolute; right: 10px; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem; padding: 5px; display: flex; align-items: center; justify-content: center;"
+                                            title="Mostrar/Ocultar contraseña">
+                                            👁️
+                                        </button>
+                                    </div>
+                                    <script>
+                                        document.getElementById('togglePassword').addEventListener('click', function () {
+                                            const passInput = document.getElementById('password');
+                                            if (passInput.type === 'password') {
+                                                passInput.type = 'text';
+                                                this.textContent = '🔒';
+                                            } else {
+                                                passInput.type = 'password';
+                                                this.textContent = '👁️';
+                                            }
+                                        });
+                                    </script>
+                                </div>
+                                <div class="form-group">
+                                    <label for="hw_mode">Frecuencia / Protocolo</label>
+                                    <select id="hw_mode">
+                                        <option value="g">2.4 GHz (802.11g/n)</option>
+                                        <option value="a">5 GHz (802.11a/n/ac)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="channel">Canal</label>
+                                    <input type="number" id="channel" min="1" max="165" value="6">
+                                </div>
+                                <div class="form-group">
+                                    <label for="interface">Interfaz de Red (e.g. wlp3s0, wlan0)</label>
+                                    <input type="text" id="interface" placeholder="wlp3s0" required>
+                                </div>
+                            </div>
+
+
+                            <h3
+                                style="margin-top: 40px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+                                🌐 Direccionamiento IP y DHCP</h3>
+
+                            <div class="form-grid"
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                                <div class="form-group">
+                                    <label for="ip_address">Dirección IP del Router</label>
+                                    <input type="text" id="ip_address" placeholder="10.0.99.1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="netmask">Máscara de Subred</label>
+                                    <input type="text" id="netmask" placeholder="255.255.255.0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="dhcp_start">Inicio Rango DHCP</label>
+                                    <input type="text" id="dhcp_start" placeholder="10.0.99.100" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="dhcp_end">Fin Rango DHCP</label>
+                                    <input type="text" id="dhcp_end" placeholder="10.0.99.200" required>
+                                </div>
+                            </div>
+
+
+                            <div style="margin-top: 40px; display: flex; gap: 15px;">
+                                <button type="submit" class="btn btn-accent" id="btnSaveConfig">💾 Guardar y
+                                    Aplicar</button>
+                                <button type="button" class="btn" style="background: rgba(255,255,255,0.05);"
+                                    onclick="location.reload()">Reset</button>
+                            </div>
+                        </form>
+
+                        <div id="config-message" style="margin-top: 20px;"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <script src="/web/js/utils.js"></script>
+    <script src="js/config.js"></script>
+</body>
+
+</html>

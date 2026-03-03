@@ -25,7 +25,7 @@ function updateActiveButton(action) {
 // Auto-detectar sección activa basándose en la URL
 window.addEventListener('DOMContentLoaded', () => {
     const path = window.top.location.pathname;
-    const modules = ["wan", "nat", "vlans", "tagging", "firewall", "dmz", "ebtables", "expect", "security"];
+    const modules = ["wan", "nat", "vlans", "tagging", "firewall", "dmz", "ebtables", "expect", "dhcp", "wifi", "security"];
     for (const mod of modules) {
         if (path.includes(`/modules/${mod}/`)) {
             updateActiveButton(mod);

@@ -18,7 +18,7 @@ async function refreshStatus() {
         const data = await response.json();
 
         // Update each card status
-        const modules = ["wan", "nat", "firewall", "vlans", "tagging", "dmz", "ebtables", "expect"];
+        const modules = ["wan", "nat", "firewall", "vlans", "tagging", "dmz", "ebtables", "expect", "dhcp", "wifi"];
         modules.forEach(mod => {
             const status = data[mod] || 'INACTIVO';
             const indicator = document.getElementById(`status-${mod}`);
@@ -76,7 +76,8 @@ async function stopAllModules() {
     msg.textContent = "⌛ Deteniendo...";
     msg.style.color = "var(--warning)";
 
-    const modules = ["wan", "nat", "firewall", "vlans", "tagging", "dmz", "ebtables"];
+    // Orden de parada basado en dependencias (NAT requiere que Firewall/DMZ estén apagados primero)
+    const modules = ["wifi", "dhcp", "ebtables", "dmz", "firewall", "nat", "expect", "tagging", "vlans", "wan"];
     let errors = 0;
 
     for (const mod of modules) {

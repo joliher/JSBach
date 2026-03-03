@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <title>JSBach - Portal Cautivo Wi-Fi</title>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+            <main class="main-area">
+                <section id="section-config" class="section active">
+                    <div class="container">
+                        <h2>🌐 Portal Cautivo (Invitados)</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                            Configure la página de bienvenida y gestione los usuarios con acceso temporal.
+                        </p>
+
+                        <form id="wifi-form" onsubmit="event.preventDefault(); saveConfig();">
+                            <div class="form-grid"
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                                <div class="form-group">
+                                    <label>Estado del Portal</label>
+                                    <div class="toggle-container"
+                                        style="margin-top: 15px; display: flex; align-items: center; gap: 12px;">
+                                        <label class="switch" style="flex-shrink: 0;">
+                                            <input type="checkbox" id="portal_enabled">
+                                            <span class="slider round"></span>
+                                        </label>
+                                        <span
+                                            style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1;">Habilitar
+                                            interfaz de bienvenida para invitados</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="portal_port">Puerto del Portal (e.g. 8100)</label>
+                                    <input type="number" id="portal_port" value="8100" min="1" max="65535">
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 25px;">
+                                <label style="margin-bottom: 10px; display: block;">👥 Usuarios de Invitados</label>
+                                <div class="vlan-table-container" style="max-height: 250px; overflow-y: auto;">
+                                    <table class="vlan-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Creado</th>
+                                                <th>Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="portal-users-table">
+                                            <!-- Cargado dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div
+                                    style="margin-top: 15px; display: flex; gap: 10px; align-items: flex-end; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label style="font-size: 0.8rem;">Nuevo Usuario</label>
+                                        <input type="text" id="new-p-user" placeholder="Nombre" style="width: 150px;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label style="font-size: 0.8rem;">Contraseña</label>
+                                        <input type="password" id="new-p-pass" placeholder="Contraseña"
+                                            style="width: 150px;">
+                                    </div>
+                                    <button type="button" class="btn btn-blue" onclick="addPortalUser()"
+                                        style="height: 38px; padding: 0 15px;">➕ Añadir</button>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 40px; display: flex; gap: 15px;">
+                                <button type="submit" class="btn btn-accent" id="btnSaveConfig">💾 Guardar
+                                    Cambios</button>
+                            </div>
+                        </form>
+
+                        <div id="config-message" style="margin-top: 20px;"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <script src="/web/js/utils.js"></script>
+    <script src="js/config.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/web/css/global.css">
+    <title>JSBach - Información Wi-Fi</title>
+</head>
+
+<body class="grid-bg">
+    <div class="container-main">
+        <iframe src="/web/header.html" class="top-frame" name="header"></iframe>
+        <div class="content-wrapper">
+            <iframe src="sidebar.html" class="sidebar-frame" style="border:none; height:100%; width:320px;"></iframe>
+            <main class="main-area">
+                <section id="section-info" class="section active">
+                    <div class="container">
+                        <h2>ℹ️ Información del Módulo Wi-Fi</h2>
+                        <div class="info-box" style="margin-top: 20px;">
+                            <p>El módulo Wi-Fi de JSBach permite convertir su dispositivo en un punto de acceso
+                                inalámbrico potente y seguro.</p>
+
+                            <h3 style="margin-top: 25px; color: var(--text-primary);">Características Técnicas</h3>
+                            <ul style="color: var(--text-secondary); line-height: 1.8;">
+                                <li><strong>Motor:</strong> hostapd (IEEE 802.11 AP management daemon).</li>
+                                <li><strong>Seguridad:</strong> WPA2-PSK (AES/CCMP) por defecto.</li>
+                                <li><strong>Modos:</strong> Soporta 2.4 GHz (802.11g/n) y 5 GHz (802.11a/n/ac) según
+                                    hardware.</li>
+                                <li><strong>Integración:</strong> Automatización de reglas de Firewall y DHCP.</li>
+                                <li><strong>Aislamiento:</strong> Las redes Wi-Fi están aisladas de la red de
+                                    administración por defecto.</li>
+                            </ul>
+
+                            <h3 style="margin-top: 25px; color: var(--text-primary);">Hardware Compatible</h3>
+                            <p style="color: var(--text-secondary);">Requiere una tarjeta de red inalámbrica que soporte
+                                el modo <strong>AP</strong> (Access Point). Puede verificar esto manualmente ejecutando
+                                <code>iw list</code> y buscando "AP" en "Supported interface modes".</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <script src="/web/js/utils.js"></script>
+</body>
+
+</html>

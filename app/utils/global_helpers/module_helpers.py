@@ -42,7 +42,11 @@ def load_json_config(file_path: str, default_value: Dict[str, Any] = None) -> Di
             content = f.read().strip()
             if not content:
                 return default_value
-            return json.loads(content)
+            loaded_data = json.loads(content)
+            # Combinar con valores por defecto para asegurar que todas las claves existan
+            result = default_value.copy()
+            result.update(loaded_data)
+            return result
     except (json.JSONDecodeError, Exception) as e:
         logger.error(f"Error cargando configuración de {file_path}: {e}")
         return default_value
@@ -278,8 +282,8 @@ def check_module_dependencies(base_dir: str, module_name: str = None) -> Tuple[b
     if module_name is None:
         return True, "Dependencias satisfechas"
 
-    # 0. WAN no tiene dependencias
-    if module_name == "wan":
+    # 0. WAN y Wi-Fi no tienen dependencias externas de arranque
+    if module_name in ["wan", "wifi"]:
         return True, "Dependencias satisfechas"
 
     # 1. Tagging depende solo de VLANs
@@ -292,17 +296,23 @@ def check_module_dependencies(base_dir: str, module_name: str = None) -> Tuple[b
     if get_module_status_by_name(base_dir, "wan") != 1:
         return False, "Error: El módulo WAN debe estar activo."
 
-    # 3. VLANs y NAT requieren WAN (ya chequeado)
-    if module_name in ["vlans", "nat"]:
+    # 3. VLANs, NAT y DHCP requieren WAN (ya chequeado)
+    if module_name in ["vlans", "nat", "dhcp"]:
         return True, "Dependencias satisfechas"
 
-    # 4. Firewall, Ebtables, DMZ requieren VLANs
+    # 4. Firewall, Ebtables, DMZ requieren VLANs (A menos que Firewall se use para Wi-Fi)
     if get_module_status_by_name(base_dir, "vlans") != 1:
-        return False, "Error: El módulo VLANs debe estar activo."
+        if module_name == "firewall" and get_module_status_by_name(base_dir, "wifi") == 1:
+            pass
+        else:
+            return False, "Error: El módulo VLANs debe estar activo."
 
-    # 5. Firewall, Ebtables, DMZ requieren Tagging
+    # 5. Firewall, Ebtables, DMZ requieren Tagging (A menos que Firewall se use para Wi-Fi)
     if get_module_status_by_name(base_dir, "tagging") != 1:
-        return False, "Error: El módulo Tagging debe estar activo."
+        if module_name == "firewall" and get_module_status_by_name(base_dir, "wifi") == 1:
+            pass
+        else:
+            return False, "Error: El módulo Tagging debe estar activo."
 
     if module_name in ["firewall", "ebtables"]:
         return True, "Dependencias satisfechas"
