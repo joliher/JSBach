@@ -2,22 +2,17 @@
 # Módulo de Ebtables - Aislamiento de VLANs a nivel L2
 # Arquitectura jerárquica con cadenas por VLAN
 
-import subprocess
-import json
 import os
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 import logging
-import fcntl
-import re
-from typing import Dict, Any, Tuple, List
-from ...utils.global_helpers import module_helpers as mh, io_helpers as ioh
-from ...utils.global_helpers.io_helpers import log_action
+from typing import Dict, Any, Tuple
+from ...utils.global_helpers import module_helpers as mh
 from ...utils.validators import sanitize_interface_name
 from .helpers import (
     ensure_dirs, load_ebtables_config, save_ebtables_config,
     load_vlans_config, load_wan_config, load_tagging_config,
     build_vlan_interface_map, check_wan_active, check_vlans_active,
-    check_tagging_active, check_interface_vlan_conflict, check_vlan_already_isolated, check_dependencies,
+    check_tagging_active, check_vlan_already_isolated, check_dependencies,
     update_status, run_ebtables,
     create_vlan_chain, delete_vlan_chain, add_vlan_interface_to_forward, remove_vlan_interface_from_forward,
     apply_isolation, remove_isolation,
@@ -50,11 +45,11 @@ _build_vlan_interface_map = build_vlan_interface_map
 _check_wan_active = check_wan_active
 _check_vlans_active = check_vlans_active
 _check_tagging_active = check_tagging_active
-_check_interface_vlan_conflict = check_interface_vlan_conflict
 _check_vlan_already_isolated = check_vlan_already_isolated
 _check_dependencies = check_dependencies
 _update_status = update_status
 _run_ebtables = run_ebtables
+_run_cmd = mh.run_command
 _create_vlan_chain = create_vlan_chain
 _delete_vlan_chain = delete_vlan_chain
 _add_vlan_interface_to_forward = add_vlan_interface_to_forward
@@ -123,6 +118,17 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     vlan_iface_map = _build_vlan_interface_map(vlans, tagging_cfg)
     logger.info(f"Mapa VLAN→Interfaces: {vlan_iface_map}")
     
+    # --- PREPARAR JERARQUÍA L2 (Search & Destroy) ---
+    mh.ensure_ebtables_global_chains()
+    
+    # Hook JSB_EBT_STATS to GLOBAL_EBT_STATS
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_EBT_STATS", "JSB_EBT_STATS", binary="ebtables")
+    
+    # El hook de ISOLATE se hace dinámicamente por VLAN en add_vlan_interface_to_forward
+    # Pero aseguramos que la cadena base existe
+    _run_cmd(["/usr/sbin/ebtables", "-N", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-N", "JSB_EBT_ISOLATE"], ignore_error=True)
+
     # Sincronizar: eliminar VLANs obsoletas de ebtables.json
     active_vlan_ids = {str(vlan.get("id")) for vlan in vlans if vlan.get("id") is not None}
     vlans_to_remove = [vid for vid in ebtables_cfg["vlans"].keys() if vid not in active_vlan_ids]
@@ -280,10 +286,21 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     ebtables_cfg = _load_ebtables_config()
     vlans = ebtables_cfg.get("vlans", {})
     
+    # Limpiar jerarquía L2
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_ISOLATE", "-j", "JSB_EBT_ISOLATE"], ignore_error=True) # If it was hooked manually
+    
     # Eliminar todas las cadenas de VLANs
     for vlan_id_str in vlans.keys():
-        vlan_id = int(vlan_id_str)
-        _delete_vlan_chain(vlan_id)
+        try:
+            vlan_id = int(vlan_id_str)
+            _delete_vlan_chain(vlan_id)
+        except: continue
+    
+    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_EBT_ISOLATE"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_EBT_ISOLATE"], ignore_error=True)
     
     # Actualizar estado
     _update_status(0)
@@ -497,6 +514,10 @@ def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, f"Error aplicando aislamiento a {vlan_id}"
     
     # Actualizar configuración
+    # Limpiar jerarquía L2
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_EBT_STATS"], ignore_error=True)
     if is_wifi:
         if "wifi" not in ebtables_cfg: ebtables_cfg["wifi"] = {}
         ebtables_cfg["wifi"]["isolated"] = True
@@ -604,7 +625,17 @@ def add_mac(params: Dict[str, Any]) -> Tuple[bool, str]:
     vlan_id = params.get("vlan_id", "1")
     vlan_id_str = str(vlan_id)
     is_wifi = vlan_id_str == "wifi"
+    # --- PREPARAR JERARQUÍA L2 (Search & Destroy) ---
+    mh.ensure_ebtables_global_chains()
     
+    # Hook JSB_EBT_STATS to GLOBAL_EBT_STATS
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_EBT_STATS", "JSB_EBT_STATS", binary="ebtables")
+    
+    # El hook de ISOLATE se hace dinámicamente por VLAN en add_vlan_interface_to_forward
+    # Pero aseguramos que la cadena base existe
+    _run_cmd(["/usr/sbin/ebtables", "-N", "JSB_EBT_ISOLATE"], ignore_error=True)
+
+    # Configurar cada VLAN
     # Cargar configuración
     ebtables_cfg = _load_ebtables_config()
     module_active = ebtables_cfg.get("status", 0) == 1
