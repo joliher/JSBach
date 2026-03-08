@@ -13,8 +13,8 @@ from .helpers import (
     ensure_dirs, write_log, load_config, save_config,
     load_wan_config, load_firewall_config, load_vlans_config, get_vlan_from_ip,
     ensure_prerouting_protection_chain, ensure_prerouting_vlan_chain, remove_prerouting_vlan_chain,
-    add_forward_accept_rule, remove_forward_accept_rule,
-    check_wan_configured, check_firewall_active, check_vlans_active, validate_destination
+    add_forward_return_rule, remove_forward_return_rule,
+    check_wan_configured, validate_destination
 )
 
 # Configurar logging
@@ -42,18 +42,13 @@ _save_config = save_config
 _load_wan_config = load_wan_config
 _load_firewall_config = load_firewall_config
 _load_vlans_config = load_vlans_config
-_load_wan_config = load_wan_config
-_load_firewall_config = load_firewall_config
-_load_vlans_config = load_vlans_config
 _get_vlan_from_ip = get_vlan_from_ip
 _ensure_prerouting_protection_chain = ensure_prerouting_protection_chain
 _ensure_prerouting_vlan_chain = ensure_prerouting_vlan_chain
 _remove_prerouting_vlan_chain = remove_prerouting_vlan_chain
-_add_forward_accept_rule = add_forward_accept_rule
-_remove_forward_accept_rule = remove_forward_accept_rule
+_add_forward_return_rule = add_forward_return_rule
+_remove_forward_return_rule = remove_forward_return_rule
 _check_wan_configured = check_wan_configured
-_check_firewall_active = check_firewall_active
-_check_vlans_active = check_vlans_active
 _validate_destination = validate_destination
 
 
@@ -67,7 +62,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     _ensure_dirs()
     
     # Asegurar que existe la cadena de protección para aislamiento
-    _ensure_prerouting_protection_chain()
+    mh.ensure_global_chains(); _ensure_prerouting_protection_chain()
     
     # Verificar dependencias
     deps_ok, deps_msg = mh.check_module_dependencies(BASE_DIR, "dmz")
@@ -119,7 +114,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             errors.append(f"VLAN {vlan_id}: Error creando cadena PREROUTING")
             continue
         
-        chain_name = f"PREROUTING_VLAN_{vlan_id}"
+        chain_name = "JSB_DMZ_STATS"
         
         # Aplicar reglas DNAT para cada destino
         for dest in vlan_destinations:
@@ -148,7 +143,12 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
                 results.append(f"{ip}:{port}/{protocol} - ya existía")
                 continue
             
-            # Añadir regla DNAT
+            # Añadir regla LOG y DNAT
+            _run_command([
+                "/usr/sbin/iptables", "-t", "nat", "-A", chain_name,
+                "-i", wan_interface, "-p", protocol, "--dport", str(port),
+                "-j", "LOG", "--log-prefix", f"[JSB-DMZ-DNAT] {ip}:{port} "
+            ])
             cmd = [
                 "/usr/sbin/iptables", "-t", "nat", "-A", chain_name,
                 "-i", wan_interface, "-p", protocol, "--dport", str(port),
@@ -162,11 +162,11 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
                 logger.info(f"Regla DNAT {ip}:{port}/{protocol} aplicada en {chain_name}")
                 _write_log(f"✅ Regla DNAT aplicada: {ip}:{port}/{protocol} (interfaz: {wan_interface})")
                 
-                # Añadir regla ACCEPT en FORWARD_VLAN_X
-                if _add_forward_accept_rule(vlan_id, ip):
-                    _write_log(f"✅ Regla ACCEPT añadida en FORWARD_VLAN_{vlan_id} para {ip}")
+                # Añadir regla RETURN en FORWARD_VLAN_X
+                if _add_forward_return_rule(vlan_id, ip):
+                    _write_log(f"✅ Regla RETURN añadida en FORWARD_VLAN_{vlan_id} para {ip}")
                 else:
-                    logger.warning(f"No se pudo añadir regla ACCEPT para {ip} en FORWARD_VLAN_{vlan_id}")
+                    logger.warning(f"No se pudo añadir regla RETURN para {ip} en FORWARD_VLAN_{vlan_id}")
             else:
                 errors.append(f"{ip}:{port}/{protocol} - error: {output}")
                 logger.error(f"Error aplicando regla DNAT {ip}:{port}/{protocol}: {output}")
@@ -223,30 +223,30 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             destinations_by_vlan[vlan_id] = []
         destinations_by_vlan[vlan_id].append(dest)
     
-    # Eliminar reglas ACCEPT de FORWARD_VLAN_X
+    # Eliminar reglas RETURN de FORWARD_VLAN_X
     for vlan_id, vlan_destinations in destinations_by_vlan.items():
         for dest in vlan_destinations:
             ip = dest["ip"]
-            _remove_forward_accept_rule(vlan_id, ip)
+            _remove_forward_return_rule(vlan_id, ip)
     
-    # Eliminar reglas de aislamiento (INPUT y PREROUTING_PROTECTION) para hosts aislados
+    # Eliminar reglas de aislamiento (INPUT y JSB_DMZ_ISOLATE) para hosts aislados
     isolated_hosts = [dest["ip"] for dest in destinations if dest.get("isolated", False)]
     if isolated_hosts:
         logger.info(f"Eliminando reglas de aislamiento para {len(isolated_hosts)} host(s)")
         for ip in isolated_hosts:
-            # Eliminar regla RETURN de PREROUTING_PROTECTION
-            check_prerouting = ["/usr/sbin/iptables", "-t", "nat", "-C", "PREROUTING_PROTECTION", "-d", ip, "-j", "RETURN"]
+            # Eliminar regla RETURN de JSB_DMZ_ISOLATE
+            check_prerouting = ["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"]
             success, _ = _run_command(check_prerouting)
             if success:
-                _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING_PROTECTION", "-d", ip, "-j", "RETURN"])
-                logger.info(f"Regla de aislamiento eliminada de PREROUTING_PROTECTION para {ip}")
+                _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
+                logger.info(f"Regla de aislamiento eliminada de JSB_DMZ_ISOLATE para {ip}")
             
-            # Eliminar regla DROP de INPUT_PROTECTION
-            check_input = ["/usr/sbin/iptables", "-C", "INPUT_PROTECTION", "-s", ip, "-j", "DROP"]
+            # Eliminar regla DROP de JSB_FW_RESTRICT
+            check_input = ["/usr/sbin/iptables", "-C", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"]
             success, _ = _run_command(check_input)
             if success:
-                _run_command(["/usr/sbin/iptables", "-D", "INPUT_PROTECTION", "-s", ip, "-j", "DROP"])
-                logger.info(f"Regla de aislamiento eliminada de INPUT_PROTECTION para {ip}")
+                _run_command(["/usr/sbin/iptables", "-D", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"])
+                logger.info(f"Regla de aislamiento eliminada de JSB_FW_RESTRICT para {ip}")
         
         results.append(f"Reglas de aislamiento eliminadas para {len(isolated_hosts)} host(s)")
     
@@ -275,7 +275,7 @@ def restart(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     """Reiniciar DMZ."""
     logger.info("=== INICIO: dmz restart ===")
     
-    stop_success, stop_msg = stop(params)
+    _, stop_msg = stop(params)
     start_success, start_msg = start(params)
     
     msg = f"STOP:\n{stop_msg}\n\nSTART:\n{start_msg}"
@@ -422,21 +422,21 @@ def remove_destination(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     if was_isolated:
         logger.info(f"Destino {ip} estaba aislado, eliminando reglas de aislamiento")
         
-        # Eliminar regla RETURN de PREROUTING_PROTECTION
-        check_prerouting = ["/usr/sbin/iptables", "-t", "nat", "-C", "PREROUTING_PROTECTION", "-d", ip, "-j", "RETURN"]
+        # Eliminar regla RETURN de JSB_DMZ_ISOLATE
+        check_prerouting = ["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"]
         success, _ = _run_command(check_prerouting)
         if success:
-            _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING_PROTECTION", "-d", ip, "-j", "RETURN"])
-            logger.info(f"Regla de aislamiento eliminada de PREROUTING_PROTECTION para {ip}")
-            _write_log(f"🔓 Regla de aislamiento eliminada de PREROUTING_PROTECTION para {ip}")
+            _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
+            logger.info(f"Regla de aislamiento eliminada de JSB_DMZ_ISOLATE para {ip}")
+            _write_log(f"🔓 Regla de aislamiento eliminada de JSB_DMZ_ISOLATE para {ip}")
         
-        # Eliminar regla DROP de INPUT_PROTECTION
-        check_input = ["/usr/sbin/iptables", "-C", "INPUT_PROTECTION", "-s", ip, "-j", "DROP"]
+        # Eliminar regla DROP de JSB_FW_RESTRICT
+        check_input = ["/usr/sbin/iptables", "-C", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"]
         success, _ = _run_command(check_input)
         if success:
-            _run_command(["/usr/sbin/iptables", "-D", "INPUT_PROTECTION", "-s", ip, "-j", "DROP"])
-            logger.info(f"Regla de aislamiento eliminada de INPUT_PROTECTION para {ip}")
-            _write_log(f"🔓 Regla de aislamiento eliminada de INPUT_PROTECTION para {ip}")
+            _run_command(["/usr/sbin/iptables", "-D", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"])
+            logger.info(f"Regla de aislamiento eliminada de JSB_FW_RESTRICT para {ip}")
+            _write_log(f"🔓 Regla de aislamiento eliminada de JSB_FW_RESTRICT para {ip}")
     
     dmz_cfg["destinations"] = destinations
     if not _save_config(dmz_cfg):
@@ -532,7 +532,7 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     """Aislar un host DMZ específico bloqueando todo su tráfico DNAT.
     
     El aislamiento tiene PRIORIDAD MÁXIMA:
-    - Inserta regla DROP en PREROUTING_PROTECTION (tabla NAT)
+    - Inserta regla DROP en JSB_DMZ_ISOLATE (tabla NAT)
     - Bloquea el tráfico WAN->DMZ antes de que se aplique DNAT
     - También bloquea en INPUT el tráfico desde el host hacia el router
     """
@@ -583,23 +583,23 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     if not ip_in_dmz:
         return False, f"IP {ip} no está configurada en DMZ. Configure el destino primero."
     
-    # Asegurar que existe la cadena PREROUTING_PROTECTION
-    _ensure_prerouting_protection_chain()
+    # Asegurar que existe la cadena JSB_DMZ_ISOLATE
+    mh.ensure_global_chains(); _ensure_prerouting_protection_chain()
     
     # Verificar si ya existe regla de aislamiento en PREROUTING (NAT)
     cmd_check_prerouting = [
         "/usr/sbin/iptables",
         "-t", "nat",
-        "-C", "PREROUTING_PROTECTION",
+        "-C", "JSB_DMZ_ISOLATE",
         "-d", ip,
         "-j", "RETURN"
     ]
     already_isolated_prerouting, _ = _run_command(cmd_check_prerouting)
     
-    # Verificar si ya existe regla de aislamiento en INPUT_PROTECTION (bloquea tráfico desde el host hacia el router)
+    # Verificar si ya existe regla de aislamiento en JSB_FW_RESTRICT (bloquea tráfico desde el host hacia el router)
     cmd_check_input_src = [
         "/usr/sbin/iptables",
-        "-C", "INPUT_PROTECTION",
+        "-C", "JSB_FW_RESTRICT",
         "-s", ip,
         "-j", "DROP"
     ]
@@ -612,13 +612,13 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             return False, "Error guardando configuración en disco"
         return True, f"Host {ip} ya está aislado"
     
-    # Insertar regla RETURN en PREROUTING_PROTECTION (evita que se aplique DNAT)
+    # Insertar regla RETURN en JSB_DMZ_ISOLATE (evita que se aplique DNAT)
     # RETURN hace que el paquete salga de esta cadena sin continuar, impidiendo el port forwarding
     if not already_isolated_prerouting:
         cmd_isolate_prerouting = [
             "/usr/sbin/iptables",
             "-t", "nat",
-            "-I", "PREROUTING_PROTECTION", "1",  # Posición 1 = máxima prioridad
+            "-I", "JSB_DMZ_ISOLATE", "1",  # Posición 1 = máxima prioridad
             "-d", ip,
             "-j", "RETURN"
         ]
@@ -627,21 +627,21 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         if not success:
             return False, f"Error al aislar host {ip} en PREROUTING: {output}"
     
-    # Insertar regla DROP en INPUT_PROTECTION (bloquear tráfico DESDE el host hacia el router)
+    # Insertar regla DROP en JSB_FW_RESTRICT (bloquear tráfico DESDE el host hacia el router)
     if not already_isolated_input:
         cmd_isolate_input = [
             "/usr/sbin/iptables",
-            "-I", "INPUT_PROTECTION", "1",  # Posición 1 = máxima prioridad
+            "-I", "JSB_FW_RESTRICT", "1",  # Posición 1 = máxima prioridad
             "-s", ip,
             "-j", "DROP"
         ]
         
         success, output = _run_command(cmd_isolate_input)
         if not success:
-            # Intentar limpiar la regla de PREROUTING si INPUT_PROTECTION falla
+            # Intentar limpiar la regla de PREROUTING si JSB_FW_RESTRICT falla
             if not already_isolated_prerouting:
-                _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING_PROTECTION", "-d", ip, "-j", "RETURN"])
-            return False, f"Error al aislar host {ip} en INPUT_PROTECTION: {output}"
+                _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
+            return False, f"Error al aislar host {ip} en JSB_FW_RESTRICT: {output}"
     
     # Guardar configuración con campo isolated
     if not _save_config(dmz_cfg):
@@ -649,9 +649,9 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         logger.error(f"Error guardando configuración en {CONFIG_FILE}")
         return False, "Error guardando configuración en disco"
     
-    msg = f"Host DMZ {ip} aislado correctamente (RETURN en PREROUTING_PROTECTION + DROP en INPUT_PROTECTION)"
+    msg = f"Host DMZ {ip} aislado correctamente (RETURN en JSB_DMZ_ISOLATE + DROP en JSB_FW_RESTRICT)"
     _write_log(f"✅ {msg}")
-    logger.info(f"Host {ip} aislado correctamente: PREROUTING impide DNAT, INPUT_PROTECTION bloquea salida al router")
+    logger.info(f"Host {ip} aislado correctamente: PREROUTING impide DNAT, JSB_FW_RESTRICT bloquea salida al router")
     logger.info("=== FIN: isolate_dmz_host ===" )
     
     return True, msg
@@ -681,20 +681,20 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     if not ip_in_dmz:
         return False, f"IP {ip} no está configurada en DMZ"
     
-    # Verificar y eliminar regla de PREROUTING_PROTECTION (NAT)
+    # Verificar y eliminar regla de JSB_DMZ_ISOLATE (NAT)
     cmd_check_prerouting = [
         "/usr/sbin/iptables",
         "-t", "nat",
-        "-C", "PREROUTING_PROTECTION",
+        "-C", "JSB_DMZ_ISOLATE",
         "-d", ip,
         "-j", "RETURN"
     ]
     prerouting_exists, _ = _run_command(cmd_check_prerouting)
     
-    # Verificar y eliminar regla de INPUT_PROTECTION
+    # Verificar y eliminar regla de JSB_FW_RESTRICT
     cmd_check_input = [
         "/usr/sbin/iptables",
-        "-C", "INPUT_PROTECTION",
+        "-C", "JSB_FW_RESTRICT",
         "-s", ip,
         "-j", "DROP"
     ]
@@ -707,12 +707,12 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             return False, "Error guardando configuración en disco"
         return True, f"Host {ip} no estaba aislado"
     
-    # Eliminar de PREROUTING_PROTECTION
+    # Eliminar de JSB_DMZ_ISOLATE
     if prerouting_exists:
         cmd_remove_prerouting = [
             "/usr/sbin/iptables",
             "-t", "nat",
-            "-D", "PREROUTING_PROTECTION",
+            "-D", "JSB_DMZ_ISOLATE",
             "-d", ip,
             "-j", "RETURN"
         ]
@@ -720,17 +720,17 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         if not success:
             return False, f"Error eliminando aislamiento de {ip} en PREROUTING: {output}"
     
-    # Eliminar de INPUT_PROTECTION
+    # Eliminar de JSB_FW_RESTRICT
     if input_exists:
         cmd_remove_input = [
             "/usr/sbin/iptables",
-            "-D", "INPUT_PROTECTION",
+            "-D", "JSB_FW_RESTRICT",
             "-s", ip,
             "-j", "DROP"
         ]
         success, output = _run_command(cmd_remove_input)
         if not success:
-            return False, f"Error eliminando aislamiento de {ip} en INPUT_PROTECTION: {output}"
+            return False, f"Error eliminando aislamiento de {ip} en JSB_FW_RESTRICT: {output}"
     
     # Guardar configuración con campo isolated=False
     if not _save_config(dmz_cfg):
@@ -738,9 +738,9 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         logger.error(f"Error guardando configuración en {CONFIG_FILE}")
         return False, "Error guardando configuración en disco"
     
-    msg = f"Aislamiento de host DMZ {ip} eliminado correctamente (PREROUTING_PROTECTION + INPUT_PROTECTION)"
+    msg = f"Aislamiento de host DMZ {ip} eliminado correctamente (JSB_DMZ_ISOLATE + JSB_FW_RESTRICT)"
     _write_log(f"🔓 {msg}")
-    logger.info(f"Aislamiento de host {ip} eliminado de PREROUTING_PROTECTION e INPUT_PROTECTION")
+    logger.info(f"Aislamiento de host {ip} eliminado de JSB_DMZ_ISOLATE e JSB_FW_RESTRICT")
     logger.info("=== FIN: unisolate_dmz_host ===")
     
     return True, msg
@@ -750,7 +750,23 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 # WHITELIST DE ACCIONES PERMITIDAS
 # =============================================================================
 
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status_val = params.get("status", "on")
+    # Persistence
+    cfg = load_json_config(CONFIG_FILE) if "load_json_config" in globals() else _load_config() if "_load_config" in globals() else {}
+    if cfg:
+        cfg["traffic_log"] = (status_val == "on")
+        if "save_json_config" in globals():
+            save_json_config(CONFIG_FILE, cfg)
+        elif "_save_config" in globals():
+            _save_config(cfg)
+    
+    ioh.log_action(os.path.basename(os.path.dirname(__file__)), f"Traffic Log set to {status_val}")
+    return True, f"Log de tráfico configurado: {status_val}"
+
 ALLOWED_ACTIONS = {
+    "traffic_log": traffic_log,
     "start": start,
     "stop": stop,
     "restart": restart,

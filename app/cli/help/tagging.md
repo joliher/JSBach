@@ -37,6 +37,19 @@
     **restart**
         Recarga la topología de red de capa 2.
 
+    **isolate** --iface IFACE
+        Bloquea todo el tráfico (Capa 2) en el puerto físico especificado usando `ebtables`.
+        Ejemplo: `tagging isolate --iface eth1`
+
+    **unisolate** --iface IFACE
+        Elimina el bloqueo L2 del puerto físico.
+
+    **traffic_log** --iface IFACE [--status on|off]
+        Activa o desactiva el registro de tráfico para un puerto físico. Los logs aparecen en `dmesg` con el prefijo `[JSB-TAG-OUT]`.
+
+    **top**
+        Muestra estadísticas de tráfico (paquetes y bytes) por puerto físico.
+
 ## CONCEPTOS
     **Access Port (Untagged)**
         Utilizado para conectar PCs o servidores finales. El tráfico sale sin etiquetas.

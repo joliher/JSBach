@@ -64,3 +64,32 @@ function removeToast(toast) {
 
 // Exposicion global para ser llamado desde cualquier script
 window.showToast = showToast;
+
+/**
+ * Alterna el estado de los logs de tráfico para un módulo.
+ * @param {HTMLInputElement} checkbox - El elemento checkbox.
+ * @param {string} moduleName - El nombre del módulo (wan, nat, dhcp, etc).
+ */
+async function toggleLogging(checkbox, moduleName) {
+    const status = checkbox.checked ? 'on' : 'off';
+    try {
+        const response = await fetch(`/admin/${moduleName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'traffic_log', params: { status: status } }),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast(data.detail || `Logs de ${moduleName.toUpperCase()} ${status === 'on' ? 'activados' : 'desactivados'}`, 'success');
+        } else {
+            showToast(data.detail || 'Error al cambiar estado de logs', 'error');
+            checkbox.checked = !checkbox.checked; // Rollback UI
+        }
+    } catch (e) {
+        showToast('Error de conexión al servidor', 'error');
+        checkbox.checked = !checkbox.checked; // Rollback UI
+    }
+}
+
+window.toggleLogging = toggleLogging;

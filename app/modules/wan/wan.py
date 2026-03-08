@@ -3,13 +3,12 @@
 import asyncio
 import ipaddress
 import os
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 from typing import Dict, Any, Tuple
 from ...utils.global_helpers import module_helpers as mh, io_helpers as ioh
 from ...utils.validators import validate_ip_address, validate_interface_name
 from ...utils.global_helpers import (
     load_json_config, save_json_config, update_module_status,
-    run_command, validate_interface_name as validate_iface
+    run_command
 )
 from .helpers import verify_wan_status, verify_dhcp_assignment
 
@@ -20,7 +19,7 @@ CONFIG_FILE = os.path.abspath(
 
 # Alias helpers para compatibilidad
 _load_config = lambda: load_json_config(CONFIG_FILE)
-_run_command = lambda cmd: run_command(cmd)
+_run_command = lambda cmd, ignore_error=False: run_command(cmd)
 _update_status = lambda status: update_module_status(CONFIG_FILE, status)
 
 # Aliases para funciones de helpers (compatibilidad con el resto del código)
@@ -44,11 +43,28 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     if not iface or not mode:
         return False, "Configuración WAN incompleta"
 
-    # Verificar que la interfaz existe
+    # Verificar que la interfaz existe de forma robusta
     success, _ = _run_command(["/usr/sbin/ip", "link", "show", iface])
     if not success:
-        return False, f"La interfaz {iface} no existe"
+        # Intento alternativo por si /usr/sbin/ip no está en esa ruta o requiere sudo explícito
+        success_alt, _ = _run_command(["ip", "link", "show", iface])
+        if not success_alt:
+            return False, f"La interfaz {iface} no se encuentra activa en el sistema"
 
+    # --- PREPARAR JERARQUÍA DE FIREWALL ---
+    mh.ensure_global_chains()
+    _run_command(["/usr/sbin/iptables", "-N", "JSB_WAN_STATS"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-N", "JSB_WAN_ISOLATE"], ignore_error=True)
+    
+    # Hook into Global Stats
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_STATS", "JSB_WAN_STATS")
+
+    # Hook into Global Isolate
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_WAN_ISOLATE")
+    
+    # Regla de conteo general para la interfaz WAN (con RETURN para permitir otros módulos)
+    _run_command(["/usr/sbin/iptables", "-A", "JSB_WAN_STATS", "-o", iface, "-j", "RETURN"])
+    
     try:
         if mode == "dhcp":
             # Lanzar dhcpcd en background (retorna inmediatamente)
@@ -63,8 +79,8 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             cfg["status"] = 0  # Estado pendiente hasta que se verifique
             saved = save_json_config(CONFIG_FILE, cfg)
             if not saved:
-                # No abortar, pero advertir
-                print(f"Advertencia: no se pudo actualizar {CONFIG_FILE} al iniciar DHCP")
+                # Registrar el fallo y salir (no lanzar excepción)
+                ioh.log_action("wan", f"dhcp - WARNING: No se pudo guardar estado DHCP en {CONFIG_FILE}", "WARNING")
             
             # Crear una tarea asyncio que verifique en background si se cumplieron todas las validaciones
             try:
@@ -113,6 +129,14 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         return False, "Interfaz WAN no definida"
 
     try:
+        # Limpiar iptables
+        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_STATS", "-j", "JSB_WAN_STATS"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_ISOLATE", "-j", "JSB_WAN_ISOLATE"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-F", "JSB_WAN_STATS"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-X", "JSB_WAN_STATS"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-F", "JSB_WAN_ISOLATE"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-X", "JSB_WAN_ISOLATE"], ignore_error=True)
+
         # Intentar revertir resoluciones DNS para la interfaz
         _run_command(["/usr/bin/resolvectl", "revert", iface])
 
@@ -261,7 +285,10 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     # Validar que la interfaz existe en el sistema
     success, _ = _run_command(["/usr/sbin/ip", "link", "show", iface])
     if not success:
-        return False, f"La interfaz '{iface}' no existe en el sistema. Verifique con 'ip link show'."
+        # Intento alternativo
+        success_alt, _ = _run_command(["ip", "link", "show", iface])
+        if not success_alt:
+            return False, f"La interfaz '{iface}' no existe en el sistema. Verifique con 'ip link show' en la consola."
 
     try:
         # Cargar configuración existente para preservar el status
@@ -306,6 +333,97 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
         return True, "Configuración WAN guardada"
     except Exception as e:
         return False, f"Error guardando configuración WAN: {e}"
+
+
+def block(params: Dict[str, Any]) -> Tuple[bool, str]:
+    """Bloquear una IP interna del acceso a WAN."""
+    ip = params.get("ip")
+    if not ip:
+        return False, "Falta parámetro 'ip'"
+    
+    cfg = _load_config()
+    iface = cfg.get("interface")
+    if not iface:
+        return False, "WAN no configurada"
+
+    # Bloquear en la sub-cadena dedicada JSB_WAN_ISOLATE
+    cmd = ["/usr/sbin/iptables", "-A", "JSB_WAN_ISOLATE", "-s", ip, "-o", iface, "-j", "DROP"]
+    success, msg = _run_command(cmd)
+    if success:
+        return True, f"IP {ip} bloqueada para salida WAN ({iface})"
+    return False, f"Error bloqueando IP: {msg}"
+
+
+def unblock(params: Dict[str, Any]) -> Tuple[bool, str]:
+    """Desbloquear una IP interna del acceso a WAN."""
+    ip = params.get("ip")
+    if not ip:
+        return False, "Falta parámetro 'ip'"
+    
+    cfg = _load_config()
+    iface = cfg.get("interface")
+    if not iface:
+        return False, "WAN no configurada"
+
+    # Desbloquear de la sub-cadena dedicada
+    cmd = ["/usr/sbin/iptables", "-D", "JSB_WAN_ISOLATE", "-s", ip, "-o", iface, "-j", "DROP"]
+    success, msg = _run_command(cmd)
+    if success:
+        return True, f"IP {ip} desbloqueada para salida WAN ({iface})"
+    return False, f"Error desbloqueando IP: {msg}"
+
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    """Activar/Desactivar log de tráfico WAN."""
+    status_val = params.get("status")
+    if status_val not in ["on", "off"]:
+        return False, "Parámetro 'status' debe ser 'on' u 'off'"
+    
+    cfg = _load_config()
+    iface = cfg.get("interface")
+    if not iface:
+        return False, "WAN no configurada"
+
+    action = "-I" if status_val == "on" else "-D"
+    cmd = ["/usr/sbin/iptables", action, "FORWARD", "-o", iface, "-j", "LOG", "--log-prefix", "[JSB-WAN-OUT] "]
+    success, msg = _run_command(cmd)
+    if success:
+        return True, f"Log de tráfico WAN {'activado' if status_val == 'on' else 'desactivado'}"
+    return False, f"Error configurando log: {msg}"
+
+
+def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    """Mostrar top consumidores de ancho de banda WAN."""
+    # Obtener estadísticas de la sub-cadena dedicada JSB_WAN_STATS
+    success, output = _run_command(["/usr/sbin/iptables", "-L", "JSB_WAN_STATS", "-n", "-v", "-x"])
+    if not success:
+        return False, f"Error obteniendo estadísticas: {output}"
+    
+    lines = output.strip().split("\n")
+    if len(lines) < 3:
+        return True, "No hay tráfico registrado en JSB_WAN_STATS"
+    
+    stats = []
+    # Saltar cabeceras
+    for line in lines[2:]:
+        parts = line.split()
+        if len(parts) >= 8:
+            bytes_count = int(parts[1])
+            src_ip = parts[7]
+            if bytes_count > 0:
+                stats.append((src_ip, bytes_count))
+    
+    if not stats:
+        return True, "No se ha detectado tráfico de salida hacia la WAN todavía."
+    
+    # Ordenar por bytes descendente
+    stats.sort(key=lambda x: x[1], reverse=True)
+    
+    report = ["Top Consumidores WAN:", "=" * 40, f"{'IP Origen':<20} {'Bytes Enviados':<15}"]
+    for ip, b in stats[:10]: # Top 10
+        report.append(f"{ip:<20} {b:<15}")
+    
+    return True, "\n".join(report)
 
 
 # -----------------------------
@@ -387,4 +505,8 @@ ALLOWED_ACTIONS = {
     "restart": restart,
     "status": status,
     "config": config,
+    "block": block,
+    "unblock": unblock,
+    "traffic_log": traffic_log,
+    "top": top,
 }

@@ -1,20 +1,15 @@
 # app/modules/expect/actions/config.py
-import re
 from typing import Dict, Any, Tuple, Optional
-from ..base import (
-    async_run_expect_script, escape_expect_send
-)
+from ..base import async_run_expect_script
 from .. import state_manager
 from ..helpers import parse_config_blocks
 
-async def run_config(ip: str, actions_raw: str, profile: Dict[str, Any], auth_required: bool, user: str, password: str, dry_run: bool = False, protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_config(ip: str, actions_raw: str, profile: Dict[str, Any], _auth_required: bool, user: str, password: str, dry_run: bool = False, protocol: Optional[str] = None) -> Tuple[bool, str]:
     from ..base import get_script_path
-    import tempfile
-    import os
+    commands = []
     
     blocks = parse_config_blocks(actions_raw)
     config_prompt = profile["prompts"]["config"]
-    interface_prompt = profile["prompts"]["interface"]
     
     for block in blocks:
         ports = block.get("ports")
@@ -72,20 +67,16 @@ async def run_config(ip: str, actions_raw: str, profile: Dict[str, Any], auth_re
         return success, stdout if success else f"Error en configuración: {stderr or stdout}"
     except Exception as e:
         return False, f"Error ejecutando configuración: {e}"
-    finally:
-        pass
 
-async def run_reset(ip: str, profile: Dict[str, Any], auth_required: bool, user: str, password: str, max_ports: int, dry_run: bool = False, protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_reset(ip: str, profile: Dict[str, Any], _auth_required: bool, user: str, password: str, max_ports: int, dry_run: bool = False, protocol: Optional[str] = None) -> Tuple[bool, str]:
     from ..base import get_script_path
-    import tempfile
-    import os
+    commands = []
     
     reset_cmd_tmpl = profile.get("reset_cmd")
     if not reset_cmd_tmpl:
         return False, "El perfil no soporta la función de reset."
 
     config_prompt = profile["prompts"]["config"]
-    interface_prompt = profile["prompts"]["interface"]
     port_prefix = profile.get("port_prefix", "ethernet ")
     cmds = [c.strip() for c in reset_cmd_tmpl.split(',')]
     
@@ -131,5 +122,3 @@ async def run_reset(ip: str, profile: Dict[str, Any], auth_required: bool, user:
         return success, stdout if success else f"Error en reset: {stderr or stdout}"
     except Exception as e:
         return False, f"Error ejecutando reset: {e}"
-    finally:
-        pass

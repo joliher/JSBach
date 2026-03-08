@@ -122,7 +122,7 @@ def get_module_status_by_name(base_dir: str, module_name: str) -> int:
 # EJECUCIÓN DE COMANDOS
 # =============================================================================
 
-def run_command(cmd: list, use_sudo: bool = True, timeout: int = 30) -> Tuple[bool, str]:
+def run_command(cmd: list, use_sudo: bool = True, timeout: int = 30, ignore_error: bool = False) -> Tuple[bool, str]:
     """
     Ejecutar comando shell con opciones de sudo y timeout.
     
@@ -154,6 +154,174 @@ def run_command(cmd: list, use_sudo: bool = True, timeout: int = 30) -> Tuple[bo
         return False, f"Timeout ejecutando comando (>{timeout}s)"
     except Exception as e:
         return False, f"Error ejecutando comando: {str(e)}"
+
+
+# =============================================================================
+# GESTIÓN GLOBAL DE FIREWALL (Anchor Chains)
+# =============================================================================
+
+GLOBAL_MODULE_ORDER = ["wan", "vlans", "wifi", "tagging", "firewall", "dmz", "nat", "dhcp"]
+
+def ensure_chain_at_position(table: str, parent: str, target: str, position: int) -> bool:
+    """Asegura que una cadena objetivo esté en una posición específica de la cadena padre."""
+    run_command(["iptables", "-t", table, "-N", target])
+    
+    # 2. Verificar posición actual
+    success, output = run_command(["iptables", "-t", table, "-L", parent, "-n", "--line-numbers"])
+    if not success:
+        return False
+
+    current_pos = None
+    for line in output.split('\n'):
+        if target in line:
+            # Match line number
+            match = re.match(r'^\s*(\d+)\s+', line.strip())
+            if match:
+                # Double check it is the right target
+                if f" {target} " in f" {line} ":
+                    current_pos = int(match.group(1))
+                    break
+
+    if current_pos == position:
+        return True
+
+    # 3. Reposicionar
+    if current_pos is not None:
+        run_command(["iptables", "-t", table, "-D", parent, "-j", target])
+    
+    success, _ = run_command(["iptables", "-t", table, "-I", parent, str(position), "-j", target])
+    return success
+
+
+def ensure_global_chains():
+    """Establece la jerarquía global de JSBach en las tablas de firewall."""
+    # FORWARD Hierarchy
+    ensure_chain_at_position("filter", "FORWARD", "JSB_GLOBAL_STATS", 1)
+    ensure_chain_at_position("filter", "FORWARD", "JSB_GLOBAL_ISOLATE", 2)
+    
+    # INPUT Hierarchy
+    ensure_chain_at_position("filter", "INPUT", "JSB_GLOBAL_RESTRICT", 1)
+    
+    # NAT Hierarchy
+    ensure_chain_at_position("nat", "PREROUTING", "JSB_GLOBAL_PRE", 1)
+    ensure_chain_at_position("nat", "POSTROUTING", "JSB_GLOBAL_NAT", 1)
+
+
+def ensure_ebtables_global_chains() -> None:
+    """Garantiza la jerarquía global de ebtables."""
+    # Tabla filter (por defecto en ebtables)
+    # JSB_GLOBAL_EBT_STATS en posición 1 de FORWARD
+    run_command(["ebtables", "-N", "JSB_GLOBAL_EBT_STATS"], ignore_error=True)
+    
+    # Verificar posición en FORWARD
+    ebt_list_cmd = ["ebtables", "-L", "FORWARD", "--Ln"]
+    success, output = run_command(ebt_list_cmd)
+    if success:
+        if "JSB_GLOBAL_EBT_STATS" not in output:
+            run_command(["ebtables", "-I", "FORWARD", "1", "-j", "JSB_GLOBAL_EBT_STATS"])
+        else:
+            # Simple check, if not 1, move it
+            if "1 JSB_GLOBAL_EBT_STATS" not in output:
+                run_command(["ebtables", "-D", "FORWARD", "-j", "JSB_GLOBAL_EBT_STATS"], ignore_error=True)
+                run_command(["ebtables", "-I", "FORWARD", "1", "-j", "JSB_GLOBAL_EBT_STATS"])
+
+    # JSB_GLOBAL_EBT_ISOLATE en posición 2 de FORWARD
+    run_command(["ebtables", "-N", "JSB_GLOBAL_EBT_ISOLATE"], ignore_error=True)
+    if "JSB_GLOBAL_EBT_ISOLATE" not in output:
+        run_command(["ebtables", "-I", "FORWARD", "2", "-j", "JSB_GLOBAL_EBT_ISOLATE"])
+    else:
+        # Check if it is at position 2
+        if "2 JSB_GLOBAL_EBT_ISOLATE" not in output:
+            run_command(["ebtables", "-D", "FORWARD", "-j", "JSB_GLOBAL_EBT_ISOLATE"], ignore_error=True)
+            run_command(["ebtables", "-I", "FORWARD", "2", "-j", "JSB_GLOBAL_EBT_ISOLATE"])
+
+
+def ensure_module_hook(table: str, global_chain: str, module_chain: str, binary: str = "iptables", extra_args: list = None) -> bool:
+    """
+    Asegura que una cadena de módulo esté en la posición correcta dentro de una cadena global.
+    Permite argumentos extra (ej: -i eth0) para el filtrado previo al salto.
+    """
+    cmd_base = [f"/usr/sbin/{binary}"]
+    if extra_args is None:
+        extra_args = []
+        
+    # 1. Asegurar que las cadenas existen
+    run_command(cmd_base + ["-t", table, "-N", global_chain])
+    run_command(cmd_base + ["-t", table, "-N", module_chain])
+
+    # 2. Identificar qué módulo es
+    module_name = None
+    for m in GLOBAL_MODULE_ORDER:
+        if m.upper() in module_chain.upper():
+            module_name = m
+            break
+    
+    # (Buscamos coincidencias de la cadena destino)
+    list_cmd = cmd_base + ["-t", table, "-L", global_chain, "--line-numbers"]
+    if binary == "iptables":
+        # Solo iptables soporta -n de forma fiable para evitar resolución DNS
+        list_cmd.insert(-1, "-n")
+        
+    success, output = run_command(list_cmd)
+    if success:
+        # Borrar de abajo a arriba para no alterar números de línea durante el proceso
+        lines = output.split('\n')
+        for line in reversed(lines):
+            if module_chain in line:
+                match = re.match(r'^\s*(\d+)\s+', line.strip())
+                if match:
+                    line_num = match.group(1)
+                    # For ebtables, -D requires the full rule, not just line number
+                    if binary == "ebtables":
+                        # Attempt to reconstruct the rule for ebtables -D
+                        # This is a simplification and might not cover all cases
+                        rule_parts = line.split()
+                        try:
+                            # Find -j and the target chain
+                            j_idx = rule_parts.index("-j")
+                            target_idx = j_idx + 1
+                            if target_idx < len(rule_parts) and rule_parts[target_idx] == module_chain:
+                                # Remove line number and target chain from rule_parts
+                                rule_to_delete = [p for i, p in enumerate(rule_parts) if i != 0 and i != target_idx]
+                                run_command(cmd_base + ["-t", table, "-D", global_chain] + rule_to_delete)
+                        except ValueError:
+                            # -j not found, try deleting by line number if it's a simple jump
+                            run_command(cmd_base + ["-t", table, "-D", global_chain, line_num])
+                    else: # iptables can use line number
+                        run_command(cmd_base + ["-t", table, "-D", global_chain, line_num])
+
+    if not module_name:
+        # Si no se reconoce el módulo, simplemente añadir al final con los argumentos extra
+        return run_command(cmd_base + ["-t", table, "-A", global_chain] + extra_args + ["-j", module_chain])[0]
+
+    # 4. Obtener hooks actuales (módulos) en la cadena global para calcular posición
+    success, output = run_command(cmd_base + ["-t", table, "-L", global_chain, "-n"])
+    current_hooks = []
+    if success:
+        for line in output.split('\n'):
+            for m in GLOBAL_MODULE_ORDER:
+                # Reconocer hook si contiene el nombre del módulo Y (tiene prefijo JSB_ O es una de las cadenas conocidas)
+                # O si la cadena destino (module_chain) está presente.
+                if m.upper() in line.upper() and ("JSB_" in line.upper() or "WIFI" in line.upper()) and "-j" in line:
+                    current_hooks.append(m)
+                    break
+    
+    # 5. Determinar posición de inserción
+    # Queremos insertar después de todos los módulos que van antes en GLOBAL_MODULE_ORDER
+    my_idx = GLOBAL_MODULE_ORDER.index(module_name)
+    pos = 1
+    for m in current_hooks:
+        if GLOBAL_MODULE_ORDER.index(m) < my_idx:
+            pos += 1
+    
+    # 6. Insertar regla
+    success, output = run_command(cmd_base + ["-t", table, "-I", global_chain, str(pos)] + extra_args + ["-j", module_chain])
+    if success:
+        logger.info(f"Hook {module_chain} insertado en {global_chain} (pos {pos}) {'con extra_args' if extra_args else ''}")
+    else:
+        logger.error(f"Error insertando hook {module_chain} en {global_chain}: {output}")
+        
+    return success
 
 
 # =============================================================================

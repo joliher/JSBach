@@ -38,34 +38,31 @@ class CLISession:
                 line = await asyncio.wait_for(self.reader.readline(), timeout=300.0)
                 if not line:
                     return ""
-                return line.decode('utf-8').strip()
+                return line.decode('utf-8', errors='ignore').strip()
             except asyncio.TimeoutError:
                 return ""
             except Exception as e:
                 logging.error(f"CLI: Error receiving data: {e}")
                 return ""
         else:
-            # Modo oculto: leer carácter a carácter y mostrar *
-            password = ""
+            # Modo oculto: usar readline() para capturar la password completa de una vez.
+            # Esto evita dejar bytes residuales en el buffer (ej. el \n de \r\n).
+            # El eco de asteriscos se hace enviando '*' por cada carácter detectado tras recibir.
             try:
-                while True:
-                    char = await asyncio.wait_for(self.reader.read(1), timeout=300.0)
-                    if not char:
-                        break
-                    c = char.decode('utf-8', errors='ignore')
-                    if c in ('\n', '\r'):
-                        break
-                    if c == '\x7f':  # Backspace
-                        if password:
-                            password = password[:-1]
-                            await self.send('\b \b')
-                        continue
-                    password += c
-                    # Enviar * al cliente
+                line = await asyncio.wait_for(self.reader.readline(), timeout=300.0)
+                if not line:
+                    return ""
+                password = line.decode('utf-8', errors='ignore').strip()
+                
+                # Enviar los * al cliente (feedback visual, aunque llegue tarde)
+                for _ in password:
                     self.writer.write(b'*')
                     await self.writer.drain()
+                
                 await self.send('')  # Nueva línea
-                return password.strip()
+                return password
+            except asyncio.TimeoutError:
+                return ""
             except Exception as e:
                 logging.error(f"CLI: Error receiving masked input: {e}")
                 return ""

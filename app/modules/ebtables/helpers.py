@@ -305,7 +305,7 @@ def check_dependencies() -> Tuple[bool, str]:
         (False, mensaje_error) si falta alguno
     """
     # Verificar WAN
-    wan_active, wan_iface = check_wan_active()
+    wan_active, _ = check_wan_active()
     if not wan_active:
         return False, "Módulo WAN debe estar activo"
     
@@ -356,7 +356,7 @@ def create_vlan_chain(vlan_id: Any) -> bool:
     chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
     
     # Verificar si ya existe
-    success, output = run_ebtables(["-L", chain_name])
+    success, _ = run_ebtables(["-L", chain_name])
     if success:
         logger.info(f"Cadena {chain_name} ya existe")
         return True
@@ -408,24 +408,11 @@ def delete_vlan_chain(vlan_id: Any) -> bool:
     return True
 
 
-def add_vlan_interface_to_forward(vlan_id: Any, vlan_interface: str, position: int = 1) -> bool:
+def add_vlan_interface_to_forward(vlan_id: Any, _iface=None, _priority=1) -> bool:
     """Agregar regla en FORWARD que redirecciona tráfico VLAN/Wi-Fi a su cadena."""
     chain_name = f"FORWARD_VLAN_{vlan_id}" if str(vlan_id).isdigit() else f"FORWARD_{str(vlan_id).upper()}"
-    
-    # Verificar si ya existe esta regla
-    success, output = run_ebtables(["-L", "FORWARD", "--Ln"])
-    if success and f"-i {vlan_interface}" in output and chain_name in output:
-        logger.info(f"Regla FORWARD -i {vlan_interface} → {chain_name} ya existe")
-        return True
-    
-    # Insertar regla de redirección a la cadena VLAN
-    success, msg = run_ebtables(["-I", "FORWARD", str(position), "-i", vlan_interface, "-j", chain_name])
-    if not success:
-        logger.error(f"Error agregando regla FORWARD -i {vlan_interface} → {chain_name}: {msg}")
-        return False
-    
-    logger.info(f"Regla FORWARD -i {vlan_interface} → {chain_name} agregada")
-    return True
+    mh.ensure_ebtables_global_chains()
+    return mh.ensure_module_hook("filter", "JSB_GLOBAL_EBT_ISOLATE", chain_name, binary="ebtables")
 
 
 def remove_vlan_interface_from_forward(vlan_interface: str) -> bool:
@@ -503,61 +490,47 @@ def apply_isolation(vlan_id: int, wan_iface: str, vlan_interfaces: List[str]) ->
     
     # En FORWARD_VLAN_X, agregar solo reglas WAN (entrada y salida)
     
-    # Regla 1: Permitir tráfico ENTRADA desde WAN
+    # Regla 1: Permitir tráfico ENTRADA desde WAN (RETURN para dejar que otros judguen)
     # Verificar si ya existe antes de añadir
     verify_success, verify_output = run_ebtables(["-L", chain_name, "--Ln"])
-    if not (verify_success and f"-i {wan_iface} -j ACCEPT" in verify_output):
-        success, msg = run_ebtables(["-A", chain_name, "-i", wan_iface, "-j", "ACCEPT"])
+    if not (verify_success and f"-i {wan_iface} -j RETURN" in verify_output):
+        success, msg = run_ebtables(["-A", chain_name, "-i", wan_iface, "-j", "RETURN"])
         if not success:
             logger.error(f"Error añadiendo regla entrada WAN: {msg}")
             return False
-        logger.info(f"Regla {chain_name} -i {wan_iface} -j ACCEPT añadida")
-    else:
-        logger.info(f"Regla {chain_name} -i {wan_iface} -j ACCEPT ya existe")
+        logger.info(f"Regla {chain_name} -i {wan_iface} -j RETURN añadida")
     
     # Regla 2: Permitir tráfico SALIDA hacia WAN
-    # Verificar si ya existe antes de añadir
-    verify_success, verify_output = run_ebtables(["-L", chain_name, "--Ln"])
-    if not (verify_success and f"-o {wan_iface} -j ACCEPT" in verify_output):
-        success, msg = run_ebtables(["-A", chain_name, "-o", wan_iface, "-j", "ACCEPT"])
+    if not (verify_success and f"-o {wan_iface} -j RETURN" in verify_output):
+        success, msg = run_ebtables(["-A", chain_name, "-o", wan_iface, "-j", "RETURN"])
         if not success:
             logger.error(f"Error añadiendo regla salida WAN: {msg}")
             return False
-        logger.info(f"Regla {chain_name} -o {wan_iface} -j ACCEPT añadida")
-    else:
-        logger.info(f"Regla {chain_name} -o {wan_iface} -j ACCEPT ya existe")
+        logger.info(f"Regla {chain_name} -o {wan_iface} -j RETURN añadida")
     
     # Regla 3: DROP explícito para todo lo demás (bloqueo entre VLANs)
     # Insertar en posición 3 para asegurar orden correcto
     verify_success, verify_output = run_ebtables(["-L", chain_name, "--Ln"])
     # Contar líneas de reglas existentes (excluyendo header)
-    existing_rules = 0
     if verify_success:
-        lines = [l for l in verify_output.strip().split('\n') if l and not l.startswith('Bridge')]
-        existing_rules = len(lines)
+        pass
     
     # Verificar si ya existe una regla DROP
     drop_exists = verify_success and "-j DROP" in verify_output
     
     if not drop_exists:
-        # Insertar en posición 3 si hay 2 o más reglas, de lo contrario append
-        if existing_rules >= 2:
-            success, msg = run_ebtables(["-I", chain_name, "3", "-j", "DROP"])
-            position_msg = "en posición 3"
-        else:
-            success, msg = run_ebtables(["-A", chain_name, "-j", "DROP"])
-            position_msg = "al final"
+        # LOG before DROP (Full Logging)
+        run_ebtables(["-A", chain_name, "--log-level", "info", "--log-prefix", f"[JSB-EBT-BLOCK] VLAN-{vlan_id} ISO ", "-j", "CONTINUE"])
+        success, msg = run_ebtables(["-A", chain_name, "-j", "DROP"])
         
         if not success:
             logger.error(f"Error añadiendo regla DROP en {chain_name}: {msg}")
             return False
-        logger.info(f"Regla {chain_name} -j DROP añadida {position_msg}")
-    else:
-        logger.info(f"Regla {chain_name} -j DROP ya existe")
+        logger.info(f"Regla {chain_name} -j DROP añadida con LOG")
     
     # Agregar reglas en FORWARD que redireccionen cada interfaz VLAN a esta cadena
     for i, phys_iface in enumerate(vlan_interfaces, start=1):
-        if not add_vlan_interface_to_forward(vlan_id, phys_iface, position=i):
+        if not add_vlan_interface_to_forward(vlan_id, phys_iface):
             logger.error(f"Error agregando regla FORWARD para interfaz {phys_iface}")
             return False
     
@@ -642,7 +615,7 @@ def normalize_mac_address(mac: str) -> str:
     return normalized
 
 
-def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]) -> bool:
+def apply_mac_whitelist_rules(_, __, ___) -> bool:
     """Aplicar reglas de ebtables para MAC whitelist en VLAN 1.
     
     Cuando whitelist está habilitada:
@@ -657,7 +630,7 @@ def apply_mac_whitelist_rules(vlan_id: int, wan_iface: str, whitelist: List[str]
       -j DROP                                   (rechaza MACs no whitelisted)
     """
 
-def apply_mac_filter_rules(vlan_id: Any, wan_iface: str, blacklist: list) -> bool:
+def apply_mac_filter_rules(vlan_id: Any, _, blacklist: list) -> bool:
     """Aplicar reglas de MAC blacklist para una VLAN o Wi-Fi.
     
     Bloquea las MACs en la lista. El resto sigue su curso (aislado o no).
@@ -694,7 +667,7 @@ def apply_mac_filter_rules(vlan_id: Any, wan_iface: str, blacklist: list) -> boo
     if vlan_interfaces:
         for vlan_iface in vlan_interfaces:
             # Asegurar redirección en FORWARD
-            add_vlan_interface_to_forward(vlan_id, vlan_iface, position=1)
+            add_vlan_interface_to_forward(vlan_id, vlan_iface)
     
     # PASO 3: Limpiar reglas de MAC filter anteriores
     # Buscamos reglas con -s <mac> -j DROP o -d <mac> -j DROP
@@ -721,10 +694,12 @@ def apply_mac_filter_rules(vlan_id: Any, wan_iface: str, blacklist: list) -> boo
     if blacklist:
         for mac_addr in blacklist:
             normalized_mac = normalize_mac_address(mac_addr)
-            # Bloquear como origen
-            run_ebtables(["-I", chain_name, "1", "-s", normalized_mac, "-j", "DROP"])
-            # Bloquear como destino
-            run_ebtables(["-I", chain_name, "1", "-d", normalized_mac, "-j", "DROP"])
+            # LOG before DROP
+            run_ebtables(["-A", chain_name, "-s", normalized_mac, "--log-prefix", f"[JSB-EBT-BLOCK] {vlan_id} MAC-S ", "-j", "CONTINUE"])
+            run_ebtables(["-A", chain_name, "-s", normalized_mac, "-j", "DROP"])
+            
+            run_ebtables(["-A", chain_name, "-d", normalized_mac, "--log-prefix", f"[JSB-EBT-BLOCK] {vlan_id} MAC-D ", "-j", "CONTINUE"])
+            run_ebtables(["-A", chain_name, "-d", normalized_mac, "-j", "DROP"])
     
     logger.info(f"MAC blacklist aplicada a {vlan_id} con {len(blacklist)} entradas")
     return True

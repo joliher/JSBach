@@ -1,6 +1,12 @@
+/* /web/modules/dmz/js/destinations.js - FIXED V4.2_REFRESH_02 */
 /* /web/modules/dmz/js/destinations.js */
 
 let dmzCache = [];
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
 async function loadDestinations() {
     const tbody = document.querySelector("#destinationsTable tbody");
@@ -46,10 +52,9 @@ function renderDestRow(tr, dest, index) {
         <td>
             <div class="action-group">
                 <button class="btn btn-blue btn-small" onclick="editRow(${index})" title="Editar">✏️</button>
-                <button class="btn btn-small ${isIsolated ? 'btn-blue' : 'btn-red'}" 
-                        style="background: ${isIsolated ? '#059669' : '#dc2626'};"
+                <button class="btn btn-small ${isIsolated ? 'btn-red' : 'btn-success'}" 
                         onclick="toggleIsolation('${dest.ip}', ${!isIsolated})">
-                    ${isIsolated ? '🔓' : '🔒'}
+                    ${isIsolated ? '🔒' : '🔓'}
                 </button>
                 <button class="btn btn-red btn-small" onclick="deleteDestination('${dest.ip}', ${dest.port}, '${dest.protocol}')" title="Eliminar">🗑️</button>
             </div>
@@ -164,8 +169,18 @@ async function toggleIsolation(ip, shouldIsolate) {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
             body: JSON.stringify({ action, params: { ip } })
         });
-        if ((await resp.json()).success) loadDestinations();
-    } catch (e) { }
+        const data = await resp.json();
+        if (data.success) {
+            loadDestinations();
+            if (window.showToast) showToast(`Host ${ip} ${shouldIsolate ? 'aislado' : 'desaislado'}`, 'success');
+        } else {
+            const errorMsg = data.message || data.detail || "Error desconocido";
+            if (window.showToast) showToast("❌ Error: " + errorMsg, 'danger');
+            else alert("❌ Error: " + errorMsg);
+        }
+    } catch (e) {
+        if (window.showToast) showToast("❌ Error de comunicación", 'danger');
+    }
 }
 
 window.addEventListener('DOMContentLoaded', loadDestinations);

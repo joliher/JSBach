@@ -1,8 +1,9 @@
 import os
-import re
 import asyncio
-import tempfile
 import subprocess
+import pwd
+import grp
+import time
 from typing import Dict, Any, Tuple, List, Optional
 from app.utils.global_helpers import get_module_logger, log_action as ioh_log_action
 
@@ -17,8 +18,34 @@ def get_script_path(script_name: str) -> str:
     """Devuelve la ruta absoluta de un script expect."""
     return os.path.join(os.path.dirname(__file__), "scripts", f"{script_name}.exp")
 
+def ensure_script_permissions(script_path: str):
+    """Asegura que el script tenga permisos 770 y el dueño correcto (jsbach:jose o jsbach:jsbach)."""
+    try:
+        # Permisos 770 (rwxrwx---)
+        os.chmod(script_path, 0o770)
+        
+        # Intentar cambiar dueño a jsbach:jose (entorno de pruebas) o jsbach:jsbach (producción)
+        try:
+            uid = pwd.getpwnam("jsbach").pw_uid
+            # Priorizar grupo 'jose' para pruebas, luego 'jsbach' para producción
+            try:
+                gid = grp.getgrnam("jose").gr_gid
+            except KeyError:
+                gid = grp.getgrnam("jsbach").gr_gid
+            
+            os.chown(script_path, uid, gid)
+        except (KeyError, PermissionError):
+            # Si no se puede cambiar el dueño (ej. no somos root), logeamos advertencia
+            logger.warning(f"No se pudo cambiar el dueño de {script_path} a jsbach:jose/jsbach. Asegúrese de que el instalador lo haga.")
+            
+    except Exception as e:
+        logger.error(f"Error asegurando permisos en {script_path}: {e}")
+
 async def async_run_expect_script(script_path: str, timeout: int = 30, env_vars: Optional[Dict[str, str]] = None) -> Tuple[bool, str, str]:
     """Ejecuta un archivo de script de expect de forma asíncrona."""
+    # Asegurar permisos antes de ejecutar
+    ensure_script_permissions(script_path)
+    
     try:
         env = os.environ.copy()
         if env_vars:
@@ -32,7 +59,6 @@ async def async_run_expect_script(script_path: str, timeout: int = 30, env_vars:
             stderr=asyncio.subprocess.PIPE
         )
         
-        import time
         start_time = time.time()
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(process.communicate(), timeout=timeout)

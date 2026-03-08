@@ -155,7 +155,7 @@ async function loadConfigData() {
         ]);
         const vlansData = await vlansResp.json();
         ebtablesConfig = await ebtResp.json();
-        vlansCache = vlansData.vlans || [];
+        vlansCache = (vlansData.vlans || []).sort((a, b) => parseInt(a.id) - parseInt(b.id));
 
         renderConfig();
     } catch (e) {

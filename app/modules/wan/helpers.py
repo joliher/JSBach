@@ -5,7 +5,7 @@ import asyncio
 import time
 from typing import Tuple, Optional
 from ...utils.global_helpers import run_command, load_json_config, save_json_config
-from ...utils.global_helpers import module_helpers as mh, io_helpers as ioh
+from ...utils.global_helpers import io_helpers as ioh
 
 
 def verify_wan_status(config_file: str) -> Tuple[bool, Optional[str]]:
@@ -92,8 +92,8 @@ async def verify_dhcp_assignment(iface: str, config_file: str, max_wait: int = 3
             saved = save_json_config(config_file, cfg)
             if not saved:
                 # Registrar el fallo y salir (no lanzar excepción)
-                log_action("wan", f"dhcp - WARNING: No se pudo guardar estado DHCP en {config_file}", "WARNING")
-            log_action("wan", f"dhcp - SUCCESS: IP obtenida en {iface}")
+                ioh.log_action("wan", f"dhcp - WARNING: No se pudo guardar estado DHCP en {config_file}", "WARNING")
+            ioh.log_action("wan", f"dhcp - SUCCESS: IP obtenida en {iface}")
             return  # IP asignada correctamente con todas las validaciones, terminar
 
     # Timeout alcanzado sin completar DHCP

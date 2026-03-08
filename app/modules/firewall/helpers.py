@@ -70,94 +70,29 @@ def save_firewall_config(data):
     return success
 
 
-def check_wan_configured() -> bool:
-    """Verificar si la WAN está configurada (tiene interfaz asignada)."""
-    wan_cfg = load_wan_config()
-    if not wan_cfg:
-        return False
-    return bool(wan_cfg.get("interface"))
-
 
 # ==========================================
 # Chain Management
 # ==========================================
 
-def ensure_input_protection_chain():
-    """Crear cadena INPUT_PROTECTION y garantizar que esté en posición 1 de INPUT.
-    Esta cadena protege el router desde WAN.
-    """
-    # Verificar si la cadena existe
-    success, _ = _run_command(["/usr/sbin/iptables", "-L", "INPUT_PROTECTION", "-n"])
+def ensure_fw_chains():
+    """Crear y garantizar posición de las cadenas JSB de Firewall (L3)."""
+    mh.ensure_global_chains()
     
-    if not success:
-        _run_command(["/usr/sbin/iptables", "-N", "INPUT_PROTECTION"])
-        logger.info("Cadena INPUT_PROTECTION creada")
-    
-    # Verificar si está vinculada a INPUT
-    success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", "INPUT", "-j", "INPUT_PROTECTION"
-    ])
-    
-    if not success:
-        # No está vinculada, vincular en posición 1
-        _run_command(["/usr/sbin/iptables", "-I", "INPUT", "1", "-j", "INPUT_PROTECTION"])
-        logger.info("Cadena INPUT_PROTECTION vinculada a INPUT en posición 1")
-    else:
-        # Ya está vinculada, verificar que esté en posición 1
-        success, output = _run_command(["/usr/sbin/iptables", "-L", "INPUT", "-n", "--line-numbers"])
-        if success:
-            lines = output.strip().split('\n')
-            for line in lines:
-                if 'INPUT_PROTECTION' in line:
-                    # Usar regex para extraer número de posición (más robusto)
-                    match = re.match(r'^(\d+)\s+', line)
-                    if match:
-                        position = int(match.group(1))
-                        if position != 1:
-                            logger.warning(f"INPUT_PROTECTION en posición {position}, reposicionando a 1")
-                            _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-j", "INPUT_PROTECTION"])
-                            _run_command(["/usr/sbin/iptables", "-I", "INPUT", "1", "-j", "INPUT_PROTECTION"])
-                            logger.info("Cadena INPUT_PROTECTION reposicionada a posición 1")
-                    break
+    # 1. JSB_FW_STATS -> Hook to GLOBAL_STATS
+    if not _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_STATS", "-n"])[0]:
+        _run_command(["/usr/sbin/iptables", "-N", "JSB_FW_STATS"])
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_STATS", "JSB_FW_STATS")
 
+    # 2. JSB_FW_ISOLATE -> Hook to GLOBAL_ISOLATE
+    if not _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_ISOLATE", "-n"])[0]:
+        _run_command(["/usr/sbin/iptables", "-N", "JSB_FW_ISOLATE"])
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_FW_ISOLATE")
 
-def ensure_forward_protection_chain():
-    """Crear cadena FORWARD_PROTECTION y garantizar que esté en posición 1 de FORWARD.
-    Esta cadena contiene reglas de aislamiento de VLANs.
-    """
-    # Verificar si la cadena existe
-    success, _ = _run_command(["/usr/sbin/iptables", "-L", "FORWARD_PROTECTION", "-n"])
-    
-    if not success:
-        _run_command(["/usr/sbin/iptables", "-N", "FORWARD_PROTECTION"])
-        logger.info("Cadena FORWARD_PROTECTION creada")
-    
-    # Verificar si está vinculada a FORWARD
-    success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", "FORWARD", "-j", "FORWARD_PROTECTION"
-    ])
-    
-    if not success:
-        # No está vinculada, vincular en posición 1
-        _run_command(["/usr/sbin/iptables", "-I", "FORWARD", "1", "-j", "FORWARD_PROTECTION"])
-        logger.info("Cadena FORWARD_PROTECTION vinculada a FORWARD en posición 1")
-    else:
-        # Ya está vinculada, verificar que esté en posición 1
-        success, output = _run_command(["/usr/sbin/iptables", "-L", "FORWARD", "-n", "--line-numbers"])
-        if success:
-            lines = output.strip().split('\n')
-            for line in lines:
-                if 'FORWARD_PROTECTION' in line:
-                    # Usar regex para extraer número de posición (más robusto)
-                    match = re.match(r'^(\d+)\s+', line)
-                    if match:
-                        position = int(match.group(1))
-                        if position != 1:
-                            logger.warning(f"FORWARD_PROTECTION en posición {position}, reposicionando a 1")
-                            _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "FORWARD_PROTECTION"])
-                            _run_command(["/usr/sbin/iptables", "-I", "FORWARD", "1", "-j", "FORWARD_PROTECTION"])
-                            logger.info("Cadena FORWARD_PROTECTION reposicionada a posición 1")
-                    break
+    # 3. JSB_FW_RESTRICT -> Hook to GLOBAL_RESTRICT (on INPUT)
+    if not _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_RESTRICT", "-n"])[0]:
+        _run_command(["/usr/sbin/iptables", "-N", "JSB_FW_RESTRICT"])
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_RESTRICT", "JSB_FW_RESTRICT")
 
 
 def setup_wan_protection():
@@ -168,24 +103,24 @@ def setup_wan_protection():
     
     wan_interface = wan_cfg["interface"]
     
-    # Limpiar cadena INPUT_PROTECTION
-    _run_command(["/usr/sbin/iptables", "-F", "INPUT_PROTECTION"])
+    # Limpiar cadena JSB_FW_RESTRICT
+    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_RESTRICT"])
     
     # Permitir tráfico relacionado/establecido desde WAN
     _run_command([
-        "/usr/sbin/iptables", "-A", "INPUT_PROTECTION", "-i", wan_interface,
-        "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"
+        "/usr/sbin/iptables", "-A", "JSB_FW_RESTRICT", "-i", wan_interface,
+        "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "RETURN"
     ])
-
+   
     # Permitir ICMP desde WAN
     _run_command([
-        "/usr/sbin/iptables", "-A", "INPUT_PROTECTION", "-i", wan_interface,
-        "-p", "icmp", "-j", "ACCEPT"
+        "/usr/sbin/iptables", "-A", "JSB_FW_RESTRICT", "-i", wan_interface,
+        "-p", "icmp", "-j", "RETURN"
     ])
-    
+   
     # Bloquear todo lo demás desde WAN
     _run_command([
-        "/usr/sbin/iptables", "-A", "INPUT_PROTECTION", "-i", wan_interface, "-j", "DROP"
+        "/usr/sbin/iptables", "-A", "JSB_FW_RESTRICT", "-i", wan_interface, "-j", "DROP"
     ])
     
     logger.info(f"Protección WAN configurada en {wan_interface}")
@@ -208,14 +143,14 @@ def create_input_vlan_chain(vlan_id: int, vlan_ip: str) -> bool:
     # Limpiar reglas existentes
     _run_command(["/usr/sbin/iptables", "-F", chain_name])
     
-    # Vincular desde INPUT (después de INPUT_PROTECTION)
+    # Vincular desde INPUT (después de JSB_FW_RESTRICT)
     # Verificar si ya está vinculada
     success, _ = _run_command([
         "/usr/sbin/iptables", "-C", "INPUT", "-s", vlan_ip, "-j", chain_name
     ])
     
     if not success:
-        # No está vinculada, añadir después de INPUT_PROTECTION (posición 2)
+        # No está vinculada, añadir después de JSB_FW_RESTRICT (posición 2)
         _run_command([
             "/usr/sbin/iptables", "-I", "INPUT", "2", "-s", vlan_ip, "-j", chain_name
         ])
@@ -237,17 +172,17 @@ def create_forward_vlan_chain(vlan_id: int, vlan_ip: str) -> bool:
     # Limpiar reglas existentes
     _run_command(["/usr/sbin/iptables", "-F", chain_name])
     
-    # Por defecto: ACCEPT todo (sin whitelist)
-    _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "ACCEPT"])
-    
-    # Vincular desde FORWARD (después de FORWARD_PROTECTION)
+    # Por defecto: RETURN (permitir que otros procedan)
+    _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "RETURN"])
+   
+    # Vincular desde FORWARD (después de JSB_FW_ISOLATE)
     # Verificar si ya está vinculada
     success, _ = _run_command([
         "/usr/sbin/iptables", "-C", "FORWARD", "-s", vlan_ip, "-j", chain_name
     ])
     
     if not success:
-        # No está vinculada, añadir después de FORWARD_PROTECTION (posición 2)
+        # No está vinculada, añadir después de JSB_FW_ISOLATE (posición 2)
         _run_command([
             "/usr/sbin/iptables", "-I", "FORWARD", "2", "-s", vlan_ip, "-j", chain_name
         ])
@@ -338,11 +273,11 @@ def apply_whitelist(vlan_id: int, whitelist: List[str]) -> Tuple[bool, str]:
     # Limpiar cadena
     _run_command(["/usr/sbin/iptables", "-F", chain_name])
     
-    # Re-añadir reglas DMZ ACCEPT al inicio
+    # Re-añadir reglas DMZ RETURN al inicio
     for dmz_ip in dmz_rules:
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-d", dmz_ip, "-j", "ACCEPT"])
-        logger.info(f"Regla DMZ ACCEPT restaurada para {dmz_ip}")
-    
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-d", dmz_ip, "-j", "RETURN"])
+        logger.info(f"Regla DMZ RETURN restaurada para {dmz_ip}")
+   
     if not whitelist:
         # Sin reglas, DROP por defecto
         _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
@@ -389,9 +324,15 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
                 check_cmd.extend(["-d", ip])
                 add_cmd.extend(["-d", ip])
             
-            check_cmd.extend(["-p", protocol, "--dport", port, "-j", "ACCEPT"])
-            add_cmd.extend(["-p", protocol, "--dport", port, "-j", "ACCEPT"])
+            check_cmd.extend(["-p", protocol, "--dport", port])
+            add_cmd.extend(["-p", protocol, "--dport", port])
             
+            # Usar RETURN en lugar de ACCEPT para permitir precedencia de otros módulos
+            check_cmd.append("-j")
+            check_cmd.append("RETURN")
+            add_cmd.append("-j")
+            add_cmd.append("RETURN")
+           
             success, _ = _run_command(check_cmd)
             if not success:
                 _run_command(add_cmd)
@@ -497,23 +438,24 @@ def setup_wifi_portal(portal_enabled: bool, portal_port: int, authorized_macs: L
     _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-p", "tcp", "--dport", "80", "-j", "DNAT", "--to-destination", f"{wifi_ip}:{portal_port}"])
 
     # --- FILTER (INPUT): Acceso al Router ---
-    # Permitir DNS, DHCP y Acceso al Portal
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "67:68", "-j", "ACCEPT"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "tcp", "--dport", str(portal_port), "-j", "ACCEPT"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "icmp", "-j", "ACCEPT"])
-    # Bloquear el resto hacia el router
+    # Permitir DHCP, DNS y Acceso al Portal (Usamos RETURN para permitir que JSB_FW_RESTRICT aplique DROP si es necesario)
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "67:68", "-j", "RETURN"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "53", "-j", "RETURN"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "tcp", "--dport", str(portal_port), "-j", "RETURN"])
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "icmp", "-j", "RETURN"])
+    
+    # Bloquear el resto hacia el router desde el portal
     _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "21027", "-j", "ACCEPT"])
     _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-j", "DROP"])
 
     # --- FILTER (FORWARD): Acceso a Internet/Otras Redes ---
-    # Permitir DNS hacia afuera
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
+    # Permitir DNS hacia afuera (RETURN)
+    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "udp", "--dport", "53", "-j", "RETURN"])
     
-    # REJECT HTTPS (443) y GCM (5228) para que el dispositivo no espere al timeout y salte antes al portal 80
+    # REJECT HTTPS (443) y GCM (5228) para que el dispositivo no espere al timeout
     _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "tcp", "--match", "multiport", "--dports", "443,5228", "-j", "REJECT", "--reject-with", "tcp-reset"])
     
-    # Bloquear todo lo demás
+    # Bloquear todo lo demás en FORWARD mientras no esté autorizado
     _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-j", "DROP"])
 
     # 5. Vincular Cadenas

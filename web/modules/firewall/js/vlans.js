@@ -12,7 +12,7 @@ async function loadVlansState() {
         const data = await response.json();
 
         if (data.success) {
-            const states = data.message; // Assume list of objects
+            const states = (data.message || []).sort((a, b) => parseInt(a.id) - parseInt(b.id));
             let html = `<table>
                 <thead>
                     <tr>

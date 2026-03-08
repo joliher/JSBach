@@ -28,12 +28,28 @@
     **restart**
         Recarga la configuración técnica del ruteo.
 
+    **block** --ip IP
+        Bloquea el acceso a Internet (NAT) para una IP específica de la LAN.
+        Ejemplo: `nat block --ip 192.168.1.50`
+
+    **unblock** --ip IP
+        Restaura el acceso a Internet para una IP previamente bloqueada.
+
+    **traffic_log** --status [on|off]
+        Activa o desactiva el registro detallado de nuevas traducciones NAT.
+        Los logs se pueden visualizar con `dmesg | grep JSB-NAT-OUT`.
+
+    **top**
+        Muestra el Top 10 de dispositivos internos con más sesiones NAT activas.
+        Utiliza `conntrack` para una visibilidad precisa de los flujos.
+
 ## EJEMPLOS
-    nat config --wan_interface eno1 --lan_interfaces vlan.1
+    nat config --interface eno1
     nat start
     nat status
+    nat block --ip 192.168.1.100
 
 ## NOTAS
     - La interfaz WAN debe estar operativa y con IP asignada previamente.
-    - NAT no requiere que VLANs esté activo, solo WAN.
-    - El IP Forwarding es un parámetro global del sistema kernel.
+    - NAT requiere que el IP Forwarding esté activo (lo gestiona el módulo).
+    - Se recomienda tener instalado `conntrack-tools` para mejor visibilidad en `top`.

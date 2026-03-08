@@ -1,6 +1,5 @@
 import os
-import signal
-import subprocess
+import time
 from typing import Dict, Any, Tuple, Optional
 from ...utils.global_helpers import (
     load_json_config, save_json_config, update_module_status, run_command
@@ -38,21 +37,19 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     # Comprobar si ya está corriendo
     pid = get_dnsmasq_pid()
     if pid:
+        _update_status(1)
         return True, f"DHCP ya está en ejecución (PID: {pid})"
     
     # Generar fichero de configuración de dnsmasq
     conf_content, warnings = generate_dnsmasq_conf(cfg)
-    if warnings:
-        for w in warnings:
-            print(f"ADVERTENCIA: {w}")
     try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(DNSMASQ_CONF, "w") as f:
             f.write(conf_content)
     except Exception as e:
         return False, f"Error al generar dnsmasq.conf: {str(e)}"
     
     # Ejecutar dnsmasq
-    # -n: flag non-interactive para sudo
     cmd = [
         "sudo", "-n", "/usr/sbin/dnsmasq", 
         f"--conf-file={DNSMASQ_CONF}",
@@ -60,11 +57,16 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         f"--log-facility={LOG_FILE}"
     ]
     
-    # Usamos run_command con use_sudo=False porque ya ponemos sudo -n
     success, msg = run_command(cmd, use_sudo=False)
     if not success:
         return False, f"Error al iniciar dnsmasq: {msg}"
     
+    # Esperar un momento a que el PID file aparezca y el proceso se estabilice
+    for _ in range(5):
+        time.sleep(0.5)
+        if get_dnsmasq_pid():
+            break
+
     _update_status(1)
     return True, "Servicio DHCP iniciado correctamente"
 
@@ -73,19 +75,33 @@ def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     pid = get_dnsmasq_pid()
     if not pid:
         _update_status(0)
+        # Limpieza proactiva de conf residual si existe
+        if os.path.exists(DNSMASQ_CONF):
+            try: os.remove(DNSMASQ_CONF)
+            except: pass
         return True, "El servicio DHCP no está en ejecución"
     
     # Matar el proceso
-    success, msg = run_command(["sudo", "-n", "kill", str(pid)], use_sudo=False)
-    if not success:
-        return False, f"Error al detener dnsmasq (PID {pid}): {msg}"
+    run_command(["sudo", "-n", "kill", str(pid)], use_sudo=False)
     
-    # Limpiamos el fichero PID si el comando falló en borrarlo o para ser proactivos
-    if os.path.exists(PID_FILE):
-        try:
-            os.remove(PID_FILE)
-        except:
-            pass
+    # Esperar a que muera
+    timeout = 5
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if not get_dnsmasq_pid():
+            break
+        time.sleep(0.5)
+    
+    # Si persiste, forzar kill -9
+    pid_ext = get_dnsmasq_pid()
+    if pid_ext:
+        run_command(["sudo", "-n", "kill", "-9", str(pid_ext)], use_sudo=False)
+
+    # Limpieza de ficheros temporales (Zero-Disk en stop)
+    for f in [PID_FILE, DNSMASQ_CONF]:
+        if os.path.exists(f):
+            try: os.remove(f)
+            except: pass
 
     _update_status(0)
     return True, "Servicio DHCP detenido"
@@ -102,6 +118,10 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     cfg = _load_config()
     pid = get_dnsmasq_pid()
     
+    # Contar leases activas
+    ok_leases, leases = list_leases()
+    lease_count = len(leases) if ok_leases else 0
+    
     status_msg = "Estado del Módulo DHCP:\n"
     status_msg += "=" * 30 + "\n"
     status_msg += f"Servicio: {'🟢 ACTIVO' if pid else '🔴 INACTIVO'}\n"
@@ -110,6 +130,9 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     
     status_msg += f"DNS Upstream: {', '.join(cfg.get('dns_servers', []))}\n"
     status_msg += f"Tiempo de concesión: {cfg.get('lease_time')}\n"
+    status_msg += f"Leases activas: {lease_count}\n"
+    
+    # Agrupar leases por red/hostname si hay muchas (opcional, de momento simple)
     
     # Mostrar logs (últimas 5 líneas)
     if os.path.exists(LOG_FILE):
@@ -127,7 +150,7 @@ def list_leases(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, Any]:
     """Lista las concesiones (leases) activas del servidor DHCP."""
     LEASE_FILE = "/var/lib/misc/dnsmasq.leases"
     if not os.path.exists(LEASE_FILE):
-        return True, [] # Retornar lista vacía si no existe el fichero
+        return True, [] 
     
     leases = []
     try:
@@ -135,7 +158,6 @@ def list_leases(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, Any]:
             for line in f:
                 parts = line.strip().split()
                 if len(parts) >= 5:
-                    # Formato: timestamp mac ip hostname client-id
                     leases.append({
                         "timestamp": parts[0],
                         "mac": parts[1],
@@ -155,54 +177,29 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     cfg = _load_config()
     changed = False
     
-    # Configurar DNS
     if "dns" in params:
         dns_input = params["dns"]
-        if isinstance(dns_input, str):
-            dns_list = [d.strip() for d in dns_input.split(",") if d.strip()]
-        elif isinstance(dns_input, list):
-            dns_list = dns_input
-        else:
-            return False, "Formato de DNS inválido (esperado string o lista)"
-        
+        dns_list = [d.strip() for d in dns_input.split(",") if d.strip()] if isinstance(dns_input, str) else dns_input
         cfg["dns_servers"] = dns_list
         changed = True
         
-    # Configurar Lease Time
     if "lease_time" in params:
         cfg["lease_time"] = str(params["lease_time"])
         changed = True
         
-    # Configurar rangos específicos por VLAN (individual o masivo)
     if "vlan_configs" in params and isinstance(params["vlan_configs"], dict):
-        if "vlan_configs" not in cfg:
-            cfg["vlan_configs"] = {}
-        for vid, vcfg in params["vlan_configs"].items():
-            vid_str = str(vid)
-            if vid_str not in cfg["vlan_configs"]:
-                cfg["vlan_configs"][vid_str] = {}
-            if "start" in vcfg: cfg["vlan_configs"][vid_str]["start"] = vcfg["start"]
-            if "end" in vcfg: cfg["vlan_configs"][vid_str]["end"] = vcfg["end"]
-            if "dns" in vcfg: cfg["vlan_configs"][vid_str]["dns"] = vcfg["dns"]
+        cfg.setdefault("vlan_configs", {}).update(params["vlan_configs"])
         changed = True
     elif "vlan_id" in params and ("start" in params or "end" in params):
         vid = str(params["vlan_id"])
-        if "vlan_configs" not in cfg:
-            cfg["vlan_configs"] = {}
-        if vid not in cfg["vlan_configs"]:
-            cfg["vlan_configs"][vid] = {}
-            
-        if "start" in params:
-            cfg["vlan_configs"][vid]["start"] = params["start"]
-        if "end" in params:
-            cfg["vlan_configs"][vid]["end"] = params["end"]
-        if "dns" in params:
-            cfg["vlan_configs"][vid]["dns"] = params["dns"]
+        v_cfg = cfg.setdefault("vlan_configs", {}).setdefault(vid, {})
+        if "start" in params: v_cfg["start"] = params["start"]
+        if "end" in params: v_cfg["end"] = params["end"]
+        if "dns" in params: v_cfg["dns"] = params["dns"]
         changed = True
 
     if changed:
         if _save_config(cfg):
-            # Si el servicio está activo, reiniciamos para aplicar cambios
             if get_dnsmasq_pid():
                 restart()
             return True, "Configuración DHCP actualizada"
@@ -211,7 +208,23 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
             
     return False, "No se realizaron cambios"
 
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status_val = params.get("status", "on")
+    # Persistence
+    cfg = load_json_config(CONFIG_FILE) if "load_json_config" in globals() else _load_config() if "_load_config" in globals() else {}
+    if cfg:
+        cfg["traffic_log"] = (status_val == "on")
+        if "save_json_config" in globals():
+            save_json_config(CONFIG_FILE, cfg)
+        elif "_save_config" in globals():
+            _save_config(cfg)
+    
+    ioh.log_action(os.path.basename(os.path.dirname(__file__)), f"Traffic Log set to {status_val}")
+    return True, f"Log de tráfico configurado: {status_val}"
+
 ALLOWED_ACTIONS = {
+    "traffic_log": traffic_log,
     "start": start,
     "stop": stop,
     "restart": restart,

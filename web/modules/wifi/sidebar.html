@@ -15,7 +15,16 @@
     <button type="button" id="btnRestart" onclick="irAccion('restart')">🔄 WIFI RESTART</button>
     <button type="button" id="btnStatus" onclick="irAccion('status')">📊 MONITOR</button>
 
-    <div class="menu-divider" style="margin: 15px 0; border-top: 1px solid rgba(255,255,255,0.05);"></div>
+    <div class="menu-divider"></div>
+    <div
+        style="display: flex; align-items: center; justify-content: space-between; padding: 0 5px; margin-bottom: 10px;">
+        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">📝
+            Logs de Tráfico</span>
+        <label class="switch">
+            <input type="checkbox" id="toggle-log" onclick="toggleLogging(this, 'wifi')">
+            <span class="slider round"></span>
+        </label>
+    </div>
 
     <button type="button" id="btnConfig" onclick="irSeccion('config')">⚙️ CONFIG. AP</button>
     <button type="button" id="btnSecurity" onclick="irSeccion('security_config')">🛡️ SEGURIDAD</button>

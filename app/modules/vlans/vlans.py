@@ -1,26 +1,25 @@
 # app/core/vlans.py
 
 import os
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 import subprocess
+import json
+import ipaddress
 from typing import Dict, Any, Tuple, Optional
 from ...utils.global_helpers import module_helpers as mh, io_helpers as ioh
 from ...utils.validators import validate_vlan_id, validate_ip_network
-from ...utils.global_helpers import (
-    load_json_config, save_json_config, update_module_status, run_command
-)
 from .helpers import initialize_default_vlans, bridge_exists
 
 # Config file in V4 structure
 CONFIG_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "config", "vlans", "vlans.json")
 )
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 # Alias helpers para compatibilidad
-_load_config = lambda: load_json_config(CONFIG_FILE, {"vlans": [], "status": 0})
-_save_config = lambda data: save_json_config(CONFIG_FILE, data)
-_update_status = lambda status: update_module_status(CONFIG_FILE, status)
-_run_cmd = lambda cmd, ignore_error=False: run_command(cmd)
+_load_config = lambda: mh.load_json_config(CONFIG_FILE, {"vlans": [], "status": 0})
+_save_config = lambda data: mh.save_json_config(CONFIG_FILE, data)
+_update_status = lambda status: mh.update_module_status(CONFIG_FILE, status)
+_run_cmd = lambda cmd, ignore_error=False: mh.run_command(cmd)
 
 # Aliases para funciones de helpers (compatibilidad)
 _initialize_default_vlans = lambda: initialize_default_vlans(CONFIG_FILE)
@@ -71,6 +70,17 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         _rollback_start(created_bridge, created_interfaces)
         return False, f"Error habilitando bridge br0: {msg}"
     
+    # --- PREPARAR JERARQUÍA DE FIREWALL ---
+    mh.ensure_global_chains()
+    _run_cmd(["/usr/sbin/iptables", "-N", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/iptables", "-N", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    
+    # Hook into Global Stats
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_STATS", "JSB_VLAN_STATS")
+
+    # Hook into Global Isolate
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_VLAN_ISOLATE")
+    
     # Crear subinterfaces VLAN y asignar IPs
     for vlan in vlans:
         vlan_id = str(vlan.get("id"))
@@ -78,26 +88,19 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         iface_name = f"br0.{vlan_id}"
         
         if not os.path.exists(f"/sys/class/net/{iface_name}"):
-            success, msg = _run_cmd(["/usr/sbin/ip", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True)
-            if not success:
-                _rollback_start(created_bridge, created_interfaces)
-                return False, f"Error creando interfaz VLAN {iface_name}: {msg}"
-            created_interfaces.append(iface_name)
+            _run_cmd(["/usr/sbin/ip", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True)
         
-        success, msg = _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "up"])
-        if not success:
-            _rollback_start(created_bridge, created_interfaces)
-            return False, f"Error habilitando interfaz VLAN {iface_name}: {msg}"
+        _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "up"])
         
-        # Asignar IP de interfaz directamente
         if vlan_ip_interface:
-            success, msg = _run_cmd(["/usr/sbin/ip", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True)
-            if not success:
-                _rollback_start(created_bridge, created_interfaces)
-                return False, f"Error asignando IP {vlan_ip_interface} a {iface_name}: {msg}"
+            _run_cmd(["/usr/sbin/ip", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True)
+
+        # Reglas de conteo en la cadena de STATS (con RETURN)
+        _run_cmd(["/usr/sbin/iptables", "-A", "JSB_VLAN_STATS", "-i", iface_name, "-j", "RETURN"])
+        _run_cmd(["/usr/sbin/iptables", "-A", "JSB_VLAN_STATS", "-o", iface_name, "-j", "RETURN"])
     
     _update_status(1)
-    return True, "VLANs iniciadas"
+    return True, "VLANs iniciadas con jerarquía segura"
 
 
 def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
@@ -108,11 +111,22 @@ def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     cfg = _load_config()
     vlans = cfg.get("vlans", [])
     
-    # Eliminar subinterfaces VLAN primero
+    # Limpiar integración con FORWARD
+    _run_cmd(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    
+    # Vaciar y eliminar cadenas
+    _run_cmd(["/usr/sbin/iptables", "-F", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/iptables", "-X", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/iptables", "-F", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    _run_cmd(["/usr/sbin/iptables", "-X", "JSB_VLAN_ISOLATE"], ignore_error=True)
+
+    # Limpiar logging inter-VLAN
+    _run_cmd(["/usr/sbin/iptables", "-D", "FORWARD", "-i", "br0.+", "-o", "br0.+", "-j", "LOG", "--log-prefix", "[JSB-VLAN-INT] "], ignore_error=True)
+
     for vlan in vlans:
         vlan_id = str(vlan.get("id"))
         iface_name = f"br0.{vlan_id}"
-        # Intentar eliminar (puede no existir si ya fue eliminada)
         _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "down"], ignore_error=True)
         _run_cmd(["/usr/sbin/ip", "link", "del", "dev", iface_name], ignore_error=True)
     
@@ -269,8 +283,7 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
                 return False, "Error: la IP de interfaz debe incluir la máscara (ejemplo: 192.168.1.1/24)"
             
             try:
-                import ipaddress
-                ip_int_obj = ipaddress.IPv4Network(ip_interface, strict=False)
+                ipaddress.IPv4Network(ip_interface, strict=False)
                 
                 # Validar que el último octeto no sea 0 ni 255
                 ip_parts = ip_interface.split('/')[0].split('.')
@@ -297,7 +310,6 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
         # Validar que la IP de interfaz esté dentro de la red especificada
         if ip_interface and ip_network:
             try:
-                import ipaddress
                 ip_int_addr = ipaddress.IPv4Address(ip_interface.split('/')[0])
                 network_obj = ipaddress.IPv4Network(ip_network, strict=False)
                 
@@ -353,7 +365,6 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
             
             # Soporte para salida JSON (para frontend)
             if params.get("format") == "json":
-                import json
                 return True, json.dumps(vlans)
                 
             if not vlans:
@@ -410,6 +421,67 @@ def _vlans_already_started(vlans: list) -> bool:
     return True
 
 
+def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
+    vlan_id = params.get("vlan")
+    if not vlan_id: return False, "Falta parámetro 'vlan'"
+    iface = f"br0.{vlan_id}"
+    # Bloquear en la sub-cadena dedicada JSB_VLAN_ISOLATE
+    cmd = ["/usr/sbin/iptables", "-A", "JSB_VLAN_ISOLATE", "-i", iface, "-o", "br0.+", "-j", "DROP"]
+    success, msg = _run_cmd(cmd)
+    if not success: return False, f"Error aislando VLAN {vlan_id}: {msg}"
+    _run_cmd(["/usr/sbin/iptables", "-A", "JSB_VLAN_ISOLATE", "-i", "br0.+", "-o", iface, "-j", "DROP"])
+    return True, f"VLAN {vlan_id} aislada de otras VLANs"
+
+
+def unisolate(params: Dict[str, Any]) -> Tuple[bool, str]:
+    vlan_id = params.get("vlan")
+    if not vlan_id: return False, "Falta parámetro 'vlan'"
+    iface = f"br0.{vlan_id}"
+    _run_cmd(["/usr/sbin/iptables", "-D", "JSB_VLAN_ISOLATE", "-i", iface, "-o", "br0.+", "-j", "DROP"])
+    _run_cmd(["/usr/sbin/iptables", "-D", "JSB_VLAN_ISOLATE", "-i", "br0.+", "-o", iface, "-j", "DROP"])
+    return True, f"VLAN {vlan_id} ya no está aislada"
+
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status = params.get("status", "on")
+    action = "-I" if status == "on" else "-D"
+    cmd = ["/usr/sbin/iptables", action, "FORWARD", "1", "-i", "br0.+", "-o", "br0.+", "-j", "LOG", "--log-prefix", "[JSB-VLAN-INT] "]
+    success, msg = _run_cmd(cmd)
+    if status == "on" and not success: return False, f"Error activando log inter-VLAN: {msg}"
+    return True, f"Log de tráfico inter-VLAN: {status}"
+
+
+def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    cfg = _load_config()
+    vlans_list = cfg.get("vlans", [])
+    if not vlans_list: return True, "No hay VLANs configuradas."
+    res = "Consumo de Tráfico por VLAN (Estadísticas):\n==========================================\n"
+    res += f"{'VLAN':<10} | {'Bytes IN':<15} | {'Bytes OUT':<15}\n" + "-" * 50 + "\n"
+    
+    # Obtener bytes de la sub-cadena JSB_VLAN_STATS
+    success, output = _run_cmd(["/usr/sbin/iptables", "-L", "JSB_VLAN_STATS", "-v", "-n"])
+    stats_data = {}
+    if success:
+        for line in output.strip().split('\n'):
+            for vlan in vlans_list:
+                v_id = str(vlan.get("id"))
+                iface = f"br0.{v_id}"
+                if iface in line:
+                    parts = line.split()
+                    bytes_val = parts[1]
+                    if v_id not in stats_data: stats_data[v_id] = {"in": 0, "out": 0}
+                    if f"-i {iface}" in line or f"{iface} *" in line:
+                        stats_data[v_id]["in"] = bytes_val
+                    elif f"-o {iface}" in line or f"* {iface}" in line:
+                        stats_data[v_id]["out"] = bytes_val
+
+    for vlan in vlans_list:
+        v_id = str(vlan.get("id"))
+        data = stats_data.get(v_id, {"in": 0, "out": 0})
+        res += f"{v_id:<10} | {str(data['in']):<15} | {str(data['out']):<15}\n"
+    return True, res
+
+
 # -----------------------------
 # Whitelist de acciones
 # -----------------------------
@@ -420,4 +492,8 @@ ALLOWED_ACTIONS = {
     "restart": restart,
     "status": status,
     "config": config,
+    "isolate": isolate,
+    "unisolate": unisolate,
+    "traffic_log": traffic_log,
+    "top": top,
 }

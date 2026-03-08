@@ -1,4 +1,4 @@
-/* /web/js/index.js */
+/* /web/js/index.js - FIXED V4.2_REFRESH_01 */
 
 // --- NAVIGATION ---
 function switchSection(sectionId) {
@@ -70,11 +70,13 @@ async function updateWanInfo(status) {
 }
 
 async function stopAllModules() {
-    if (!confirm("⚠️ ADVERTENCIA: Esta acción detendrá TODOS los servicios de red. ¿Desea continuar?")) return;
-
     const msg = document.getElementById('stop-message');
-    msg.textContent = "⌛ Deteniendo...";
-    msg.style.color = "var(--warning)";
+    if (msg) {
+        msg.textContent = "⌛ Deteniendo...";
+        msg.style.color = "var(--warning)";
+    }
+
+    console.log("Stopping modules...");
 
     // Orden de parada basado en dependencias (NAT requiere que Firewall/DMZ estén apagados primero)
     const modules = ["wifi", "dhcp", "ebtables", "dmz", "firewall", "nat", "expect", "tagging", "vlans", "wan"];

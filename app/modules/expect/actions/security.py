@@ -1,14 +1,10 @@
 # app/modules/expect/actions/security.py
-import re
-import os
-from typing import Dict, Any, Tuple, Optional, List
-from ..base import (
-    async_run_expect_script, escape_expect_send
-)
+from typing import Dict, Any, Tuple, Optional
+from ..base import async_run_expect_script
 from .. import state_manager
 from ..helpers import normalize_mac
 
-async def run_sync_security(ip: str, profile: Dict[str, Any], auth_required: bool, user: str, password: str, max_ports: int, protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_sync_security(ip: str, profile: Dict[str, Any], _auth_required: bool, user: str, password: str, max_ports: int, protocol: Optional[str] = None) -> Tuple[bool, str]:
     from ..base import get_script_path
     
     sec_cmds = profile.get("mac_security_cmds")
@@ -101,11 +97,8 @@ async def run_sync_security(ip: str, profile: Dict[str, Any], auth_required: boo
                 commands.append(sec_cmds['remove_acl'].format(acl_id=aid))
 
         # LOG DE ESCENARIOS (Depuración de Comandos Reales)
-        debug_log = "/opt/JSBach_V4.2/last_sync_commands.txt"
-        with open(debug_log, "w") as f:
-            f.write("=== BLOQUE DE COMANDOS GENERADO ===\n")
-            f.write("\n".join(commands))
-            f.write("\n===================================\n")
+        # Eliminado para cumplir con Zero-Disk. Si se requiere depuración, usar logs de sistema.
+        pass
 
     try:
         env_vars = {

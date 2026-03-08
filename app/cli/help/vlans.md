@@ -36,6 +36,19 @@
     **restart**
         Recarga la segmentación de red (equivale a stop + start).
 
+    **isolate** --vlan ID
+        Aísla una VLAN de las demás. La VLAN podrá acceder a Internet (si el ruteo lo permite) pero no a otros segmentos locales.
+
+    **unisolate** --vlan ID
+        Restaura la comunicación de la VLAN con el resto de redes locales.
+
+    **traffic_log** --status [on|off]
+        Activa el registro de intentos de comunicación entre diferentes VLANs.
+        Logs visibles en dmesg con el prefijo `[JSB-VLAN-INT]`.
+
+    **top**
+        Muestra el consumo de tráfico acumulado (Bytes IN/OUT) por cada VLAN configurada.
+
 ## EJEMPLOS
     vlans config --action add --id 20 --name Invitados --ip_interface 10.0.20.1/24 --ip_network 10.0.20.0/24
     vlans start

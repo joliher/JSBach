@@ -27,7 +27,7 @@ async function runAction(action) {
         } else {
             container.innerHTML = `
                 <div style="color: var(--error); font-weight: 600; margin-bottom: 10px;">❌ Error</div>
-                <div class="output" style="margin-top:0; border-color: rgba(239, 68, 68, 0.2);">${escapeHtml(data.message || 'Error desconocido')}</div>
+                <div class="output" style="margin-top:0; border-color: rgba(239, 68, 68, 0.2);">${escapeHtml(data.detail || data.message || 'Error desconocido')}</div>
             `;
         }
     } catch (error) {

@@ -1,8 +1,7 @@
 import os
-import subprocess
 import re
 import logging
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional
 from ...utils.global_helpers import (
     load_json_config, run_command
 )

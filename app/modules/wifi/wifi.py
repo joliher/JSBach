@@ -1,12 +1,9 @@
 import os
-import signal
-import subprocess
 import time
 import logging
 from typing import Dict, Any, Tuple, Optional
 from ...utils.global_helpers import (
-    load_json_config, save_json_config, update_module_status, run_command,
-    module_helpers as mh
+    load_json_config, save_json_config, update_module_status, run_command
 )
 from .helpers import is_ap_supported, generate_hostapd_conf, get_wifi_interface
 
@@ -22,17 +19,26 @@ PORTAL_USERS_FILE = os.path.join(CONFIG_DIR, "portal_users.json")
 PORTAL_AUTH_FILE = os.path.join(CONFIG_DIR, "portal_auth.json")
 
 def get_wifi_pid() -> Optional[int]:
-    if not os.path.exists(PID_FILE):
-        return None
+    """Detecta el PID de hostapd de forma robusta usando ps."""
     try:
-        with open(PID_FILE, "r") as f:
-            pid = int(f.read().strip())
-        # Verificar que el proceso existe
-        success, output = run_command(["ps", "-p", str(pid), "-o", "comm="], use_sudo=False)
-        if success and "hostapd" in output:
-            return pid
-    except:
-        pass
+        # Buscar el proceso hostapd que usa nuestra configuración específica
+        success, output = run_command(["ps", "aux"], use_sudo=False)
+        if success:
+            for line in output.splitlines():
+                if "hostapd" in line and HOSTAPD_CONF in line:
+                    parts = line.split()
+                    if len(parts) > 1:
+                        return int(parts[1])
+    except Exception as e:
+        logger.debug(f"Error detectando PID de hostapd: {e}")
+    
+    # Fallback al archivo PID si ps falla o no encuentra coincidencia exacta
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                return int(f.read().strip())
+        except:
+            pass
     return None
 
 def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
@@ -232,9 +238,17 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         run_command(["ip", "link", "set", iface, "down"])
         run_command(["ip", "addr", "flush", "dev", iface])
 
+    # Limpieza estricta de archivos temporales (Zero-Disk)
+    for f_path in [HOSTAPD_CONF, PID_FILE, portal_pid_file, monitor_pid_file]:
+        if os.path.exists(f_path):
+            try:
+                os.remove(f_path)
+            except:
+                pass
+
     update_module_status(CONFIG_FILE, 0)
     
-    # Disparar triggers para limpiar reglas
+    # Disparar triggers para informar al firewall
     try:
         from ..dhcp import dhcp
         from ..firewall import firewall
@@ -250,17 +264,46 @@ def restart(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     time.sleep(1)
     return start(params)
 
+def get_connected_stations(iface: str) -> int:
+    """Obtiene el número de estaciones conectadas vía hostapd_cli."""
+    import re
+    success, output = run_command(["/usr/sbin/hostapd_cli", "-i", iface, "all_sta"], use_sudo=True)
+    if success and output:
+        # Contar bloques de MAC (una por cada estación conectada)
+        stations = re.findall(r'([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}', output)
+        return len(stations)
+    return 0
+
 def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    # Comprobar hardware primero
+    # 1. Comprobar hardware
     supported, hw_msg = is_ap_supported()
     if not supported:
         return False, f"INCOMPATIBLE: {hw_msg}"
 
     pid = get_wifi_pid()
-    if pid:
-        return True, f"ACTIVO (PID: {pid})"
-    else:
-        return True, "INACTIVO"
+    if not pid:
+        return True, "Servicio: INACTIVO"
+
+    # 2. Obtener métricas en tiempo real si está activo
+    wifi_cfg = load_json_config(CONFIG_FILE, {})
+    iface = wifi_cfg.get("interface", "wlp3s0")
+    ssid = wifi_cfg.get("ssid", "N/A")
+    channel = wifi_cfg.get("channel", "N/A")
+    stations = get_connected_stations(iface)
+    
+    msg = (
+        f"Servicio: ACTIVO (PID: {pid})\n"
+        f"SSID: {ssid} | Canal: {channel} | Interfaz: {iface}\n"
+        f"Clientes conectados: {stations}"
+    )
+    
+    # Comprobar si el portal está activado
+    if wifi_cfg.get("portal_enabled", False):
+        portal_pid_file = os.path.join(CONFIG_DIR, "portal_server.pid")
+        portal_status = "OK" if os.path.exists(portal_pid_file) else "ERROR (Habilitado pero sin PID)"
+        msg += f"\nPortal Cautivo: {portal_status} (Puerto: {wifi_cfg.get('portal_port', 8500)})"
+        
+    return True, msg
 
 def get_main_app_port() -> int:
     """Extrae el puerto principal de la aplicación JSBach revisando el servicio o argumentos."""
@@ -408,7 +451,23 @@ def deauthorize_mac(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     return True, f"El dispositivo {mac} no estaba autorizado"
 
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status_val = params.get("status", "on")
+    # Persistence
+    cfg = load_json_config(CONFIG_FILE) if "load_json_config" in globals() else _load_config() if "_load_config" in globals() else {}
+    if cfg:
+        cfg["traffic_log"] = (status_val == "on")
+        if "save_json_config" in globals():
+            save_json_config(CONFIG_FILE, cfg)
+        elif "_save_config" in globals():
+            _save_config(cfg)
+    
+    ioh.log_action(os.path.basename(os.path.dirname(__file__)), f"Traffic Log set to {status_val}")
+    return True, f"Log de tráfico configurado: {status_val}"
+
 ALLOWED_ACTIONS = {
+    "traffic_log": traffic_log,
     "start": start,
     "stop": stop,
     "restart": restart,

@@ -1,156 +1,64 @@
-# JSBach V4.3 - Test Suite
+# JSBach V4.2 — Test Suite
 
-Suite de pruebas para validar la refactorización de módulos (Fases 1-4).
+## Estructura
 
-## 📁 Archivos de Test
+```
+scripts/tests/
+├── wan_test.py                    # Test unitario: módulo WAN
+├── vlans_test.py                  # Test unitario: módulo VLANs
+├── tagging_test.py                # Test unitario: módulo Tagging
+├── firewall_test.py               # Test unitario: módulo Firewall
+├── nat_test.py                    # Test unitario: módulo NAT
+├── wifi_test.py                   # Test unitario: módulo Wi-Fi (lifecycle)
+├── integration_general.py         # Test integración: orquestación directa (API)
+├── integration_cli.py             # Test integración: orquestación CLI (hardened)
+└── README_TESTS.md                # Este fichero
+```
 
-### 1️⃣ test_basics.py (Test Básico)
-**Propósito:** Validación básica de funcionalidad sin privilegios sudo elevados
+## Tests de Integración
 
-**Módulos probados:**
-- ✅ WAN: status (lectura de configuración)
-- ✅ VLANs: start → status → stop → status
-- ✅ Tagging: start → status → stop → status
+### `integration_general.py` — Orquestación Directa (5 tests)
+Llama directamente a las funciones Python de cada módulo (sin CLI).
+Verifica el ciclo completo: setup → start → isolate → restrict → stop → cleanup.
 
-**Módulos omitidos:**
-- ⚠️ NAT, Firewall, DMZ, Ebtables (requieren sudo elevado)
-
-**Uso:**
 ```bash
-cd /opt/JSBach_V4.3/scripts/tests
-sudo ../../venv/bin/python test_basics.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/integration_general.py
 ```
 
-**Tests:** ~10-12 pruebas básicas
+### `integration_cli.py` — Orquestación CLI Hardened (2 tests)
+Usa el script Expect `app/modules/expect/scripts/master_cli_test.exp` para controlar todos los módulos
+a través de la CLI interactiva (puerto 2200). Incluye:
+- 7 comandos de hardening (isolate, restrict, whitelist, DMZ isolate, tagging isolate)
+- Verificación exhaustiva del kernel (iptables, ebtables, IPs, bridge, procesos)
+- Teardown sincronizado con verificación de limpieza
 
----
-
-### 2️⃣ test_comprehensive.py (Test Exhaustivo) ⭐
-**Propósito:** Test completo con validaciones, error handling y edge cases
-
-**Cobertura completa:**
-1. **WAN** (4 tests):
-   - Status
-   - Validación de parámetros inválidos
-   - Validación de IPs/DNS/CIDR
-
-2. **VLANs** (10 tests):
-   - Start/Stop
-   - Show config
-   - Validación de VLAN IDs
-   - Edge cases (VLANs inexistentes)
-
-3. **Firewall** (20 tests):
-   - Whitelist (listar, añadir, eliminar IPs)
-   - Aislar VLANs
-   - Restrict (bloquear servicios)
-   - Validación de IPs/puertos
-   - Error handling
-
-4. **DMZ** (14 tests):
-   - Add/Remove destinations
-   - Aislar/Desaislar
-   - Validación de IPs/puertos
-   - Edge cases
-
-5. **Ebtables** (20 tests):
-   - MAC whitelist (add, remove, enable, disable, show)
-   - Aislar/Desaislar VLANs
-   - Validación de VLAN IDs y MACs
-   - Error handling completo
-
-**Uso:**
 ```bash
-cd /opt/JSBach_V4.3/scripts/tests
-sudo ../../venv/bin/python test_comprehensive.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/integration_cli.py
 ```
 
-**Tests totales:** 68 pruebas (100% cobertura)
+## Tests Unitarios por Módulo
 
----
+Cada test verifica el ciclo de vida del módulo individual (config → start → status → stop).
+Requieren `sudo` y se ejecutan sobre interfaces dummy.
 
-## 🚀 Ejecución Rápida
-
-### Test básico (sin sudo elevado):
 ```bash
-cd /opt/JSBach_V4.3/scripts/tests
-sudo ../../venv/bin/python test_basics.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/wan_test.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/vlans_test.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/tagging_test.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/firewall_test.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/nat_test.py
+sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/wifi_test.py
 ```
 
-### Test exhaustivo (RECOMENDADO):
-```bash
-cd /opt/JSBach_V4.3/scripts/tests
-sudo ../../venv/bin/python test_comprehensive.py
-```
+## Requisitos
 
-### Verificar instalación de dependencias:
-```bash
-cd /opt/JSBach_V4.3/scripts/tests
-../../venv/bin/python -c "import app.modules.wan.wan; import app.modules.vlans.vlans; print('✅ Módulos OK')"
-```
+- Ejecutar como `root` o con `sudo`
+- Servicio `jsbach` activo (`systemctl restart jsbach` antes de cada ejecución)
+- No se requiere hardware de red real (todo usa interfaces `dummy`)
 
----
+## Orden recomendado
 
-## 📊 Interpretación de Resultados
-
-### ✅ Success:
-```
-✅ PASS | vlans.start: Módulo iniciado correctamente
-```
-- La funcionalidad está operativa
-
-### ❌ Failure:
-```
-❌ FAIL | firewall.restrict: Error: Puerto inválido
-```
-- Problema detectado, revisar logs o implementación
-
-### ⚠️ Expected Failure (validaciones):
-```
-✅ PASS | dmz.add_destination [EXPECTED FAIL]: Error: IP inválida 999.999.999.999
-```
-- Test de validación exitoso (el error es esperado)
-
----
-
-## 🔧 Troubleshooting
-
-### Error: "ModuleNotFoundError"
-```bash
-# Verificar que PROJECT_ROOT está correctamente configurado
-cd /opt/JSBach_V4.3/scripts/tests
-grep PROJECT_ROOT test_*.py
-```
-
-### Error: "Permission denied"
-```bash
-# Ejecutar con sudo
-sudo ../venv/bin/python test_comprehensive.py
-```
-
-### Tests fallan en módulos específicos:
-1. Verificar que el servicio JSBach está corriendo
-2. Revisar logs en `/opt/JSBach_V4.3/logs/{module}/`
-3. Verificar configuración en `/opt/JSBach_V4.3/config/{module}/`
-
----
-
-## 📝 Notas
-
-- **test_basics.py**: Ideal para validación rápida durante desarrollo
-- **test_comprehensive.py**: Usar antes de deployments o releases
-- Los tests no modifican configuración de producción (usan parámetros de prueba)
-- Algunos tests requieren que módulos previos estén configurados (ej: tagging requiere vlans)
-
----
-
-## 🏆 Objetivo
-
-Validar que la extracción de 58 funciones helper en las Fases 1-4 no rompió funcionalidad:
-- ✅ Fase 1: WAN (2 helpers)
-- ✅ Fase 2: VLANs (2 helpers)
-- ✅ Fase 3.1: Firewall (14 helpers)
-- ✅ Fase 3.2: DMZ (17 helpers)
-- ✅ Fase 4: Ebtables (23 helpers)
-
-**Total: 58 funciones extraídas, 68 tests pasando (100%)**
+1. `systemctl restart jsbach`
+2. Tests unitarios por módulo (en cualquier orden)
+3. `integration_general.py`
+4. `integration_cli.py`

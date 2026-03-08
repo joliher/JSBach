@@ -7,6 +7,9 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "
 import logging
 from typing import Dict, Any, Tuple
 from ...utils.global_helpers import module_helpers as mh
+from ...utils.global_helpers.io_helpers import log_action
+from ...utils.global_helpers.io_helpers import log_action
+from ...utils.global_helpers.io_helpers import log_action
 from ...utils.validators import sanitize_interface_name
 from .helpers import (
     ensure_dirs, load_ebtables_config, save_ebtables_config,
@@ -934,6 +937,57 @@ def config(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 # ACCIONES PERMITIDAS
 # =============================================================================
 
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    """Activar/Desactivar log de tráfico EBTABLES (Capa 2)."""
+    status_val = params.get("status")
+    if status_val not in ["on", "off"]:
+        return False, "Parámetro 'status' debe ser 'on' u 'off'"
+
+    action = "-I" if status_val == "on" else "-D"
+    cmd = ["/usr/sbin/ebtables", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
+    success, msg = run_ebtables(cmd)
+    if success:
+        eb_cfg = load_ebtables_config()
+        eb_cfg["traffic_log_enabled"] = (status_val == "on")
+        save_ebtables_config(eb_cfg)
+        return True, f"Log de tráfico EBTABLES {'activado' if status_val == 'on' else 'desactivado'}"
+    return False, f"Error configurando log EBTABLES: {msg}"
+
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    """Activar/Desactivar log de tráfico EBTABLES (Capa 2)."""
+    status_val = params.get("status")
+    if status_val not in ["on", "off"]:
+        return False, "Parámetro 'status' debe ser 'on' u 'off'"
+
+    action = "-I" if status_val == "on" else "-D"
+    cmd = ["/usr/sbin/ebtables", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
+    success, msg = run_ebtables(cmd)
+    if success:
+        eb_cfg = load_ebtables_config()
+        eb_cfg["traffic_log_enabled"] = (status_val == "on")
+        save_ebtables_config(eb_cfg)
+        return True, f"Log de tráfico EBTABLES {'activado' if status_val == 'on' else 'desactivado'}"
+    return False, f"Error configurando log EBTABLES: {msg}"
+
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    """Activar/Desactivar log de tráfico EBTABLES (Capa 2)."""
+    status_val = params.get("status")
+    if status_val not in ["on", "off"]:
+        return False, "Parámetro 'status' debe ser 'on' u 'off'"
+
+    action = "-I" if status_val == "on" else "-D"
+    cmd = ["/usr/sbin/ebtables", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
+    success, msg = run_ebtables(cmd)
+    if success:
+        eb_cfg = load_ebtables_config()
+        eb_cfg["traffic_log_enabled"] = (status_val == "on")
+        save_ebtables_config(eb_cfg)
+        return True, f"Log de tráfico EBTABLES {'activado' if status_val == 'on' else 'desactivado'}"
+    return False, f"Error configurando log EBTABLES: {msg}"
+
 ALLOWED_ACTIONS = {
     "start": start,
     "stop": stop,
@@ -941,17 +995,12 @@ ALLOWED_ACTIONS = {
     "status": status,
     "isolate": isolate,
     "unisolate": unisolate,
-    # MAC Whitelist (funcionalidad principal)
     "add_mac": add_mac,
     "remove_mac": remove_mac,
     "enable_blacklist": enable_blacklist,
     "disable_blacklist": disable_blacklist,
     "show_blacklist": show_blacklist,
-    # Aliases para compatibilidad o facilidad
-    "enable_whitelist": enable_blacklist,
-    "disable_whitelist": disable_blacklist,
-    "show_whitelist": show_blacklist,
-    # Compatibilidad con código antiguo
     "config": config,
+    "traffic_log": traffic_log
 }
 

@@ -1,9 +1,7 @@
 # app/modules/expect/actions/mac.py
 import re
-from typing import Dict, Any, Tuple, cast, Optional
-from ..base import (
-    async_run_expect_script, get_script_path
-)
+from typing import Dict, Any, Tuple, Optional
+from ..base import async_run_expect_script
 from .. import state_manager
 from ..helpers import normalize_mac
 
@@ -28,7 +26,7 @@ def mac_acl_name(profile: Dict[str, Any], mac: str) -> str:
     name = template.format(mac=mac, mac_compact=safe_compact, mac_id=numeric_id)
     return re.sub(r"[^a-zA-Z0-9_-]", "_", name)
 
-async def run_mac_table(ip: str, profile: Dict[str, Any], auth_required: bool, user: str, password: str, protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_mac_table(ip: str, profile: Dict[str, Any], _auth_required: bool, user: str, password: str, protocol: Optional[str] = None) -> Tuple[bool, str]:
     from ..base import get_script_path
     
     env_vars = {
@@ -54,13 +52,13 @@ async def run_mac_table(ip: str, profile: Dict[str, Any], auth_required: bool, u
     except Exception as e:
         return False, f"Error ejecutando mac_table: {e}"
 
-async def run_mac_acl_isolate(ip: str, mac: str, profile: Dict[str, Any], auth_required: bool, user: str, password: str, max_ports: int, protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_mac_acl_isolate(ip: str, mac: str, _profile: Dict[str, Any], _auth_required: bool, _user: str, _password: str, _max_ports: int, _protocol: Optional[str] = None) -> Tuple[bool, str]:
     # 1. Update local state ONLY
     mac_norm = normalize_mac(mac)
     state_manager.update_mac_block(ip, mac_norm, "0", "block", acl_name="JSBACH_SECURITY")
     return True, f"MAC {mac} marcada para AISLAR. Pulse SINCRONIZAR para aplicar."
 
-async def run_mac_acl_unisolate(ip: str, mac: str, profile: Dict[str, Any], auth_required: bool, user: str, password: str, max_ports: int, protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_mac_acl_unisolate(ip: str, mac: str, _profile: Dict[str, Any], _auth_required: bool, _user: str, _password: str, _max_ports: int, _protocol: Optional[str] = None) -> Tuple[bool, str]:
     # 1. Update local state ONLY
     mac_norm = normalize_mac(mac)
     state_manager.update_mac_block(ip, mac_norm, "", "unblock")

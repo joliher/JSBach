@@ -19,9 +19,8 @@ from ...utils.validators import validate_vlan_id, validate_ip_address
 from ...utils.global_helpers import run_command
 from .helpers import (
     ensure_dirs, load_firewall_config, load_vlans_config, load_wan_config, save_firewall_config,
-    check_wan_configured, ensure_input_protection_chain, ensure_forward_protection_chain,
-    setup_wan_protection, create_input_vlan_chain, create_forward_vlan_chain,
-    remove_input_vlan_chain, remove_forward_vlan_chain, apply_whitelist, apply_single_whitelist_rule
+    ensure_fw_chains, setup_wan_protection, create_input_vlan_chain, create_forward_vlan_chain,
+    remove_input_vlan_chain, remove_forward_vlan_chain, apply_whitelist
 )
 
 # Configurar logging
@@ -40,17 +39,28 @@ _load_firewall_config = load_firewall_config
 _load_vlans_config = load_vlans_config
 _load_wan_config = load_wan_config
 _save_firewall_config = save_firewall_config
-_run_command = lambda cmd: run_command(cmd)
-_check_wan_configured = check_wan_configured
-_ensure_input_protection_chain = ensure_input_protection_chain
-_ensure_forward_protection_chain = ensure_forward_protection_chain
+def _run_command(cmd, ignore_error=False):
+    """Alias para run_command con logging de errores. Retorna (success, output)."""
+    success, output = run_command(cmd)
+    
+    # Silenciar errores esperados en comandos de chequeo o creación de cadenas if no se indica lo contrario
+    if not success and not ignore_error:
+        if "-C" in cmd or "-N" in cmd:
+            ignore_error = True
+            
+    if not success and not ignore_error:
+        # Imprimir a stderr para que aparezca en los tests
+        import sys
+        print(f"\n[!] FIREWALL ERROR: {' '.join(cmd)} -> {output}", file=sys.stderr)
+    return success, output
+
+_ensure_fw_chains = ensure_fw_chains
 _setup_wan_protection = setup_wan_protection
 _create_input_vlan_chain = create_input_vlan_chain
 _create_forward_vlan_chain = create_forward_vlan_chain
 _remove_input_vlan_chain = remove_input_vlan_chain
 _remove_forward_vlan_chain = remove_forward_vlan_chain
 _apply_whitelist = apply_whitelist
-_apply_single_whitelist_rule = apply_single_whitelist_rule
 
 
 # =============================================================================
@@ -80,8 +90,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         return False, msg
     
     # Crear cadenas protegidas (posiciones fijas)
-    _ensure_input_protection_chain()
-    _ensure_forward_protection_chain()
+    _ensure_fw_chains()
     _setup_wan_protection()
     
     # Cargar configuración del firewall
@@ -165,38 +174,34 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             # Cargar preferencias de seguridad del firewall para Wi-Fi
             wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": True})
             
-            # 1. INPUT_WIFI (Restricción)
+            # 1. INPUT_WIFI (Restricción y Acceso al Router)
             _run_command(["/usr/sbin/iptables", "-N", "INPUT_WIFI"])
             _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"])
             
-            # Verificar si ya está vinculada a INPUT
-            success_link, _ = _run_command(["/usr/sbin/iptables", "-C", "INPUT", "-i", wifi_iface, "-j", "INPUT_WIFI"])
-            if not success_link:
-                _run_command(["/usr/sbin/iptables", "-I", "INPUT", "2", "-i", wifi_iface, "-j", "INPUT_WIFI"])
+            # Vincular Jerárquicamente: JSB_GLOBAL_RESTRICT -> INPUT_WIFI (solo para tráfico de la interfaz wifi)
+            mh.ensure_module_hook("filter", "JSB_GLOBAL_RESTRICT", "INPUT_WIFI", extra_args=["-i", wifi_iface])
             
-            # Permitir DHCP, DNS, ICMP
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "67:68", "-j", "ACCEPT"])
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "tcp", "--dport", str(wifi_json_cfg.get("portal_port", 8500)), "-j", "ACCEPT"])
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "icmp", "-j", "ACCEPT"])
+            # Permitir DHCP, DNS, ICMP (Usamos RETURN para permitir que otras reglas de JSB_GLOBAL_RESTRICT sigan)
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "67:68", "-j", "RETURN"])
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "53", "-j", "RETURN"])
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "tcp", "--dport", str(wifi_json_cfg.get("portal_port", 8500)), "-j", "RETURN"])
+            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "icmp", "-j", "RETURN"])
             
             # Aplicar restricción si está habilitada (bloquear acceso al router)
             if wifi_fw_cfg.get("restricted", True):
+                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "LOG", "--log-prefix", "[JSB-WIFI-RESTRICT] "])
                 _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "DROP"])
-                logger.info("Wi-Fi: Acceso al router RESTRINGIDO")
+                logger.info("Wi-Fi: Acceso al router RESTRINGIDO con Full Logging")
             else:
-                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "ACCEPT"])
-                logger.info("Wi-Fi: Acceso al router PERMITIDO")
+                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "RETURN"])
+                logger.info("Wi-Fi: Acceso al router PERMITIDO (jerárquico)")
             
-            # 2. FORWARD_WIFI (Aislamiento)
+            # 2. FORWARD_WIFI (Aislamiento de Redes)
             _run_command(["/usr/sbin/iptables", "-N", "FORWARD_WIFI"])
             _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"])
             
-            # Verificar si ya está vinculada a FORWARD
-            success_fwd, _ = _run_command(["/usr/sbin/iptables", "-C", "FORWARD", "-i", wifi_iface, "-j", "FORWARD_WIFI"])
-            if not success_fwd:
-                # Insertar en posición 2 (después de ESTABLISHED,RELATED que pondremos en la 1)
-                _run_command(["/usr/sbin/iptables", "-I", "FORWARD", "2", "-i", wifi_iface, "-j", "FORWARD_WIFI"])
+            # Vincular Jerárquicamente: JSB_GLOBAL_ISOLATE -> FORWARD_WIFI
+            mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "FORWARD_WIFI", extra_args=["-i", wifi_iface])
             
             # Cargar configuración WAN para identificar la interfaz de salida
             wan_cfg_mod = _load_wan_config()
@@ -205,20 +210,19 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             # Aplicar aislamiento si está habilitado (Solo permitir salida a Internet vía WAN)
             if wifi_fw_cfg.get("isolated", True):
                 if wan_iface:
-                    _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-o", wan_iface, "-j", "ACCEPT"])
-                    logger.info(f"Wi-Fi: AISLAMIENTO activado (solo salida por {wan_iface})")
-                else:
-                    logger.warning("Wi-Fi: AISLAMIENTO activado pero no hay interfaz WAN configurada.")
+                    # Permitir salida a WAN (RETURN para dejar que NAT módulo actúe si es necesario, aunque aquí ya solemos aceptar)
+                    _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-o", wan_iface, "-j", "RETURN"])
+                    logger.info(f"Wi-Fi: AISLAMIENTO activado (permitiendo salida por {wan_iface})")
                 
-                # Bloquear todo lo que no sea WAN (VLANs, otras subredes locales)
+                # Bloquear todo lo que no sea WAN (VLANs, otras subredes locales) con Log
+                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "LOG", "--log-prefix", "[JSB-WIFI-ISOLATE] "])
                 _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "DROP"])
             else:
-                # Permitir resto (Acceso libre)
-                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "ACCEPT"])
-                logger.info("Wi-Fi: AISLAMIENTO desactivado (acceso libre)")
+                # Permitir resto (Acceso libre jerárquico)
+                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "RETURN"])
+                logger.info("Wi-Fi: AISLAMIENTO desactivado (jerárquico)")
             
-            # 3. Portal Cautivo
-            # Cargamos configuración extendida de wifi
+            # 3. Portal Cautivo Integration
             p_enabled = wifi_cfg_mod.get("portal_enabled", False)
             p_port = wifi_cfg_mod.get("portal_port", 8100)
             
@@ -231,13 +235,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             if setup_wifi_portal(p_enabled, p_port, p_auth_macs):
                 logger.info(f"Portal Cautivo Wi-Fi: {'Habilitado' if p_enabled else 'Deshabilitado'} (Puerto: {p_port})")
             
-            # Añadir regla de estado global al inicio de FORWARD para permitir tráfico de vuelta
-            # (Se hace aquí para asegurar que al menos una red lo necesite)
-            # Usamos -A (Append) o una posición baja para no desplazar reglas de bloqueo críticas del portal
-            if _run_command(["/usr/sbin/iptables", "-C", "FORWARD", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"])[0] == False:
-                _run_command(["/usr/sbin/iptables", "-A", "FORWARD", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"])
-            
-            results.append(f"Wi-Fi AP ({wifi_iface}): Configurada (A:{'SÍ' if wifi_fw_cfg.get('isolated') else 'NO'} R:{'SÍ' if wifi_fw_cfg.get('restricted') else 'NO'} P:{'SÍ' if p_enabled else 'NO'})")
+            results.append(f"Wi-Fi AP ({wifi_iface}): Configurada Jerárquicamente (A:{'SÍ' if wifi_fw_cfg.get('isolated') else 'NO'} R:{'SÍ' if wifi_fw_cfg.get('restricted') else 'NO'} P:{'SÍ' if p_enabled else 'NO'})")
     
     # Guardar configuración
     fw_cfg["status"] = 1
@@ -260,7 +258,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     for vlan_id in active_vlan_ids:
         if vlan_id == "1":
             continue
-        success, msg = restrict({"vlan_id": int(vlan_id), "suppress_log": True})
+        success, msg = restrict({"vlan_id": int(vlan_id), "suppress_log": True, "from_start": True})
         if success:
             applied_restrictions.append(vlan_id)
             results.append(f"VLAN {vlan_id}: Restringida (política predeterminada)")
@@ -341,28 +339,31 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     wifi_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
     wifi_iface = wifi_cfg.get("interface", "wlp3s0")
     if wifi_iface:
-        _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-i", wifi_iface, "-j", "INPUT_WIFI"])
-        _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"])
-        _run_command(["/usr/sbin/iptables", "-X", "INPUT_WIFI"])
+        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_RESTRICT", "-i", wifi_iface, "-j", "INPUT_WIFI"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-X", "INPUT_WIFI"], ignore_error=True)
         
-        _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-i", wifi_iface, "-j", "FORWARD_WIFI"])
-        _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"])
-        _run_command(["/usr/sbin/iptables", "-X", "FORWARD_WIFI"])
+        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_ISOLATE", "-i", wifi_iface, "-j", "FORWARD_WIFI"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"], ignore_error=True)
+        _run_command(["/usr/sbin/iptables", "-X", "FORWARD_WIFI"], ignore_error=True)
     
     # FIX BUG #7: Eliminar vínculos y cadenas protegidas
     # Limpiar contenido
-    _run_command(["/usr/sbin/iptables", "-F", "INPUT_PROTECTION"])
-    _run_command(["/usr/sbin/iptables", "-F", "FORWARD_PROTECTION"])
+    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_RESTRICT"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_ISOLATE"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_STATS"], ignore_error=True)
     
-    # Desvincular desde INPUT y FORWARD
-    _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-j", "INPUT_PROTECTION"])
-    _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "FORWARD_PROTECTION"])
+    # Desvincular desde cadenas Globales
+    _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_RESTRICT", "-j", "JSB_FW_RESTRICT"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_ISOLATE", "-j", "JSB_FW_ISOLATE"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_STATS", "-j", "JSB_FW_STATS"], ignore_error=True)
     
     # Eliminar cadenas
-    _run_command(["/usr/sbin/iptables", "-X", "INPUT_PROTECTION"])
-    _run_command(["/usr/sbin/iptables", "-X", "FORWARD_PROTECTION"])
+    _run_command(["/usr/sbin/iptables", "-X", "JSB_FW_RESTRICT"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-X", "JSB_FW_ISOLATE"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-X", "JSB_FW_STATS"], ignore_error=True)
     
-    logger.info("Cadenas INPUT_PROTECTION y FORWARD_PROTECTION eliminadas")
+    logger.info("Cadenas JSB_FW_RESTRICT y JSB_FW_ISOLATE eliminadas")
     
     msg = "Firewall detenido:\n" + "\n".join(results)
     # Actualizar estado
@@ -380,7 +381,7 @@ def restart(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     """Reiniciar firewall."""
     logger.info("=== INICIO: firewall restart ===")
     
-    stop_success, stop_msg = stop(params)
+    _, stop_msg = stop(params)
     start_success, start_msg = start(params)
     
     msg = f"STOP:\n{stop_msg}\n\nSTART:\n{start_msg}"
@@ -529,11 +530,11 @@ def unrestrict_wifi(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
 
 # =============================================================================
-# AISLAMIENTO (FORWARD_PROTECTION)
+# AISLAMIENTO (JSB_FW_ISOLATE)
 # =============================================================================
 
 def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    """Aislar una VLAN o el módulo Wi-Fi (reglas en FORWARD_PROTECTION o FORWARD_WIFI)."""
+    """Aislar una VLAN o el módulo Wi-Fi (reglas en JSB_FW_ISOLATE o FORWARD_WIFI)."""
     logger.info("=== INICIO: isolate ===")
     
     if not params:
@@ -570,8 +571,8 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     ip_mask = vlan_ip_network if '/' in vlan_ip_network else f"{vlan_ip_network}/24"
     
-    # Asegurar que existe FORWARD_PROTECTION
-    _ensure_forward_protection_chain()
+    # Asegurar que existe JSB_FW_ISOLATE
+    _ensure_fw_chains()
     
     # VLAN 1: bloquea tráfico HACIA ella (-d)
     if vlan_id == 1:
@@ -579,7 +580,7 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         # Verificar si ya está aislada (regla puede estar en cualquier posición)
         success, _ = _run_command([
-            "/usr/sbin/iptables", "-C", "FORWARD_PROTECTION", "-d", ip_mask, "-m", "conntrack", 
+            "/usr/sbin/iptables", "-C", "JSB_FW_ISOLATE", "-d", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
         
@@ -587,12 +588,16 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             logger.info("VLAN 1 ya está aislada (regla existe)")
             return True, "VLAN 1 ya estaba aislada"
         
-        # Añadir regla en posición 1 (prioridad máxima)
+        # Añadir Reglas de LOG y DROP
+        _run_command([
+            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "1", "-d", ip_mask, "-m", "conntrack", 
+            "--ctstate", "NEW", "-j", "LOG", "--log-prefix", "[JSB-FW-ISOLATE] "
+        ])
         success, output = _run_command([
-            "/usr/sbin/iptables", "-I", "FORWARD_PROTECTION", "1", "-d", ip_mask, "-m", "conntrack", 
+            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "2", "-d", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
-        
+       
         if not success:
             logger.error(f"Error aislando VLAN 1: {output}")
             return False, f"Error al aislar VLAN 1: {output}"
@@ -606,20 +611,23 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         # Verificar si ya está aislada
         success, _ = _run_command([
-            "/usr/sbin/iptables", "-C", "FORWARD_PROTECTION", "-s", ip_mask, "-m", "conntrack", 
+            "/usr/sbin/iptables", "-C", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
-        
         if success:
             logger.info(f"VLAN {vlan_id} ya está aislada")
             return True, f"VLAN {vlan_id} ya estaba aislada"
         
-        # Añadir regla
+        # Añadir Reglas de LOG y DROP
+        _run_command([
+            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "1", "-s", ip_mask, "-m", "conntrack", 
+            "--ctstate", "NEW", "-j", "LOG", "--log-prefix", "[JSB-FW-ISOLATE] "
+        ])
         success, output = _run_command([
-            "/usr/sbin/iptables", "-I", "FORWARD_PROTECTION", "1", "-s", ip_mask, "-m", "conntrack", 
+            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "2", "-s", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
-        
+       
         if not success:
             logger.error(f"Error aislando VLAN {vlan_id}: {output}")
             return False, f"Error al aislar VLAN {vlan_id}: {output}"
@@ -680,7 +688,7 @@ def unisolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Verificar si está aislada
     success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", "FORWARD_PROTECTION", "-s", ip_mask, "-m", "conntrack", 
+        "/usr/sbin/iptables", "-C", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
         "--ctstate", "NEW", "-j", "DROP"
     ])
     
@@ -690,9 +698,15 @@ def unisolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         _save_firewall_config(fw_cfg)
         return True, f"VLAN {vlan_id} no estaba aislada"
     
-    # Eliminar regla
+    # Eliminar regla de LOG (si existe)
+    _run_command([
+        "/usr/sbin/iptables", "-D", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
+        "--ctstate", "NEW", "-j", "LOG", "--log-prefix", "[JSB-FW-ISOLATE] "
+    ])
+    
+    # Eliminar regla de DROP
     success, output = _run_command([
-        "/usr/sbin/iptables", "-D", "FORWARD_PROTECTION", "-s", ip_mask, "-m", "conntrack", 
+        "/usr/sbin/iptables", "-D", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
         "--ctstate", "NEW", "-j", "DROP"
     ])
     
@@ -757,8 +771,10 @@ def restrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     logger.info(f"Aplicando restricciones a VLAN {vlan_id} ({ip_mask})")
     
-    # Verificar si ya está restringida
-    if vlan_cfg.get("restricted", False):
+    from_start = params.get("from_start", False)
+    
+    # Verificar si ya está restringida (a menos que vengamos de start/reload donde la cadena se acaba de limpiar)
+    if vlan_cfg.get("restricted", False) and not from_start:
         return True, f"VLAN {vlan_id} ya estaba restringida"
     
     chain_name = f"INPUT_VLAN_{vlan_id}"
@@ -768,24 +784,26 @@ def restrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Aplicar política según VLAN
     if vlan_id in [1, 2]:
-        # DROP total
+        # DROP total con LOG
         logger.info(f"VLAN {vlan_id}: aplicando DROP total")
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "LOG", "--log-prefix", "[JSB-FW-RESTRICT] "])
         _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
         msg = f"VLAN {vlan_id} restringida: bloqueado acceso total al router"
     else:
-        # Permitir DHCP, DNS, ICMP
-        logger.info(f"VLAN {vlan_id}: permitiendo DHCP, DNS e ICMP; bloqueando resto")
+        # Permitir DHCP, DNS, ICMP (Usamos RETURN para Block Prevails)
+        logger.info(f"VLAN {vlan_id}: permitiendo DHCP, DNS e ICMP (jerárquico); bloqueando resto")
         # DHCP (puertos 67 y 68 UDP)
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "67", "-j", "ACCEPT"])
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "68", "-j", "ACCEPT"])
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "67", "-j", "RETURN"])
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "68", "-j", "RETURN"])
         # DNS (puerto 53 UDP y TCP)
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "53", "-j", "ACCEPT"])
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "tcp", "--dport", "53", "-j", "ACCEPT"])
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "53", "-j", "RETURN"])
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "tcp", "--dport", "53", "-j", "RETURN"])
         # ICMP
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "icmp", "-j", "ACCEPT"])
-        # DROP resto
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "icmp", "-j", "RETURN"])
+        # DROP resto con LOG
+        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "LOG", "--log-prefix", "[JSB-FW-RESTRICT] "])
         _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
-        msg = f"VLAN {vlan_id} restringida: solo DHCP, DNS e ICMP permitidos al router"
+        msg = f"VLAN {vlan_id} restringida: solo DHCP, DNS e ICMP permitidos (RETURN) al router"
     
     # Marcar como restringida
     vlan_cfg["restricted"] = True
@@ -1208,6 +1226,51 @@ def get_vlans_state(params: Dict[str, Any] = None) -> Tuple[bool, List[Dict[str,
     return True, states
 
 
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status_val = params.get("status", "on")
+    vlan_id = params.get("vlan_id")
+    if not vlan_id: return False, "Falta parámetro \"vlan_id\""
+    
+    fw_cfg = _load_firewall_config()
+    vlan_cfg = fw_cfg.get("vlans", {}).get(str(vlan_id))
+    if not vlan_cfg: return False, f"VLAN {vlan_id} no configurada"
+    
+    ip_mask = vlan_cfg.get("ip")
+    if not ip_mask: return False, f"VLAN {vlan_id} sin IP configurada"
+    
+    action = "-I" if status_val == "on" else "-D"
+    cmd = ["/usr/sbin/iptables", action, "JSB_FW_STATS", "1", "-s", ip_mask, "-j", "LOG", "--log-prefix", "[JSB-FW-LOG] "]
+    success, msg = _run_command(cmd)
+    if status_val == "on" and not success: return False, f"Error activando log: {msg}"
+    
+    _run_command(["/usr/sbin/iptables", action, "JSB_FW_STATS", "1", "-d", ip_mask, "-j", "LOG", "--log-prefix", "[JSB-FW-LOG] "])
+    return True, f"Log de tráfico para VLAN {vlan_id}: {status_val}"
+
+
+def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    success, output = _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_STATS", "-n", "-v", "-x"])
+    if not success: return False, f"Error obteniendo estadísticas: {output}"
+    
+    res = "Consumo de Tráfico Firewall (L3 Stats):\n"
+    res += "========================================\n"
+    res += f"{'VLAN/IP':<18} | {'Paquetes':<10} | {'Bytes':<15}\n" + "-" * 48 + "\n"
+    
+    for line in output.strip().split("\n"):
+        if "LOG" in line:
+            parts = line.split()
+            try:
+                pkts = parts[0]
+                bytes_count = parts[1]
+                source = parts[7]
+                dest = parts[8]
+                target_ip = source if source != "0.0.0.0/0" else dest
+                res += f"{target_ip:<18} | {pkts:<10} | {bytes_count:<15}\n"
+            except (IndexError, ValueError):
+                continue
+            
+    return True, res
+
+
 # =============================================================================
 # WHITELIST DE ACCIONES PERMITIDAS
 # =============================================================================
@@ -1227,4 +1290,6 @@ ALLOWED_ACTIONS = {
     "add_rule": add_rule,
     "remove_rule": remove_rule,
     "reset_defaults": reset_defaults,
+    "traffic_log": traffic_log,
+    "top": top,
 }

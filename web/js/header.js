@@ -1,4 +1,4 @@
-/* /web/js/header.js */
+/* /web/js/header.js - FIXED V4.2_REFRESH_01 */
 
 function irSeccion(module) {
     // Redirigir al index.html del módulo dentro de la carpeta modules
@@ -6,12 +6,20 @@ function irSeccion(module) {
 }
 
 async function logout() {
-    if (!confirm("¿Cerrar sesión?")) return;
+    // Eliminamos el confirm() nativo que puede ser bloqueado o fallar en iframes
     try {
-        await fetch('/logout', { method: 'POST', credentials: 'include' });
-        window.top.location.href = "/login";
+        console.log("Logout triggered");
+        const res = await fetch('/logout', { method: 'POST', credentials: 'include' });
+        if (res.ok) {
+            window.top.location.href = "/login";
+        } else {
+            console.error("Logout status:", res.status);
+            // Fallback: redirección forzada
+            window.top.location.href = "/login";
+        }
     } catch (e) {
-        console.error("Error logging out", e);
+        console.error("Logout error", e);
+        window.top.location.href = "/login";
     }
 }
 

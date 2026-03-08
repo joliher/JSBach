@@ -1,0 +1,317 @@
+#!/usr/bin/expect -f
+# =============================================================================
+# JSBach V4.2 - Master CLI Integration Test (Expect Script)
+# =============================================================================
+# Usa 'nc' (netcat) en lugar de 'telnet' para evitar la negociación de
+# protocolo Telnet que inyecta bytes IAC y \r\n extra que rompen la sesión.
+# Con nc, enviamos \r\n explícitamente para que asyncio readline() finalice.
+# =============================================================================
+
+set timeout 30
+set host "127.0.0.1"
+set port "2200"
+set user "admin"
+set pass "password123"
+set prompt "jsbach@admin> "
+
+set test_ok   0
+set test_fail 0
+
+proc check_output {label needle haystack ok_ref fail_ref} {
+    upvar $ok_ref ok
+    upvar $fail_ref fail
+    if {[string match "*$needle*" $haystack]} {
+        puts "  \[OK\]  $label"
+        incr ok
+    } else {
+        puts "  \[FAIL\] $label — buscando: '$needle'"
+        puts "         Respuesta: $haystack"
+        incr fail
+    }
+}
+
+# Enviar line con terminador correcto
+proc jsb_send {cmd} {
+    send "$cmd\r"
+}
+
+# ==============================================================
+# Conexión (usando telnet normal, session.py ya sabe limpiar \r\n)
+# ==============================================================
+puts "\n=== JSBach CLI Integration Test ==="
+puts "Conectando a $host:$port ..."
+spawn telnet $host $port
+
+# Autenticación
+expect {
+    "Username: " { }
+    timeout       { puts "FATAL: No se recibio prompt de login"; exit 1 }
+    eof           { puts "FATAL: Conexion cerrada antes del login"; exit 1 }
+}
+send "$user\r"
+
+expect {
+    "Password: " { }
+    timeout       { puts "FATAL: Timeout esperando prompt de password"; exit 1 }
+}
+send "$pass\r"
+
+# Esperar bienvenida
+expect {
+    "Bienvenido"  { puts "  \[OK\]  Autenticacion exitosa" ; incr test_ok }
+    "incorrectas" { puts "FATAL: Credenciales incorrectas"; exit 1 }
+    timeout       { puts "FATAL: Timeout en autenticacion"; exit 1 }
+}
+
+# Absorber el resto del banner (help text + primera línea del prompt)
+expect $prompt
+
+# ==============================================================
+# TEST 1 — Configurar módulos vía CLI
+# ==============================================================
+puts "\n--- TEST 1: Configuracion de modulos ---"
+
+# WAN
+jsb_send "wan config --mode manual --interface dummy0 --ip 192.168.100.2 --mask 24 --gateway 192.168.100.1 --dns 8.8.8.8"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "wan config" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# VLAN 10
+jsb_send "vlans config --action add --id 10 --name VLAN_10 --ip_interface 10.0.10.1/24 --ip_network 10.0.10.0/24"
+set resp ""
+expect {
+    -re {(XITO|ya existe|ERROR)} { set resp $expect_out(buffer) }
+    timeout                      { set resp "TIMEOUT" }
+}
+check_output "vlans config VLAN_10" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# VLAN 20
+jsb_send "vlans config --action add --id 20 --name VLAN_20 --ip_interface 10.0.20.1/24 --ip_network 10.0.20.0/24"
+set resp ""
+expect {
+    -re {(XITO|ya existe|ERROR)} { set resp $expect_out(buffer) }
+    timeout                      { set resp "TIMEOUT" }
+}
+check_output "vlans config VLAN_20" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# Wi-Fi
+jsb_send "wifi config --ssid TestNet --password testpass123 --interface dummy2 --ip_address 10.0.99.1 --netmask 255.255.255.0 --channel 6 --hw_mode g"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "wifi config" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# Tagging
+jsb_send "tagging config --action add --name dummy3 --vlan_untag 10"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "tagging config" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# DHCP
+jsb_send "dhcp config --dns 8.8.8.8,1.1.1.2"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "dhcp dns config" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# DMZ
+jsb_send "dmz add_destination --ip 10.0.20.10 --port 80 --protocol tcp"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "dmz config" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# NAT
+jsb_send "nat config --interface dummy0"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "nat config" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# ==============================================================
+# TEST 2 — Arranque sincronizado de módulos en orden jerárquico
+# ==============================================================
+puts "\n--- TEST 2: Arranque sincronizado ---"
+
+foreach module {wan vlans tagging wifi firewall dhcp dmz nat} {
+    jsb_send "$module start"
+    set resp ""
+    expect {
+        -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+        timeout             { set resp "TIMEOUT" }
+    }
+    check_output "$module start" "XITO" $resp test_ok test_fail
+    expect $prompt
+}
+
+# ==============================================================
+# TEST 3 — Verificar estado de los módulos activos
+# ==============================================================
+puts "\n--- TEST 3: Verificacion de estado ---"
+
+foreach module {wan vlans firewall dhcp nat} {
+    jsb_send "$module status"
+    set resp ""
+    expect {
+        -re {=+} { set resp $expect_out(buffer) }
+        timeout   { set resp "TIMEOUT" }
+    }
+    check_output "$module status (tiene respuesta)" "=" $resp test_ok test_fail
+    expect $prompt
+}
+
+# ==============================================================
+# TEST 4 — Aplicar Todo el Abanico de Restricciones (Hardening)
+# ==============================================================
+puts "\n--- TEST 4: Hardening y Restricciones ---"
+
+# 4.1 Aislamiento de VLAN 10 (L3)
+jsb_send "firewall isolate --vlan_id 10"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "firewall isolate vlan_10" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# 4.2 Restricción de VLAN 20 (Acceso a Router limitado)
+jsb_send "firewall restrict --vlan_id 20"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "firewall restrict vlan_20" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# 4.3 Aislamiento de Wi-Fi (L3)
+jsb_send "firewall isolate --module wifi"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "firewall isolate wifi" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# 4.4 Restricción de Wi-Fi (L3)
+jsb_send "firewall restrict --module wifi"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "firewall restrict wifi" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# 4.5 Aislamiento de Host Específico en DMZ (10.0.20.10)
+jsb_send "dmz isolate --ip 10.0.20.10"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "dmz isolate host" "XITO" $resp test_ok test_fail
+expect $prompt
+
+# 4.6 Aislamiento de Puerto de Tagging (L2)
+jsb_send "tagging isolate --iface dummy3"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "tagging isolate dummy3" "XITO" $resp test_ok test_fail
+expect $prompt
+sleep 0.5
+
+puts "DEBUG: Iniciando 4.7 Whitelist"
+# 4.7 Whitelist en VLAN 10 (Modo Restrictivo Máximo)
+jsb_send "firewall enable_whitelist --vlan_id 10"
+set resp ""
+expect {
+    -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+    timeout             { set resp "TIMEOUT" }
+}
+check_output "firewall enable_whitelist vlan_10" "XITO" $resp test_ok test_fail
+expect $prompt
+sleep 0.5
+
+puts "DEBUG: Llegando al punto de sincronizacion"
+# ==============================================================
+# PUNTO DE SINCRONIZACIÓN PARA VERIFICACIÓN DEL KERNEL
+# ==============================================================
+puts "\n--- SINCRONIZACION: Esperando verificacion del kernel ---"
+
+# Crear fichero de señal para que Python sepa que puede empezar
+exec touch /tmp/jsb_sync_ready
+
+# Esperar a que Python cree el fichero de continuación
+set sync_file "/tmp/jsb_sync_continue"
+while {![file exists $sync_file]} {
+    sleep 1
+}
+
+# Limpiar ficheros de sincronización
+exec rm /tmp/jsb_sync_ready
+exec rm $sync_file
+
+# ==============================================================
+# TEST 5 — Parada sincronizada (Jerarquía Inversa)
+# ==============================================================
+puts "\n--- TEST 5: Parada sincronizada ---"
+
+foreach module {dmz wifi dhcp firewall nat tagging vlans wan} {
+    jsb_send "$module stop"
+    set resp ""
+    expect {
+        -re {(XITO|ERROR)} { set resp $expect_out(buffer) }
+        timeout             { set resp "TIMEOUT" }
+    }
+    check_output "$module stop" "XITO" $resp test_ok test_fail
+    expect $prompt
+}
+
+# ==============================================================
+# Cierre de sesión y resumen
+# ==============================================================
+jsb_send "exit"
+expect eof
+
+puts "\n=============================="
+puts "RESULTADOS DEL TEST CLI:"
+puts "  Pasados : $test_ok"
+puts "  Fallados: $test_fail"
+puts "=============================="
+
+if {$test_fail > 0} {
+    puts "ESTADO: FAILED"
+    exit 1
+} else {
+    puts "ESTADO: OK"
+    exit 0
+}

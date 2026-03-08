@@ -32,10 +32,28 @@
     **restart**
         Reinicia la conexión WAN para aplicar cambios.
 
+    **block** --ip IP
+        Bloquea el acceso a Internet para una IP interna específica.
+        Ejemplo: `wan block --ip 192.168.1.50`
+
+    **unblock** --ip IP
+        Restaura el acceso a Internet para una IP previamente bloqueada.
+        Ejemplo: `wan unblock --ip 192.168.1.50`
+
+    **traffic_log** --status [on|off]
+        Activa o desactiva el registro (LOG) de flujos de salida hacia la WAN.
+        Los logs se pueden visualizar en `dmesg` o `/var/log/syslog` con el prefijo `[JSB-WAN-OUT]`.
+
+    **top**
+        Muestra los 10 principales consumidores de ancho de banda (IPs internas) que salen por la WAN.
+        Requiere que el módulo haya estado activo para acumular estadísticas.
+
 ## EJEMPLOS
-    wan config --mode dhcp --interface eno1
-    wan config --mode static --interface eth0 --ip 80.25.10.5 --netmask 255.255.255.0 --gateway 80.25.10.1
+    wan config --mode static --interface dummy0 --ip 10.0.0.2 --netmask 24 --gateway 10.0.0.1
     wan status
+    wan block --ip 192.168.1.100
+    wan top
+    wan traffic_log --status on
 
 ## NOTAS
     - Los cambios en **config** no surten efecto hasta ejecutar **restart** o **start**.

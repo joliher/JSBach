@@ -2,8 +2,8 @@
 """Helper functions para el módulo VLANs."""
 
 import os
-from typing import Dict, Any
-from ...utils.global_helpers import load_json_config, save_json_config, run_command
+from typing import Tuple, Optional
+from ...utils.global_helpers import load_json_config, save_json_config
 
 
 def initialize_default_vlans(config_file: str) -> None:

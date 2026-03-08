@@ -19,8 +19,12 @@ class CommandParser:
     
     # Acciones específicas por módulo
     MODULE_ACTIONS = {
-        'firewall': ['enable_whitelist', 'disable_whitelist', 'add_rule', 'remove_rule', 'isolate', 'unisolate', 'restrict', 'unrestrict'],
+        'wan': ['block', 'unblock', 'traffic_log', 'top'],
+        'nat': ['block', 'unblock', 'traffic_log', 'top'],
+        'firewall': ['enable_whitelist', 'disable_whitelist', 'add_rule', 'remove_rule', 'isolate', 'unisolate', 'restrict', 'unrestrict', 'traffic_log', 'top'],
         'dmz': ['add_destination', 'remove_destination', 'isolate', 'unisolate', 'eliminar'],
+        'vlans': ['isolate', 'unisolate', 'traffic_log', 'top'],
+        'tagging': ['isolate', 'unisolate', 'traffic_log', 'top'],
         'expect': ['auth', 'config', 'reset', 'mac_table', 'isolate', 'unisolate', 'get_state', 'list_switches', 'add_switch', 'remove_switch', 'update_switch', 'security_mode', 'add_to_whitelist', 'remove_from_whitelist', 'apply_whitelist', 'get_whitelist'],
     }
     

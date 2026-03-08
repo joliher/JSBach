@@ -6,11 +6,11 @@ import json
 import subprocess
 from typing import Dict, Any, Tuple, Optional
 from ...utils.global_helpers import module_helpers as mh, io_helpers as ioh
-from ...utils.validators import sanitize_interface_name, validate_interface_name
+from ...utils.validators import validate_interface_name
 from ...utils.global_helpers import (
     load_json_config, save_json_config, update_module_status, run_command
 )
-from .helpers import run_cmd, parse_vlan_range, format_vlan_list, bridge_exists
+from .helpers import run_cmd, parse_vlan_range, bridge_exists
 
 # Config file in V4 structure
 CONFIG_FILE = os.path.abspath(
@@ -26,13 +26,13 @@ def _save_config(data):
     return success
 
 _update_status = lambda status: update_module_status(CONFIG_FILE, status)
-_sanitize_interface_name = sanitize_interface_name  # Alias para compatibilidad
+
 
 # Aliases para funciones de helpers
 _run_cmd = run_cmd
 _bridge_exists = bridge_exists
 _parse_vlan_range = parse_vlan_range
-_format_vlan_list = format_vlan_list
+
 
 
 # --------------------------------
@@ -67,6 +67,13 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     # Solo tocar VLAN 1 si hay interfaces físicas
     if interfaces:
         _run_cmd(["/usr/sbin/bridge", "vlan", "del", "dev", "br0", "vid", "1", "pvid", "untagged"], ignore_error=True)
+    
+    # --- PREPARAR JERARQUÍA DE FIREWALL L2 (Search & Destroy) ---
+    mh.ensure_ebtables_global_chains()
+    
+    # Hook into Global Master Chains
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_EBT_STATS", "JSB_TAG_STATS", binary="ebtables")
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_EBT_ISOLATE", "JSB_TAG_ISOLATE", binary="ebtables")
     
     # Acumular errores y resultados
     errors = []
@@ -131,6 +138,11 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
                     if not success:
                         iface_errors.append(f"VLAN {vid} al bridge: {error}")
         
+        # Agregar reglas de estadísticas L2 para esta interfaz física
+        _run_cmd(["/usr/sbin/ebtables", "-L", "JSB_TAG_STATS"], ignore_error=True) # Check if chain exists (already created above, but for safety)
+        _run_cmd(["/usr/sbin/ebtables", "-A", "JSB_TAG_STATS", "-i", name])
+        _run_cmd(["/usr/sbin/ebtables", "-A", "JSB_TAG_STATS", "-o", name])
+        
         if iface_errors:
             errors.append(f"  {name}: " + ", ".join(iface_errors))
         else:
@@ -175,6 +187,14 @@ def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         
         # Limpiar configuración VLAN
         _run_cmd(["/usr/sbin/bridge", "vlan", "del", "dev", name, "vid", "1-4094"], ignore_error=True)
+    
+    # Limpiar jerarquía ebtables
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_ISOLATE", "-j", "JSB_TAG_ISOLATE"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_TAG_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_TAG_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_TAG_STATS"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_TAG_ISOLATE"], ignore_error=True)
+    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_TAG_ISOLATE"], ignore_error=True)
     
     _update_status(0)
     return True, "Tagging detenido"
@@ -495,6 +515,69 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
 
 
 # -----------------------------
+
+
+def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
+    iface = params.get("iface")
+    if not iface: return False, "Falta parámetro 'iface'"
+    
+    # Bloquear en la sub-cadena dedicada JSB_TAG_ISOLATE (L2)
+    cmd = ["/usr/sbin/ebtables", "-A", "JSB_TAG_ISOLATE", "-i", iface, "-j", "DROP"]
+    success, msg = _run_cmd(cmd)
+    if not success: return False, f"Error aislando puerto {iface}: {msg}"
+    _run_cmd(["/usr/sbin/ebtables", "-A", "JSB_TAG_ISOLATE", "-o", iface, "-j", "DROP"])
+    return True, f"Puerto físico {iface} aislado (L2 Search & Destroy)"
+
+
+def unisolate(params: Dict[str, Any]) -> Tuple[bool, str]:
+    iface = params.get("iface")
+    if not iface: return False, "Falta parámetro 'iface'"
+    
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_TAG_ISOLATE", "-i", iface, "-j", "DROP"])
+    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_TAG_ISOLATE", "-o", iface, "-j", "DROP"])
+    return True, f"Puerto físico {iface} ya no está aislado"
+
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status_val = params.get("status", "on")
+    iface = params.get("iface")
+    if not iface: return False, "Falta parámetro 'iface'"
+    
+    action = "-I" if status_val == "on" else "-D"
+    # En ebtables (nf_tables), el log puede ser un watcher. Usamos sintaxis simplificada.
+    cmd = ["/usr/sbin/ebtables", action, "JSB_TAG_STATS", "1", "-i", iface, "--log-prefix", "[JSB-TAG-OUT] ", "-j", "CONTINUE"]
+    success, msg = _run_cmd(cmd)
+    if status_val == "on" and not success: return False, f"Error activando log en {iface}: {msg}"
+    
+    _run_cmd(["/usr/sbin/ebtables", action, "JSB_TAG_STATS", "1", "-o", iface, "--log-prefix", "[JSB-TAG-OUT] ", "-j", "CONTINUE"])
+    return True, f"Log de tráfico en puerto {iface}: {status_val}"
+
+
+def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    success, output = _run_cmd(["/usr/sbin/ebtables", "-L", "JSB_TAG_STATS", "--Lc"])
+    if not success: return False, f"Error obteniendo estadísticas L2: {output}"
+    
+    res = "Consumo de Tráfico por Puerto Físico (L2 Stats):\n"
+    res += "===============================================\n"
+    res += f"{'Puerto':<15} | {'Paquetes':<10} | {'Bytes':<15}\n" + "-" * 45 + "\n"
+    
+    # ebtables output con --Lc muestra contadores al final de cada regla
+    for line in output.strip().split("\n"):
+        if "-i " in line or "-o " in line:
+            parts = line.split()
+            # Buscar el nombre de la interfaz tras -i o -o
+            try:
+                iface_idx = parts.index("-i") + 1 if "-i" in parts else parts.index("-o") + 1
+                iface = parts[iface_idx]
+                # Buscar contadores [pcnt:bcnt]
+                stats_part = parts[-1] if "[" in parts[-1] else ""
+                if stats_part:
+                    counts = stats_part.strip("[]").split(":")
+                    res += f"{iface:<15} | {counts[0]:<10} | {counts[1]:<15}\n"
+            except (ValueError, IndexError):
+                continue
+
+    return True, res
 # Whitelist de acciones
 # -----------------------------
 
@@ -504,6 +587,10 @@ ALLOWED_ACTIONS = {
     "restart": restart,
     "status": status,
     "config": config,
+    "isolate": isolate,
+    "unisolate": unisolate,
+    "traffic_log": traffic_log,
+    "top": top,
 }
 
 

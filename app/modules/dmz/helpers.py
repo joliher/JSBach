@@ -7,8 +7,8 @@ import logging
 import ipaddress
 from typing import Tuple, Optional
 from datetime import datetime
-from ...utils.global_helpers import load_json_config, save_json_config, run_command, write_log_file
-
+from ...utils.global_helpers import load_json_config, save_json_config, run_command, write_log_file, module_helpers as mh
+# Maya
 logger = logging.getLogger(__name__)
 
 # ==========================================
@@ -124,78 +124,17 @@ def get_vlan_from_ip(ip: str) -> Optional[int]:
 # ==========================================
 
 def ensure_prerouting_protection_chain():
-    """Crear cadena PREROUTING_PROTECTION en tabla NAT y garantizar que esté en posición 1 de PREROUTING.
-    Esta cadena contiene reglas de aislamiento de hosts DMZ.
-    """
-    # Verificar si la cadena existe
-    success, _ = _run_command(["/usr/sbin/iptables", "-t", "nat", "-L", "PREROUTING_PROTECTION", "-n"])
-    
-    if not success:
-        _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "PREROUTING_PROTECTION"])
-        logger.info("Cadena PREROUTING_PROTECTION creada en tabla NAT")
-    
-    # Verificar si está vinculada a PREROUTING
-    success, _ = _run_command([
-        "/usr/sbin/iptables", "-t", "nat", "-C", "PREROUTING", "-j", "PREROUTING_PROTECTION"
-    ])
-    
-    if not success:
-        # No está vinculada, vincular en posición 1
-        _run_command(["/usr/sbin/iptables", "-t", "nat", "-I", "PREROUTING", "1", "-j", "PREROUTING_PROTECTION"])
-        logger.info("Cadena PREROUTING_PROTECTION vinculada a PREROUTING en posición 1")
-    else:
-        # Ya está vinculada, verificar que esté en posición 1
-        success, output = _run_command(["/usr/sbin/iptables", "-t", "nat", "-L", "PREROUTING", "-n", "--line-numbers"])
-        if success:
-            lines = output.strip().split('\n')
-            for line in lines:
-                if 'PREROUTING_PROTECTION' in line:
-                    parts = line.split()
-                    if parts and parts[0].isdigit():
-                        position = int(parts[0])
-                        if position != 1:
-                            logger.warning(f"PREROUTING_PROTECTION en posición {position}, reposicionando a 1")
-                            _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING", "-j", "PREROUTING_PROTECTION"])
-                            _run_command(["/usr/sbin/iptables", "-t", "nat", "-I", "PREROUTING", "1", "-j", "PREROUTING_PROTECTION"])
-                            logger.info("Cadena PREROUTING_PROTECTION reposicionada a posición 1")
-                    break
+    """Garantizar cadena JSB_DMZ_ISOLATE y hook a GLOBAL_PRE."""
+    mh.ensure_global_chains()
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "JSB_DMZ_ISOLATE"])
+    mh.ensure_module_hook("nat", "JSB_GLOBAL_PRE", "JSB_DMZ_ISOLATE")
 
 
 def ensure_prerouting_vlan_chain(vlan_id: int) -> bool:
-    """Crear cadena PREROUTING_VLAN_X en tabla nat si no existe y vincularla."""
-    chain_name = f"PREROUTING_VLAN_{vlan_id}"
-    
-    # Verificar si la cadena existe
-    success, _ = _run_command(["/usr/sbin/iptables", "-t", "nat", "-L", chain_name, "-n"])
-    
-    if not success:
-        # Crear cadena
-        success, output = _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", chain_name])
-        if not success:
-            logger.error(f"Error creando {chain_name}: {output}")
-            return False
-        logger.info(f"Cadena {chain_name} creada")
-    
-    # Limpiar reglas existentes
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-F", chain_name])
-    
-    # Verificar si está vinculada a PREROUTING
-    success, _ = _run_command([
-        "/usr/sbin/iptables", "-t", "nat", "-C", "PREROUTING", "-j", chain_name
-    ])
-    
-    if not success:
-        # Vincular a PREROUTING
-        success, output = _run_command([
-            "/usr/sbin/iptables", "-t", "nat", "-A", "PREROUTING", "-j", chain_name
-        ])
-        
-        if not success:
-            logger.error(f"Error vinculando {chain_name} a PREROUTING: {output}")
-            return False
-        
-        logger.info(f"{chain_name} vinculada a PREROUTING")
-    
+    """Garantizar cadena JSB_DMZ_STATS y hook a GLOBAL_PRE."""
+    mh.ensure_global_chains()
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "JSB_DMZ_STATS"])
+    mh.ensure_module_hook("nat", "JSB_GLOBAL_PRE", "JSB_DMZ_STATS")
     return True
 
 
@@ -218,8 +157,8 @@ def remove_prerouting_vlan_chain(vlan_id: int):
     logger.info(f"{chain_name} eliminada")
 
 
-def add_forward_accept_rule(vlan_id: int, dmz_ip: str) -> bool:
-    """Añadir regla ACCEPT para host DMZ en cadena FORWARD_VLAN_X.
+def add_forward_return_rule(vlan_id: int, dmz_ip: str) -> bool:
+    """Añadir regla RETURN para host DMZ en cadena FORWARD_VLAN_X.
     
     Verifica:
     1. Que la VLAN destino no esté aislada (Bug #1)
@@ -259,43 +198,43 @@ def add_forward_accept_rule(vlan_id: int, dmz_ip: str) -> bool:
             
             if dmz_ip not in whitelist_ips:
                 logger.warning(f"⚠️ Host DMZ {dmz_ip} no está en whitelist de VLAN {vlan_id}")
-                logger.warning(f"La regla DMZ ACCEPT se insertará ANTES de la whitelist, permitiendo acceso")
+                logger.warning(f"La regla DMZ RETURN se insertará ANTES de la whitelist, permitiendo acceso")
                 logger.warning(f"Considere añadir {dmz_ip} a la whitelist para consistencia")
                 # NO bloqueamos, solo advertimos. DMZ tiene prioridad sobre whitelist por diseño.
                 # Si quisiera bloquear: return False
     
     # Verificar si la regla ya existe
     success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", chain_name, "-d", dmz_ip, "-j", "ACCEPT"
+        "/usr/sbin/iptables", "-C", chain_name, "-d", dmz_ip, "-j", "RETURN"
     ])
     
     if success:
-        logger.info(f"Regla ACCEPT para {dmz_ip} ya existe en {chain_name}")
+        logger.info(f"Regla RETURN para {dmz_ip} ya existe en {chain_name}")
         return True
     
-    # Insertar regla ACCEPT al inicio de la cadena (antes de whitelist/DROP)
+    # Insertar regla RETURN al inicio de la cadena (antes de whitelist/DROP)
     success, output = _run_command([
-        "/usr/sbin/iptables", "-I", chain_name, "1", "-d", dmz_ip, "-j", "ACCEPT"
+        "/usr/sbin/iptables", "-I", chain_name, "1", "-d", dmz_ip, "-j", "RETURN"
     ])
     
     if not success:
-        logger.error(f"Error añadiendo ACCEPT para {dmz_ip} en {chain_name}: {output}")
+        logger.error(f"Error añadiendo RETURN para {dmz_ip} en {chain_name}: {output}")
         return False
     
-    logger.info(f"Regla ACCEPT para {dmz_ip} añadida en {chain_name}")
+    logger.info(f"Regla RETURN para {dmz_ip} añadida en {chain_name}")
     return True
 
 
-def remove_forward_accept_rule(vlan_id: int, dmz_ip: str):
-    """Eliminar regla ACCEPT para host DMZ de cadena FORWARD_VLAN_X."""
+def remove_forward_return_rule(vlan_id: int, dmz_ip: str):
+    """Eliminar regla RETURN para host DMZ de cadena FORWARD_VLAN_X."""
     chain_name = f"FORWARD_VLAN_{vlan_id}"
     
     # Intentar eliminar (puede no existir si firewall se detuvo)
     _run_command([
-        "/usr/sbin/iptables", "-D", chain_name, "-d", dmz_ip, "-j", "ACCEPT"
+        "/usr/sbin/iptables", "-D", chain_name, "-d", dmz_ip, "-j", "RETURN"
     ])
     
-    logger.info(f"Regla ACCEPT para {dmz_ip} eliminada de {chain_name}")
+    logger.info(f"Regla RETURN para {dmz_ip} eliminada de {chain_name}")
 
 
 # ==========================================
@@ -313,22 +252,6 @@ def check_wan_configured() -> Tuple[bool, Optional[str]]:
         return False, None
     
     return True, wan_interface
-
-
-def check_firewall_active() -> bool:
-    """Verificar si el firewall está activo."""
-    fw_cfg = load_firewall_config()
-    if not fw_cfg:
-        return False
-    return fw_cfg.get("status", 0) == 1
-
-
-def check_vlans_active() -> bool:
-    """Verificar si hay VLANs activas."""
-    vlans_cfg = load_vlans_config()
-    if not vlans_cfg:
-        return False
-    return vlans_cfg.get("status", 0) == 1
 
 
 def validate_destination(ip: str, port: int, protocol: str) -> Tuple[bool, str]:

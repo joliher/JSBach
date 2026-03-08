@@ -194,8 +194,7 @@ def add_switch(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     return True, "Switch guardado"
 
-def update_switch(params: Dict[str, Any]) -> Tuple[bool, str]:
-    return add_switch(params)
+
 
 def remove_switch(params: Dict[str, Any]) -> Tuple[bool, str]:
     ip = params.get("ip")

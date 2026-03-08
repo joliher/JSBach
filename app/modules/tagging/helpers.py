@@ -98,45 +98,4 @@ def parse_vlan_range(vlan_string: str) -> list:
     return sorted(list(vlan_set), key=int)
 
 
-def format_vlan_list(vlan_list: list) -> str:
-    """Convierte una lista de VLANs a formato comprimido con rangos.
-    
-    Args:
-        vlan_list: Lista de VLANs
-    
-    Returns:
-        String con formato comprimido. Ejemplo: [1,2,3,4,5,10,11,12] → '1-5,10-12'
-    """
-    if not vlan_list:
-        return ""
-    
-    # Convertir todos a integers y ordenar
-    vlans = sorted(list(set(int(v) for v in vlan_list if str(v).isdigit())))
-    
-    if not vlans:
-        return ""
-    
-    result = []
-    range_start = vlans[0]
-    range_end = vlans[0]
-    
-    for i in range(1, len(vlans)):
-        if vlans[i] == range_end + 1:
-            # Continuar el rango
-            range_end = vlans[i]
-        else:
-            # Terminar el rango actual
-            if range_start == range_end:
-                result.append(str(range_start))
-            else:
-                result.append(f"{range_start}-{range_end}")
-            range_start = vlans[i]
-            range_end = vlans[i]
-    
-    # Terminar el último rango
-    if range_start == range_end:
-        result.append(str(range_start))
-    else:
-        result.append(f"{range_start}-{range_end}")
-    
-    return ",".join(result)
+

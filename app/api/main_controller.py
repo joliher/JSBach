@@ -159,6 +159,7 @@ def setup_app(app):
             return JSONResponse({"detail": "Error interno"}, status_code=500)
 
     @app.post("/logout")
+    @app.get("/logout")
     async def logout(request: Request):
         request.session.clear()
         response = JSONResponse({"message": "Sesión cerrada"})

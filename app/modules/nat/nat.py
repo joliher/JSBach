@@ -19,8 +19,8 @@ CONFIG_FILE = os.path.abspath(
 _load_config = lambda: load_json_config(CONFIG_FILE, {"interface": "", "status": 0})
 _save_config = lambda config: save_json_config(CONFIG_FILE, config)
 _update_status = lambda status: update_module_status(CONFIG_FILE, status)
-_run_command = lambda cmd: run_command(cmd)
-_sanitize_interface_name = sanitize_interface_name  # Alias para compatibilidad
+_run_command = lambda cmd, ignore_error=False: run_command(cmd)
+
 
 
 # -----------------------------
@@ -42,7 +42,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         return False, "Interfaz NAT no definida"
     
     # Validar nombre de interfaz seguro
-    if not _sanitize_interface_name(interfaz):
+    if not sanitize_interface_name(interfaz):
         return False, f"Nombre de interfaz inválido: '{interfaz}'. Solo use caracteres alfanuméricos, puntos, guiones y guiones bajos."
 
     # Comprobar si NAT ya está activo
@@ -53,6 +53,22 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     success, output = _run_command(["/usr/sbin/sysctl", "-n", "net.ipv4.ip_forward"])
     ip_forward_prev = output.strip() if success else "0"
 
+    # --- PREPARAR JERARQUÍA DE FIREWALL (Search & Destroy) ---
+    mh.ensure_global_chains()
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "JSB_NAT_STATS"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-t", "filter", "-N", "JSB_NAT_ISOLATE"], ignore_error=True)
+    
+    # Hook into Global Isolate (FORWARD)
+    mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_NAT_ISOLATE")
+    
+    # Hook into Global NAT (POSTROUTING)
+    if not _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_GLOBAL_NAT", "-j", "JSB_NAT_STATS"])[0]:
+        _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "JSB_GLOBAL_NAT", "-j", "JSB_NAT_STATS"])
+    
+    # Asegurar RETURN al final de la cadena de estadísticas
+    if not _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_NAT_STATS", "-j", "RETURN"])[0]:
+        _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "JSB_NAT_STATS", "-j", "RETURN"])
+    
     if nat_rule_exists and ip_forward_prev == "1":
         return True, f"NAT ya activado en {interfaz}"
 
@@ -84,6 +100,19 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     interfaz = config.get("interface")
     if not interfaz:
         return False, "Interfaz NAT no definida"
+
+    # Limpiar integración con FORWARD y POSTROUTING
+    _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "JSB_NAT_ISOLATE"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "POSTROUTING", "-o", interfaz, "-j", "JSB_NAT_STATS"], ignore_error=True)
+    
+    # Vaciar y eliminar cadenas
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-F", "JSB_NAT_STATS"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-X", "JSB_NAT_STATS"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-F", "JSB_NAT_ISOLATE"], ignore_error=True)
+    _run_command(["/usr/sbin/iptables", "-X", "JSB_NAT_ISOLATE"], ignore_error=True)
+
+    # Limpiar logging
+    _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "POSTROUTING", "-o", interfaz, "-j", "LOG", "--log-prefix", "[JSB-NAT-OUT] "], ignore_error=True)
 
     # Verificar si otros módulos dependen del IP forwarding
     base_config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "config"))
@@ -157,16 +186,20 @@ def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     # Verificar regla NAT
     cmd = ["/usr/sbin/iptables", "-t", "nat", "-C", "POSTROUTING", "-o", interfaz, "-j", "MASQUERADE"]
     nat_active, _ = _run_command(cmd)
-    nat_rule_status = "✅ Configurada" if nat_active else "❌ No configurada"
     
     overall_status = "🟢 ACTIVO" if (ip_forward == "1" and nat_active and is_up) else "🔴 INACTIVO"
+    
+    # Verificar si hay logging activo
+    log_cmd = ["/usr/sbin/iptables", "-t", "nat", "-C", "POSTROUTING", "-o", interfaz, "-j", "LOG", "--log-prefix", "[JSB-NAT-OUT] "]
+    log_active, _ = _run_command(log_cmd)
     
     status_summary = f"""Estado de NAT:
 ==================
 Estado general: {overall_status}
 Interfaz: {interfaz} [{interface_status}]
 IP Forwarding: {forwarding_status}
-Regla MASQUERADE: {nat_rule_status}"""
+Regla MASQUERADE: {"✅ Configurada" if nat_active else "❌ No configurada"}
+Registro tráfico: {"✅ Activado" if log_active else "❌ Desactivado"}"""
 
     if ip_forward == "1" and not nat_active:
         status_summary += "\n\n⚠️ Aviso: IP forwarding está activo, pero NAT no está configurado"
@@ -202,11 +235,11 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "El parámetro 'interface' no puede estar vacío"
     
     # Validar formato de interfaz
-    if not _sanitize_interface_name(interfaz):
+    if not sanitize_interface_name(interfaz):
         return False, f"Formato de interfaz inválido: '{interfaz}'. Debe ser alfanumérico y puede incluir '.' o '_'"
     
     # Verificar que la interfaz existe en el sistema
-    success, output = _run_command(["/usr/sbin/ip", "link", "show", interfaz])
+    success, _ = _run_command(["/usr/sbin/ip", "link", "show", interfaz])
     if not success:
         return False, f"La interfaz '{interfaz}' no existe en el sistema"
 
@@ -222,6 +255,78 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
     return True, f"Configuración NAT guardada: interfaz {interfaz}"
 
 
+def block(params: Dict[str, Any]) -> Tuple[bool, str]:
+    ip = params.get("ip")
+    if not ip: return False, "Falta parámetro 'ip'"
+    
+    # Bloquear en la sub-cadena dedicada JSB_NAT_ISOLATE
+    cmd = ["/usr/sbin/iptables", "-A", "JSB_NAT_ISOLATE", "-s", ip, "-j", "DROP"]
+    success, msg = _run_command(cmd)
+    if not success: return False, f"Error bloqueando IP {ip}: {msg}"
+    
+    # Limpiar sesiones conntrack
+    _run_command(["/usr/sbin/conntrack", "-D", "-s", ip])
+    
+    return True, f"IP {ip} bloqueada para salida (NAT)"
+
+
+def unblock(params: Dict[str, Any]) -> Tuple[bool, str]:
+    ip = params.get("ip")
+    if not ip: return False, "Falta parámetro 'ip'"
+    
+    cmd = ["/usr/sbin/iptables", "-D", "JSB_NAT_ISOLATE", "-s", ip, "-j", "DROP"]
+    success, msg = _run_command(cmd)
+    if not success: return False, f"Error desbloqueando IP {ip}: {msg}"
+    return True, f"IP {ip} desbloqueada"
+
+
+def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
+    status = params.get("status", "on")
+    config = _load_config()
+    interfaz = config.get("interface", "")
+    
+    action = "-I" if status == "on" else "-D"
+    cmd = ["/usr/sbin/iptables", "-t", "nat", action, "POSTROUTING", "1", "-o", interfaz, "-j", "LOG", "--log-prefix", "[JSB-NAT-OUT] "]
+    
+    success, msg = _run_command(cmd)
+    if status == "on" and not success:
+        return False, f"Error activando log de NAT: {msg}"
+    
+    return True, f"Log de tráfico NAT: {status}"
+
+
+def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
+    """Muestra conexiones NAT activas agrupadas por IP origen usando conntrack"""
+    success, output = _run_command(["/usr/sbin/conntrack", "-L"])
+    if not success:
+        return True, "No se pudo obtener información de conntrack."
+
+    sessions = {}
+    lines = output.strip().split('\n')
+    for line in lines:
+        if "src=" in line:
+            parts = line.split()
+            src_ip = None
+            for p in parts:
+                if p.startswith("src="):
+                    src_ip = p.split('=')[1]
+                    break
+            if src_ip:
+                sessions[src_ip] = sessions.get(src_ip, 0) + 1
+    
+    if not sessions:
+        return True, "No hay sesiones NAT activas registradas."
+
+    sorted_sessions = sorted(sessions.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    res = "Top 10 Consumidores NAT (Sesiones activas):\n"
+    res += "========================================\n"
+    for ip, count in sorted_sessions:
+        res += f"IP: {ip:<15} | Sesiones: {count}\n"
+    
+    return True, res
+
+
 # -----------------------------
 # Whitelist de acciones
 # -----------------------------
@@ -232,4 +337,8 @@ ALLOWED_ACTIONS = {
     "restart": restart,
     "status": status,
     "config": config,
+    "block": block,
+    "unblock": unblock,
+    "traffic_log": traffic_log,
+    "top": top,
 }

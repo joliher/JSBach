@@ -187,7 +187,7 @@ def install_dependencies():
     # - netcat-openbsd: conexión por red (nc)
     commands = [
         "apt update -qq",
-        "apt install -y python3 python3-pip python3-venv iptables iproute2 ebtables expect netcat-openbsd hostapd iw -qq"
+        "apt install -y python3 python3-pip python3-venv iptables iproute2 ebtables expect netcat-openbsd hostapd iw conntrack -qq"
     ]
     for c in commands:
         cmd(c)
@@ -549,6 +549,7 @@ if __name__ == "__main__":
         "/usr/sbin/dnsmasq *",
         "/usr/sbin/hostapd *",
         "/usr/sbin/hostapd_cli *",
+        "/usr/sbin/conntrack *",
         "/usr/sbin/sysctl -w net.ipv4.ip_forward=1",
         "/usr/sbin/sysctl -w net.ipv4.ip_forward=0",
         "/usr/sbin/sysctl -n net.ipv4.ip_forward"

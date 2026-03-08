@@ -77,7 +77,8 @@ def generate_dnsmasq_conf(dhcp_cfg: Dict[str, Any]) -> Tuple[str, List[str]]:
             lines.append(f"interface={iface_name}")
             lines.append(f"dhcp-range={iface_name},{start_ip},{end_ip},{netmask},{lease_time}")
             lines.append(f"dhcp-option={iface_name},3,{ip_addr}")  # Gateway
-            lines.append(f"dhcp-option={iface_name},6,{dns_str}")  # DNS
+            if dns_str:
+                lines.append(f"dhcp-option={iface_name},6,{dns_str}")  # DNS
             lines.append("")
             
         except Exception as e:
@@ -123,19 +124,36 @@ def generate_dnsmasq_conf(dhcp_cfg: Dict[str, Any]) -> Tuple[str, List[str]]:
     return "\n".join(lines), warnings
 
 def get_dnsmasq_pid() -> Optional[int]:
-    """Busca el PID de dnsmasq si está corriendo con nuestra config."""
+    """
+    Busca el PID de dnsmasq de forma robusta evitando auto-coincidencias de pgrep.
+    """
+    conf_path = os.path.join(BASE_DIR, 'config', 'dhcp', 'dnsmasq.conf')
+    # Usamos ps para listar todos los procesos dnsmasq y sus argumentos
+    # Esto es mucho más seguro que pgrep -f que puede matchear al propio pgrep
+    success, output = run_command(["ps", "-C", "dnsmasq", "-o", "pid,args", "--no-headers"], use_sudo=False)
+    
+    if success and output.strip():
+        for line in output.strip().split("\n"):
+            parts = line.strip().split(None, 1)
+            if len(parts) < 2: continue
+            pid_str, args = parts
+            if conf_path in args:
+                try:
+                    return int(pid_str)
+                except ValueError:
+                    continue
+
+    # Fallback al PID file si ps no lo encontró (por si dnsmasq tiene otro nombre en ps)
     pid_file = os.path.join(BASE_DIR, "config", "dhcp", "dnsmasq.pid")
-    if not os.path.exists(pid_file):
-        return None
-        
-    try:
-        with open(pid_file, "r") as f:
-            pid = int(f.read().strip())
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, "r") as f:
+                pid = int(f.read().strip())
+            # Doble verificación directa del PID
+            success_ps, output_ps = run_command(["ps", "-p", str(pid), "-o", "comm="], use_sudo=False)
+            if success_ps and "dnsmasq" in output_ps:
+                return pid
+        except:
+            pass
             
-        # Verificar que el proceso realmente existe y es dnsmasq
-        success, output = run_command(["ps", "-p", str(pid), "-o", "comm="], use_sudo=False)
-        if success and "dnsmasq" in output:
-            return pid
-    except:
-        pass
     return None

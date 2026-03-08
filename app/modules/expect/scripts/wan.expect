@@ -1,0 +1,80 @@
+#!/usr/bin/expect -f
+
+set timeout 20
+set user [lindex $argv 0]
+set pass [lindex $argv 1]
+set host "localhost"
+set port 2200
+
+if {$user == "" || $pass == ""} {
+    puts "Usage: wan.expect <user> <pass>"
+    exit 1
+}
+
+puts "--- Connecting to JSBach CLI on $host:$port ---"
+spawn telnet $host $port
+
+expect {
+    "Login:" {
+        send "$user\r"
+        exp_continue
+    }
+    "Password:" {
+        send "$pass\r"
+        exp_continue
+    }
+    "jsbach>" {
+        puts "--- Logged in successfully ---"
+    }
+    timeout {
+        puts "Error: connection timeout"
+        exit 1
+    }
+}
+
+# 1. Configurar WAN en dummy0
+puts "\n--- Testing: wan config ---"
+send "wan config --mode manual --interface dummy0 --ip 10.0.0.2 --netmask 24 --gateway 10.0.0.1 --dns 8.8.8.8\r"
+expect "jsbach>"
+
+# 2. Iniciar WAN
+puts "\n--- Testing: wan start ---"
+send "wan start\r"
+expect "jsbach>"
+
+# 3. Verificar Status
+puts "\n--- Testing: wan status ---"
+send "wan status\r"
+expect "jsbach>"
+
+# 4. Probar Bloqueo
+puts "\n--- Testing: wan block ---"
+send "wan block --ip 192.168.1.50\r"
+expect "jsbach>"
+
+# 5. Probar Desbloqueo
+puts "\n--- Testing: wan unblock ---"
+send "wan unblock --ip 192.168.1.50\r"
+expect "jsbach>"
+
+# 6. Probar Log de Tráfico
+puts "\n--- Testing: wan traffic_log ---"
+send "wan traffic_log --status on\r"
+expect "jsbach>"
+send "wan traffic_log --status off\r"
+expect "jsbach>"
+
+# 7. Probar Top (Estadísticas)
+puts "\n--- Testing: wan top ---"
+send "wan top\r"
+expect "jsbach>"
+
+# 8. Detener WAN
+puts "\n--- Testing: wan stop ---"
+send "wan stop\r"
+expect "jsbach>"
+
+# Salir
+puts "\n--- Tests completed ---"
+send "exit\r"
+expect eof

@@ -52,7 +52,16 @@
     <h4>Configuración</h4>
     <button type="button" id="btnConfig" onclick="irSeccion('config')">⚙️ CONFIGURAR AISLAMIENTO</button>
 
-    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+    <div class="menu-divider"></div>
+    <div
+        style="display: flex; align-items: center; justify-content: space-between; padding: 0 5px; margin-bottom: 10px;">
+        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">📝
+            Logs de Tráfico</span>
+        <label class="switch">
+            <input type="checkbox" id="toggle-log" onclick="toggleLogging(this, 'ebtables')">
+            <span class="slider round"></span>
+        </label>
+    </div>
 
     <button type="button" id="btnInfo" onclick="irSeccion('info')">ℹ️ VER INFO</button>
 

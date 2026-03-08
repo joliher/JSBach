@@ -6,6 +6,17 @@ function irAccion(action) {
     window.parent.location.href = `/web/modules/wifi/status.html?action=${action}`;
 }
 
+async function loadLoggingStatus() {
+    try {
+        const response = await fetch('/admin/config/wifi/wifi.json', { credentials: 'include' });
+        if (response.ok) {
+            const cfg = await response.json();
+            const toggle = document.getElementById('toggle-log');
+            if (toggle) toggle.checked = !!cfg.traffic_log;
+        }
+    } catch (e) { }
+}
+
 let lastStatus = '';
 function fetchModuleStatus() {
     fetch('/admin/status', { credentials: 'include' })
@@ -17,7 +28,6 @@ function fetchModuleStatus() {
                 const statusBox = document.getElementById('module-status');
                 if (statusBox) {
                     statusBox.textContent = `Estado: ${status}`;
-                    // Limpiar clases previas y añadir la nueva basada en la primera palabra (ej: ACTIVO (PID...) -> activo)
                     const statusClass = status.split(' ')[0].toLowerCase();
                     statusBox.className = 'status-box ' + statusClass;
                 }
@@ -33,6 +43,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const path = window.parent.location.pathname;
     const search = window.parent.location.search;
 
+    document.querySelectorAll('button').forEach(btn => btn.classList.remove('selected'));
+
     const pages = {
         'config': 'btnConfig',
         'security_config': 'btnSecurity',
@@ -40,14 +52,18 @@ window.addEventListener('DOMContentLoaded', () => {
         'info': 'btnInfo'
     };
 
+    let found = false;
     for (const [page, btnId] of Object.entries(pages)) {
-        if (path.endsWith(`/${page}.html`)) {
+        if (path.indexOf('/' + page + '.html') !== -1) {
             const btn = document.getElementById(btnId);
-            if (btn) btn.classList.add('selected');
+            if (btn) {
+                btn.classList.add('selected');
+                found = true;
+            }
         }
     }
 
-    if (path.includes('/status.html')) {
+    if (!found && path.includes('/status.html')) {
         const params = new URLSearchParams(search);
         const action = params.get('action') || 'status';
         const actionBtns = {
@@ -56,9 +72,13 @@ window.addEventListener('DOMContentLoaded', () => {
             'restart': 'btnRestart',
             'status': 'btnStatus'
         };
-        const btn = document.getElementById(actionBtns[action] || 'btnStatus');
-        if (btn) btn.classList.add('selected');
+        document.getElementById(actionBtns[action] || 'btnStatus')?.classList.add('selected');
     }
 
+    if (!found && (path.endsWith('/wifi/') || path.endsWith('/wifi/index.html'))) {
+        document.getElementById('btnStatus')?.classList.add('selected');
+    }
+
+    loadLoggingStatus();
     fetchModuleStatus();
 });
