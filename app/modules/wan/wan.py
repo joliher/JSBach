@@ -44,7 +44,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         return False, "Configuración WAN incompleta"
 
     # Verificar que la interfaz existe de forma robusta
-    success, _ = _run_command(["/usr/sbin/ip", "link", "show", iface])
+    success, _ = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "show", iface])
     if not success:
         # Intento alternativo por si /usr/sbin/ip no está en esa ruta o requiere sudo explícito
         success_alt, _ = _run_command(["ip", "link", "show", iface])
@@ -53,8 +53,8 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
     # --- PREPARAR JERARQUÍA DE FIREWALL ---
     mh.ensure_global_chains()
-    _run_command(["/usr/sbin/iptables", "-N", "JSB_WAN_STATS"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-N", "JSB_WAN_ISOLATE"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_WAN_STATS"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_WAN_ISOLATE"], ignore_error=True)
     
     # Hook into Global Stats
     mh.ensure_module_hook("filter", "JSB_GLOBAL_STATS", "JSB_WAN_STATS")
@@ -63,12 +63,12 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_WAN_ISOLATE")
     
     # Regla de conteo general para la interfaz WAN (con RETURN para permitir otros módulos)
-    _run_command(["/usr/sbin/iptables", "-A", "JSB_WAN_STATS", "-o", iface, "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_WAN_STATS", "-o", iface, "-j", "RETURN"])
     
     try:
         if mode == "dhcp":
             # Lanzar dhcpcd en background (retorna inmediatamente)
-            success, msg = _run_command(["/usr/sbin/dhcpcd", "-b", iface])
+            success, msg = _run_command([f"{__import__('shutil').which('dhcpcd') or '/usr/sbin/dhcpcd'}", "-b", iface])
             if not success:
                 return False, f"Error al lanzar DHCP en {iface}: {msg}"
             
@@ -130,33 +130,33 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
     try:
         # Limpiar iptables
-        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_STATS", "-j", "JSB_WAN_STATS"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_ISOLATE", "-j", "JSB_WAN_ISOLATE"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-F", "JSB_WAN_STATS"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-X", "JSB_WAN_STATS"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-F", "JSB_WAN_ISOLATE"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-X", "JSB_WAN_ISOLATE"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_STATS", "-j", "JSB_WAN_STATS"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_ISOLATE", "-j", "JSB_WAN_ISOLATE"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_WAN_STATS"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_WAN_STATS"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_WAN_ISOLATE"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_WAN_ISOLATE"], ignore_error=True)
 
         # Intentar revertir resoluciones DNS para la interfaz
-        _run_command(["/usr/bin/resolvectl", "revert", iface])
+        _run_command([f"{__import__('shutil').which('resolvectl') or '/usr/bin/resolvectl'}", "revert", iface])
 
         # Intentar bajar la interfaz
-        success, msg = _run_command(["/usr/sbin/ip", "link", "set", iface, "down"])
+        success, msg = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", iface, "down"])
         if not success:
             return False, f"Error al deshabilitar la interfaz {iface}"
 
         # Limpiar la dirección IP
-        success, msg = _run_command(["/usr/sbin/ip", "a", "flush", "dev", iface])
+        success, msg = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "flush", "dev", iface])
         if not success:
             return False, f"Error al limpiar la dirección IP de la interfaz {iface}"
 
         # Limpiar las rutas asociadas a la interfaz
-        success, msg = _run_command(["/usr/sbin/ip", "r", "flush", "dev", iface])
+        success, msg = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "r", "flush", "dev", iface])
         if not success:
             return False, f"Error al limpiar las rutas de la interfaz {iface}"
 
         # Detener el servicio dhcpcd
-        _run_command(["/usr/sbin/dhcpcd", "-k", iface])
+        _run_command([f"{__import__('shutil').which('dhcpcd') or '/usr/sbin/dhcpcd'}", "-k", iface])
 
         # Actualizar el estado
         _update_status(0)
@@ -193,7 +193,7 @@ def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             return False, f"Error de DHCP: {dhcp_error}"
         
         # Comprobar si la interfaz existe y su estado
-        success, ip_info = _run_command(["/usr/sbin/ip", "a", "show", iface])
+        success, ip_info = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", iface])
         if not success:
             return False, f"La interfaz {iface} no existe"
 
@@ -206,7 +206,7 @@ def status(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         ip_status = "✅ Tiene IP asignada" if has_ip else "⚠️ Sin IP asignada"
         
         # Obtener rutas
-        success, routes = _run_command(["/usr/sbin/ip", "r"])
+        success, routes = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "r"])
         if not success:
             routes = "No se pudieron obtener las rutas"
         
@@ -283,7 +283,7 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, f"Interfaz inválida: {error}"
     
     # Validar que la interfaz existe en el sistema
-    success, _ = _run_command(["/usr/sbin/ip", "link", "show", iface])
+    success, _ = _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "show", iface])
     if not success:
         # Intento alternativo
         success_alt, _ = _run_command(["ip", "link", "show", iface])
@@ -347,7 +347,7 @@ def block(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "WAN no configurada"
 
     # Bloquear en la sub-cadena dedicada JSB_WAN_ISOLATE
-    cmd = ["/usr/sbin/iptables", "-A", "JSB_WAN_ISOLATE", "-s", ip, "-o", iface, "-j", "DROP"]
+    cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_WAN_ISOLATE", "-s", ip, "-o", iface, "-j", "DROP"]
     success, msg = _run_command(cmd)
     if success:
         return True, f"IP {ip} bloqueada para salida WAN ({iface})"
@@ -366,7 +366,7 @@ def unblock(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "WAN no configurada"
 
     # Desbloquear de la sub-cadena dedicada
-    cmd = ["/usr/sbin/iptables", "-D", "JSB_WAN_ISOLATE", "-s", ip, "-o", iface, "-j", "DROP"]
+    cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_WAN_ISOLATE", "-s", ip, "-o", iface, "-j", "DROP"]
     success, msg = _run_command(cmd)
     if success:
         return True, f"IP {ip} desbloqueada para salida WAN ({iface})"
@@ -385,7 +385,7 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "WAN no configurada"
 
     action = "-I" if status_val == "on" else "-D"
-    cmd = ["/usr/sbin/iptables", action, "FORWARD", "-o", iface, "-j", "LOG", "--log-prefix", "[JSB-WAN-OUT] "]
+    cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", action, "FORWARD", "-o", iface, "-j", "LOG", "--log-prefix", "[JSB-WAN-OUT] "]
     success, msg = _run_command(cmd)
     if success:
         return True, f"Log de tráfico WAN {'activado' if status_val == 'on' else 'desactivado'}"
@@ -395,7 +395,7 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
 def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     """Mostrar top consumidores de ancho de banda WAN."""
     # Obtener estadísticas de la sub-cadena dedicada JSB_WAN_STATS
-    success, output = _run_command(["/usr/sbin/iptables", "-L", "JSB_WAN_STATS", "-n", "-v", "-x"])
+    success, output = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", "JSB_WAN_STATS", "-n", "-v", "-x"])
     if not success:
         return False, f"Error obteniendo estadísticas: {output}"
     
@@ -432,10 +432,10 @@ def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
 
 def _start_manual(iface: str, cfg: dict) -> Tuple[bool, str]:
     steps = [
-        ("limpiar IP", ["/usr/sbin/ip", "a", "flush", "dev", iface]),
-        ("asignar IP", ["/usr/sbin/ip", "a", "add", f"{cfg['ip']}/{cfg['mask']}", "dev", iface]),
-        ("habilitar interfaz", ["/usr/sbin/ip", "l", "set", iface, "up"]),
-        ("configurar ruta por defecto", ["/usr/sbin/ip", "r", "add", "default", "via", cfg["gateway"], "dev", iface]),
+        ("limpiar IP", [f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "flush", "dev", iface]),
+        ("asignar IP", [f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "add", f"{cfg['ip']}/{cfg['mask']}", "dev", iface]),
+        ("habilitar interfaz", [f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "l", "set", iface, "up"]),
+        ("configurar ruta por defecto", [f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "r", "add", "default", "via", cfg["gateway"], "dev", iface]),
     ]
 
     for label, cmd in steps:
@@ -449,11 +449,11 @@ def _start_manual(iface: str, cfg: dict) -> Tuple[bool, str]:
         dns = [d.strip() for d in dns.split(",") if d.strip()]
 
     if dns:
-        success, msg = _run_command(["/usr/bin/resolvectl", "revert", iface])
+        success, msg = _run_command([f"{__import__('shutil').which('resolvectl') or '/usr/bin/resolvectl'}", "revert", iface])
         if not success:
             _rollback_manual(iface)
             return False, f"Error al revertir DNS: {msg}"
-        success, msg = _run_command(["/usr/bin/resolvectl", "dns", iface] + dns)
+        success, msg = _run_command([f"{__import__('shutil').which('resolvectl') or '/usr/bin/resolvectl'}", "dns", iface] + dns)
         if not success:
             _rollback_manual(iface)
             return False, f"Error al configurar DNS: {msg}"
@@ -462,10 +462,10 @@ def _start_manual(iface: str, cfg: dict) -> Tuple[bool, str]:
 
 
 def _rollback_manual(iface: str) -> None:
-    _run_command(["/usr/bin/resolvectl", "revert", iface])
-    _run_command(["/usr/sbin/ip", "r", "flush", "dev", iface])
-    _run_command(["/usr/sbin/ip", "a", "flush", "dev", iface])
-    _run_command(["/usr/sbin/ip", "link", "set", iface, "down"])
+    _run_command([f"{__import__('shutil').which('resolvectl') or '/usr/bin/resolvectl'}", "revert", iface])
+    _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "r", "flush", "dev", iface])
+    _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "flush", "dev", iface])
+    _run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", iface, "down"])
 
 
 def _validate_manual_network(ip: str, mask: Any, gateway: str) -> Tuple[bool, str]:

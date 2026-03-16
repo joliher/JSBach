@@ -581,72 +581,76 @@ if __name__ == "__main__":
     # Lista quirúrgica extraída del análisis del código fuente. Se permiten
     # banderas específicas (-A, -D, -F, etc.) pero se prohíbe la manipulación
     # arbitraria del binario.
+    import shutil
+    def _bin(cmd, default_path):
+        return shutil.which(cmd) or default_path
+
     allowed_commands = [
         # --- IPTABLES ---
-        "/usr/sbin/iptables -A *",
-        "/usr/sbin/iptables -C *",
-        "/usr/sbin/iptables -D *",
-        "/usr/sbin/iptables -F *",
-        "/usr/sbin/iptables -I *",
-        "/usr/sbin/iptables -L *",
-        "/usr/sbin/iptables -N *",
-        "/usr/sbin/iptables -X *",
-        "/usr/sbin/iptables -t nat *",
-        "/usr/sbin/iptables -t mangle *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -A *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -C *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -D *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -F *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -I *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -L *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -N *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -X *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -t nat *",
+        f"{_bin('iptables', '/usr/sbin/iptables')} -t mangle *",
         
         # --- EBTABLES ---
-        "/usr/sbin/ebtables -A *",
-        "/usr/sbin/ebtables -D *",
-        "/usr/sbin/ebtables -F *",
-        "/usr/sbin/ebtables -L *",
-        "/usr/sbin/ebtables -N *",
-        "/usr/sbin/ebtables -X *",
-        "/usr/sbin/ebtables -t broute *",
-        "/usr/sbin/ebtables -t nat *",
-        "/usr/sbin/ebtables -t filter *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -A *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -D *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -F *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -L *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -N *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -X *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -t broute *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -t nat *",
+        f"{_bin('ebtables', '/usr/sbin/ebtables')} -t filter *",
         
         # --- NETWORK & IP ---
-        "/usr/sbin/ip a *",
-        "/usr/sbin/ip addr *",
-        "/usr/sbin/ip addr flush *",
-        "/usr/sbin/ip l *",
-        "/usr/sbin/ip link *",
-        "/usr/sbin/ip link add *",
-        "/usr/sbin/ip link del *",
-        "/usr/sbin/ip r *",
-        "/usr/sbin/ip route *",
-        "/usr/sbin/ip -4 *",
-        "/usr/sbin/bridge vlan *",
-        "/usr/sbin/bridge fdb *",
+        f"{_bin('ip', '/usr/sbin/ip')} a *",
+        f"{_bin('ip', '/usr/sbin/ip')} addr *",
+        f"{_bin('ip', '/usr/sbin/ip')} addr flush *",
+        f"{_bin('ip', '/usr/sbin/ip')} l *",
+        f"{_bin('ip', '/usr/sbin/ip')} link *",
+        f"{_bin('ip', '/usr/sbin/ip')} link add *",
+        f"{_bin('ip', '/usr/sbin/ip')} link del *",
+        f"{_bin('ip', '/usr/sbin/ip')} r *",
+        f"{_bin('ip', '/usr/sbin/ip')} route *",
+        f"{_bin('ip', '/usr/sbin/ip')} -4 *",
+        f"{_bin('bridge', '/usr/sbin/bridge')} vlan *",
+        f"{_bin('bridge', '/usr/sbin/bridge')} fdb *",
         
         # --- CONNTRACK ---
-        "/usr/sbin/conntrack -D *",
-        "/usr/sbin/conntrack -F",
-        "/usr/sbin/conntrack -L *",
+        f"{_bin('conntrack', '/usr/sbin/conntrack')} -D *",
+        f"{_bin('conntrack', '/usr/sbin/conntrack')} -F",
+        f"{_bin('conntrack', '/usr/sbin/conntrack')} -L *",
         
         # --- DHCP & DNS ---
-        "/usr/sbin/dhcpcd -b *",
-        "/usr/sbin/dhcpcd -k *",
-        "/usr/sbin/dhcpcd -n *",
-        "/usr/sbin/dhcpcd -x *",
-        "/usr/sbin/dnsmasq * --log-facility=*",
-        "/usr/sbin/dnsmasq --conf-file=*",
-        "/usr/bin/resolvectl dns *",
-        "/usr/bin/resolvectl revert *",
+        f"{_bin('dhcpcd', '/usr/sbin/dhcpcd')} -b *",
+        f"{_bin('dhcpcd', '/usr/sbin/dhcpcd')} -k *",
+        f"{_bin('dhcpcd', '/usr/sbin/dhcpcd')} -n *",
+        f"{_bin('dhcpcd', '/usr/sbin/dhcpcd')} -x *",
+        f"{_bin('dnsmasq', '/usr/sbin/dnsmasq')} * --log-facility=*",
+        f"{_bin('dnsmasq', '/usr/sbin/dnsmasq')} --conf-file=*",
+        f"{_bin('resolvectl', '/usr/bin/resolvectl')} dns *",
+        f"{_bin('resolvectl', '/usr/bin/resolvectl')} revert *",
         
         # --- WIFI ---
-        "/usr/sbin/hostapd -B *",
-        "/usr/sbin/hostapd_cli -i *",
+        f"{_bin('hostapd', '/usr/sbin/hostapd')} -B *",
+        f"{_bin('hostapd_cli', '/usr/sbin/hostapd_cli')} -i *",
         
         # --- SYSTEM & SERVICES ---
-        "/usr/sbin/sysctl -n *",
-        "/usr/sbin/sysctl -w net.ipv4.ip_forward=*",
+        f"{__import__('shutil').which('sysctl') or '/usr/sbin/sysctl'} *",
+        f"{__import__('shutil').which('sysctl') or '/usr/sbin/sysctl'} net.ipv4.ip_forward=*",
         "/usr/bin/ping -c *",
         "/usr/bin/stdbuf -oL *",
-        "/usr/bin/pkill -F /opt/JSBach/config/dhcp/dnsmasq.pid",
-        "/usr/bin/pkill -9 -F /opt/JSBach/config/dhcp/dnsmasq.pid",
-        "/usr/bin/pkill -F /opt/JSBach/config/wifi/hostapd.pid",
-        "/usr/bin/pkill -9 -F /opt/JSBach/config/wifi/hostapd.pid",
+        f"{__import__('shutil').which('pkill') or '/usr/bin/pkill'} /opt/JSBach/config/dhcp/dnsmasq.pid",
+        f"{__import__('shutil').which('pkill') or '/usr/bin/pkill'} /opt/JSBach/config/dhcp/dnsmasq.pid",
+        f"{__import__('shutil').which('pkill') or '/usr/bin/pkill'} /opt/JSBach/config/wifi/hostapd.pid",
+        f"{__import__('shutil').which('pkill') or '/usr/bin/pkill'} /opt/JSBach/config/wifi/hostapd.pid",
         
         # --- EXPECT (Strictly confined to modules) ---
         "/usr/bin/expect /opt/JSBach/app/modules/expect/scripts/*"

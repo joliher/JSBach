@@ -60,20 +60,20 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
 
     # Crear br0 si no existe
     if not _bridge_exists():
-        success, msg = _run_cmd(["/usr/sbin/ip", "link", "add", "name", "br0", "type", "bridge", "vlan_filtering", "1"], ignore_error=True)
+        success, msg = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "add", "name", "br0", "type", "bridge", "vlan_filtering", "1"], ignore_error=True)
         if not success:
             return False, f"Error creando bridge br0: {msg}"
         created_bridge = True
     
-    success, msg = _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "up"])
+    success, msg = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", "br0", "up"])
     if not success:
         _rollback_start(created_bridge, created_interfaces)
         return False, f"Error habilitando bridge br0: {msg}"
     
     # --- PREPARAR JERARQUÍA DE FIREWALL ---
     mh.ensure_global_chains()
-    _run_cmd(["/usr/sbin/iptables", "-N", "JSB_VLAN_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/iptables", "-N", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_VLAN_ISOLATE"], ignore_error=True)
     
     # Hook into Global Stats
     mh.ensure_module_hook("filter", "JSB_GLOBAL_STATS", "JSB_VLAN_STATS")
@@ -88,18 +88,18 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         iface_name = f"br0.{vlan_id}"
         
         if not os.path.exists(f"/sys/class/net/{iface_name}"):
-            _run_cmd(["/usr/sbin/ip", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True)
+            _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True)
         
-        _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "up"])
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", iface_name, "up"])
         # Limpiar IPs antiguas para asegurar que solo la configurada esté presente
-        _run_cmd(["/usr/sbin/ip", "addr", "flush", "dev", iface_name], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "addr", "flush", "dev", iface_name], ignore_error=True)
         
         if vlan_ip_interface:
-            _run_cmd(["/usr/sbin/ip", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True)
+            _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True)
 
         # Reglas de conteo en la cadena de STATS (con RETURN)
-        _run_cmd(["/usr/sbin/iptables", "-A", "JSB_VLAN_STATS", "-i", iface_name, "-j", "RETURN"])
-        _run_cmd(["/usr/sbin/iptables", "-A", "JSB_VLAN_STATS", "-o", iface_name, "-j", "RETURN"])
+        _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_VLAN_STATS", "-i", iface_name, "-j", "RETURN"])
+        _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_VLAN_STATS", "-o", iface_name, "-j", "RETURN"])
     
     _update_status(1)
     return True, "VLANs iniciadas con jerarquía segura"
@@ -114,30 +114,30 @@ def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     vlans = cfg.get("vlans", [])
     
     # Limpiar integración con FORWARD
-    _run_cmd(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "JSB_VLAN_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/iptables", "-D", "FORWARD", "-j", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "FORWARD", "-j", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "FORWARD", "-j", "JSB_VLAN_ISOLATE"], ignore_error=True)
     
     # Vaciar y eliminar cadenas
-    _run_cmd(["/usr/sbin/iptables", "-F", "JSB_VLAN_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/iptables", "-X", "JSB_VLAN_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/iptables", "-F", "JSB_VLAN_ISOLATE"], ignore_error=True)
-    _run_cmd(["/usr/sbin/iptables", "-X", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_VLAN_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_VLAN_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_VLAN_ISOLATE"], ignore_error=True)
 
     # Limpiar logging inter-VLAN
-    _run_cmd(["/usr/sbin/iptables", "-D", "FORWARD", "-i", "br0.+", "-o", "br0.+", "-j", "LOG", "--log-prefix", "[JSB-VLAN-INT] "], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "FORWARD", "-i", "br0.+", "-o", "br0.+", "-j", "LOG", "--log-prefix", "[JSB-VLAN-INT] "], ignore_error=True)
 
     for vlan in vlans:
         vlan_id = str(vlan.get("id"))
         iface_name = f"br0.{vlan_id}"
-        _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "down"], ignore_error=True)
-        _run_cmd(["/usr/sbin/ip", "link", "del", "dev", iface_name], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", iface_name, "down"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", "dev", iface_name], ignore_error=True)
     
     # Luego eliminar bridge
     if _bridge_exists():
-        success, msg = _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "down"], ignore_error=True)
+        success, msg = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", "br0", "down"], ignore_error=True)
         if not success:
             return False, f"Error deteniendo bridge br0: {msg}"
-        success, msg = _run_cmd(["/usr/sbin/ip", "link", "del", "dev", "br0"], ignore_error=True)
+        success, msg = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", "dev", "br0"], ignore_error=True)
         if not success:
             return False, f"Error eliminando bridge br0: {msg}"
     
@@ -167,7 +167,7 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     if br0_exists:
         try:
             result = subprocess.run(
-                ["sudo", "/usr/sbin/ip", "a", "show", "br0"],
+                ["sudo", f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", "br0"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -202,7 +202,7 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
             subif_name = f"br0.{vlan_id}"
             try:
                 result = subprocess.run(
-                    ["sudo", "/usr/sbin/ip", "a", "show", subif_name],
+                    ["sudo", f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", subif_name],
                     capture_output=True,
                     text=True,
                     check=True,
@@ -387,11 +387,11 @@ def config(params: Dict[str, Any]) -> Tuple[bool, str]:
 
 def _rollback_start(created_bridge: bool, created_interfaces: list) -> None:
     for iface_name in created_interfaces:
-        _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "down"], ignore_error=True)
-        _run_cmd(["/usr/sbin/ip", "link", "del", "dev", iface_name], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", iface_name, "down"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", "dev", iface_name], ignore_error=True)
     if created_bridge:
-        _run_cmd(["/usr/sbin/ip", "link", "set", "br0", "down"], ignore_error=True)
-        _run_cmd(["/usr/sbin/ip", "link", "del", "dev", "br0"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", "br0", "down"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", "dev", "br0"], ignore_error=True)
 
 
 def _interface_has_ip(interface: str, ip_interface: str) -> bool:
@@ -400,7 +400,7 @@ def _interface_has_ip(interface: str, ip_interface: str) -> bool:
     try:
         ip_addr = ip_interface.split("/")[0]
         result = subprocess.run(
-            ["/usr/sbin/ip", "-4", "addr", "show", "dev", interface],
+            [f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "-4", "addr", "show", "dev", interface],
             capture_output=True,
             text=True,
             check=True,
@@ -428,10 +428,10 @@ def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
     if not vlan_id: return False, "Falta parámetro 'vlan'"
     iface = f"br0.{vlan_id}"
     # Bloquear en la sub-cadena dedicada JSB_VLAN_ISOLATE
-    cmd = ["/usr/sbin/iptables", "-A", "JSB_VLAN_ISOLATE", "-i", iface, "-o", "br0.+", "-j", "DROP"]
+    cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_VLAN_ISOLATE", "-i", iface, "-o", "br0.+", "-j", "DROP"]
     success, msg = _run_cmd(cmd)
     if not success: return False, f"Error aislando VLAN {vlan_id}: {msg}"
-    _run_cmd(["/usr/sbin/iptables", "-A", "JSB_VLAN_ISOLATE", "-i", "br0.+", "-o", iface, "-j", "DROP"])
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_VLAN_ISOLATE", "-i", "br0.+", "-o", iface, "-j", "DROP"])
     return True, f"VLAN {vlan_id} aislada de otras VLANs"
 
 
@@ -439,15 +439,15 @@ def unisolate(params: Dict[str, Any]) -> Tuple[bool, str]:
     vlan_id = params.get("vlan")
     if not vlan_id: return False, "Falta parámetro 'vlan'"
     iface = f"br0.{vlan_id}"
-    _run_cmd(["/usr/sbin/iptables", "-D", "JSB_VLAN_ISOLATE", "-i", iface, "-o", "br0.+", "-j", "DROP"])
-    _run_cmd(["/usr/sbin/iptables", "-D", "JSB_VLAN_ISOLATE", "-i", "br0.+", "-o", iface, "-j", "DROP"])
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_VLAN_ISOLATE", "-i", iface, "-o", "br0.+", "-j", "DROP"])
+    _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_VLAN_ISOLATE", "-i", "br0.+", "-o", iface, "-j", "DROP"])
     return True, f"VLAN {vlan_id} ya no está aislada"
 
 
 def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
     status = params.get("status", "on")
     action = "-I" if status == "on" else "-D"
-    cmd = ["/usr/sbin/iptables", action, "FORWARD", "1", "-i", "br0.+", "-o", "br0.+", "-j", "LOG", "--log-prefix", "[JSB-VLAN-INT] "]
+    cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", action, "FORWARD", "1", "-i", "br0.+", "-o", "br0.+", "-j", "LOG", "--log-prefix", "[JSB-VLAN-INT] "]
     success, msg = _run_cmd(cmd)
     if status == "on" and not success: return False, f"Error activando log inter-VLAN: {msg}"
     return True, f"Log de tráfico inter-VLAN: {status}"
@@ -461,7 +461,7 @@ def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     res += f"{'VLAN':<10} | {'Bytes IN':<15} | {'Bytes OUT':<15}\n" + "-" * 50 + "\n"
     
     # Obtener bytes de la sub-cadena JSB_VLAN_STATS
-    success, output = _run_cmd(["/usr/sbin/iptables", "-L", "JSB_VLAN_STATS", "-v", "-n"])
+    success, output = _run_cmd([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", "JSB_VLAN_STATS", "-v", "-n"])
     stats_data = {}
     if success:
         for line in output.strip().split('\n'):

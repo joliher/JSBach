@@ -65,8 +65,8 @@ def remove_systemd_service():
             continue
         
         info(f"Deteniendo y eliminando servicio systemd: {srv}")
-        subprocess.run(f"/usr/bin/systemctl stop {srv}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(f"/usr/bin/systemctl disable {srv}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(ff"{__import__('shutil').which('systemctl') or '/usr/bin/systemctl'} {srv}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(ff"{__import__('shutil').which('systemctl') or '/usr/bin/systemctl'} {srv}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             os.remove(service_path)
             success(f"Servicio eliminado: {service_path}")
@@ -75,8 +75,8 @@ def remove_systemd_service():
     
     # Recargar systemd
     cmd("systemctl daemon-reload")
-    subprocess.run("/usr/bin/systemctl daemon-reload", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run("/usr/bin/systemctl reset-failed", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(f"{__import__('shutil').which('systemctl') or '/usr/bin/systemctl'} daemon-reload", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(f"{__import__('shutil').which('systemctl') or '/usr/bin/systemctl'} reset-failed", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 ###############
 #   Eliminar sudoers
@@ -159,19 +159,19 @@ def clean_iptables_rules():
             cmd("Limpiando reglas de iptables...")
             
             # Limpiar NAT
-            subprocess.run("/usr/sbin/iptables -t nat -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run("/usr/sbin/iptables -t nat -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'} -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'} -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
             # Limpiar filter
-            subprocess.run("/usr/sbin/iptables -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run("/usr/sbin/iptables -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'} -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'} -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
             # Limpiar ebtables
-            subprocess.run("/usr/sbin/ebtables -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run("/usr/sbin/ebtables -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'} -F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'} -X", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
             # Desactivar IP forwarding
-            subprocess.run("/usr/sbin/sysctl -w net.ipv4.ip_forward=0", shell=True, 
+            subprocess.run(f"{__import__('shutil').which('sysctl') or '/usr/sbin/sysctl'} net.ipv4.ip_forward=0", shell=True, 
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
             success("Reglas de iptables y ebtables limpiadas")
@@ -192,19 +192,19 @@ def clean_network_interfaces():
             
             # Verificar si br0 existe
             if os.path.exists("/sys/class/net/br0"):
-                subprocess.run("/usr/sbin/ip link set br0 down", shell=True, 
+                subprocess.run(f"{__import__('shutil').which('ip') or '/usr/sbin/ip'} down", shell=True, 
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                subprocess.run("/usr/sbin/ip link delete br0", shell=True, 
+                subprocess.run(f"{__import__('shutil').which('ip') or '/usr/sbin/ip'} br0", shell=True, 
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 success("Bridge br0 eliminado")
             
             # Eliminar interfaces VLAN
-            result = subprocess.run("/usr/sbin/ip -o link show | grep vlan | awk '{print $2}' | sed 's/:$//'", 
+            result = subprocess.run(f"{__import__('shutil').which('ip') or '/usr/sbin/ip'} 's/:$//'", 
                                   shell=True, capture_output=True, text=True)
             if result.stdout.strip():
                 vlan_interfaces = result.stdout.strip().split('\n')
                 for iface in vlan_interfaces:
-                    subprocess.run(f"/usr/sbin/ip link delete {iface}", shell=True,
+                    subprocess.run(ff"{__import__('shutil').which('ip') or '/usr/sbin/ip'} {iface}", shell=True,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 success(f"Interfaces VLAN eliminadas: {', '.join(vlan_interfaces)}")
             

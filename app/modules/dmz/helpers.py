@@ -126,14 +126,14 @@ def get_vlan_from_ip(ip: str) -> Optional[int]:
 def ensure_prerouting_protection_chain():
     """Garantizar cadena JSB_DMZ_ISOLATE y hook a GLOBAL_PRE."""
     mh.ensure_global_chains()
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "JSB_DMZ_ISOLATE"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-N", "JSB_DMZ_ISOLATE"])
     mh.ensure_module_hook("nat", "JSB_GLOBAL_PRE", "JSB_DMZ_ISOLATE")
 
 
 def ensure_prerouting_vlan_chain(vlan_id: int) -> bool:
     """Garantizar cadena JSB_DMZ_STATS y hook a GLOBAL_PRE."""
     mh.ensure_global_chains()
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "JSB_DMZ_STATS"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-N", "JSB_DMZ_STATS"])
     mh.ensure_module_hook("nat", "JSB_GLOBAL_PRE", "JSB_DMZ_STATS")
     return True
 
@@ -145,14 +145,14 @@ def remove_prerouting_vlan_chain(vlan_id: int):
     # Desvincular desde PREROUTING (intentar múltiples veces por si hay duplicados)
     for attempt in range(5):
         success, _ = _run_command([
-            "/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING", "-j", chain_name
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-D", "PREROUTING", "-j", chain_name
         ])
         if not success:
             break
     
     # Limpiar y eliminar cadena
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-F", chain_name])
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-X", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-X", chain_name])
     
     logger.info(f"{chain_name} eliminada")
 
@@ -167,7 +167,7 @@ def add_forward_return_rule(vlan_id: int, dmz_ip: str) -> bool:
     chain_name = f"FORWARD_VLAN_{vlan_id}"
     
     # Verificar si la cadena existe
-    success, _ = _run_command(["/usr/sbin/iptables", "-L", chain_name, "-n"])
+    success, _ = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", chain_name, "-n"])
     if not success:
         logger.warning(f"Cadena {chain_name} no existe, el firewall debe estar iniciado")
         return False
@@ -205,7 +205,7 @@ def add_forward_return_rule(vlan_id: int, dmz_ip: str) -> bool:
     
     # Verificar si la regla ya existe
     success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", chain_name, "-d", dmz_ip, "-j", "RETURN"
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", chain_name, "-d", dmz_ip, "-j", "RETURN"
     ])
     
     if success:
@@ -214,7 +214,7 @@ def add_forward_return_rule(vlan_id: int, dmz_ip: str) -> bool:
     
     # Insertar regla RETURN al inicio de la cadena (antes de whitelist/DROP)
     success, output = _run_command([
-        "/usr/sbin/iptables", "-I", chain_name, "1", "-d", dmz_ip, "-j", "RETURN"
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", chain_name, "1", "-d", dmz_ip, "-j", "RETURN"
     ])
     
     if not success:
@@ -231,7 +231,7 @@ def remove_forward_return_rule(vlan_id: int, dmz_ip: str):
     
     # Intentar eliminar (puede no existir si firewall se detuvo)
     _run_command([
-        "/usr/sbin/iptables", "-D", chain_name, "-d", dmz_ip, "-j", "RETURN"
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", chain_name, "-d", dmz_ip, "-j", "RETURN"
     ])
     
     logger.info(f"Regla RETURN para {dmz_ip} eliminada de {chain_name}")

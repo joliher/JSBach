@@ -60,8 +60,8 @@ def deep_cleanup():
 
     # Eliminar interfaces dummy previas
     for i in range(5):
-        run_command(["/usr/sbin/ip", "link", "del", f"dummy{i}"], ignore_error=True)
-    run_command(["/usr/sbin/ip", "link", "del", "br0"], ignore_error=True)
+        run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", f"dummy{i}"], ignore_error=True)
+    run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", "br0"], ignore_error=True)
 
     # Limpiar cadenas JSB de iptables
     for table in ["filter", "nat", "mangle"]:
@@ -96,8 +96,8 @@ def create_dummy_interfaces():
         "dummy3": "Tagging",
     }
     for iface, role in interfaces.items():
-        run_command(["/usr/sbin/ip", "link", "add", iface, "type", "dummy"])
-        run_command(["/usr/sbin/ip", "link", "set", iface, "up"])
+        run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "add", iface, "type", "dummy"])
+        run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", iface, "up"])
         print(f"  > {iface}  ({role})")
 
 
@@ -181,8 +181,8 @@ def cleanup_interfaces():
     """Elimina las interfaces dummy tras el test."""
     print("\n[+] Limpiando infraestructura virtual...")
     for i in range(5):
-        run_command(["/usr/sbin/ip", "link", "del", f"dummy{i}"], ignore_error=True)
-    run_command(["/usr/sbin/ip", "link", "del", "br0"], ignore_error=True)
+        run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", f"dummy{i}"], ignore_error=True)
+    run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "del", "br0"], ignore_error=True)
     print("    Infraestructura limpiada.")
 
 

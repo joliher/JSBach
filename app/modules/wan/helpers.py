@@ -29,7 +29,7 @@ def verify_wan_status(config_file: str) -> Tuple[bool, Optional[str]]:
         return False, None
     
     # Verificar que la interfaz existe y está UP
-    success, ip_info = run_command(["/usr/sbin/ip", "a", "show", iface], use_sudo=False)
+    success, ip_info = run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", iface], use_sudo=False)
     if not success:
         return False, None  # Interfaz no existe
     
@@ -43,7 +43,7 @@ def verify_wan_status(config_file: str) -> Tuple[bool, Optional[str]]:
         return False, None  # Sin IP asignada
     
     # Verificar que tiene ruta por defecto
-    success, routes = run_command(["/usr/sbin/ip", "r"], use_sudo=False)
+    success, routes = run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "r"], use_sudo=False)
     if not success or "default" not in routes:
         return False, None  # Sin ruta por defecto
     
@@ -70,7 +70,7 @@ async def verify_dhcp_assignment(iface: str, config_file: str, max_wait: int = 3
         await asyncio.sleep(check_interval)
         
         # Verificar si la interfaz tiene una IP asignada
-        success, ip_info = run_command(["/usr/sbin/ip", "a", "show", iface], use_sudo=False)
+        success, ip_info = run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", iface], use_sudo=False)
         
         if not success:
             continue
@@ -83,7 +83,7 @@ async def verify_dhcp_assignment(iface: str, config_file: str, max_wait: int = 3
             continue
         
         # Verificar ruta por defecto
-        success_routes, routes = run_command(["/usr/sbin/ip", "r"], use_sudo=False)
+        success_routes, routes = run_command([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "r"], use_sudo=False)
         if success_routes and "default" in routes:
             # Todo está bien, WAN está completamente funcional
             cfg = load_json_config(config_file) or {}

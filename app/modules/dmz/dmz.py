@@ -131,7 +131,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             
             # Verificar si la regla DNAT ya existe
             check_cmd = [
-                "/usr/sbin/iptables", "-t", "nat", "-C", chain_name,
+                f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-C", chain_name,
                 "-i", wan_interface, "-p", protocol, "--dport", str(port),
                 "-j", "DNAT", "--to-destination", ip
             ]
@@ -145,12 +145,12 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             
             # Añadir regla LOG y DNAT
             _run_command([
-                "/usr/sbin/iptables", "-t", "nat", "-A", chain_name,
+                f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-A", chain_name,
                 "-i", wan_interface, "-p", protocol, "--dport", str(port),
                 "-j", "LOG", "--log-prefix", f"[JSB-DMZ-DNAT] {ip}:{port} "
             ])
             cmd = [
-                "/usr/sbin/iptables", "-t", "nat", "-A", chain_name,
+                f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-A", chain_name,
                 "-i", wan_interface, "-p", protocol, "--dport", str(port),
                 "-j", "DNAT", "--to-destination", ip
             ]
@@ -235,17 +235,17 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         logger.info(f"Eliminando reglas de aislamiento para {len(isolated_hosts)} host(s)")
         for ip in isolated_hosts:
             # Eliminar regla RETURN de JSB_DMZ_ISOLATE
-            check_prerouting = ["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"]
+            check_prerouting = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-C", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"]
             success, _ = _run_command(check_prerouting)
             if success:
-                _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
                 logger.info(f"Regla de aislamiento eliminada de JSB_DMZ_ISOLATE para {ip}")
             
             # Eliminar regla DROP de JSB_FW_RESTRICT
-            check_input = ["/usr/sbin/iptables", "-C", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"]
+            check_input = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"]
             success, _ = _run_command(check_input)
             if success:
-                _run_command(["/usr/sbin/iptables", "-D", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"])
                 logger.info(f"Regla de aislamiento eliminada de JSB_FW_RESTRICT para {ip}")
         
         results.append(f"Reglas de aislamiento eliminadas para {len(isolated_hosts)} host(s)")
@@ -423,18 +423,18 @@ def remove_destination(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         logger.info(f"Destino {ip} estaba aislado, eliminando reglas de aislamiento")
         
         # Eliminar regla RETURN de JSB_DMZ_ISOLATE
-        check_prerouting = ["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"]
+        check_prerouting = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-C", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"]
         success, _ = _run_command(check_prerouting)
         if success:
-            _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
             logger.info(f"Regla de aislamiento eliminada de JSB_DMZ_ISOLATE para {ip}")
             _write_log(f"🔓 Regla de aislamiento eliminada de JSB_DMZ_ISOLATE para {ip}")
         
         # Eliminar regla DROP de JSB_FW_RESTRICT
-        check_input = ["/usr/sbin/iptables", "-C", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"]
+        check_input = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"]
         success, _ = _run_command(check_input)
         if success:
-            _run_command(["/usr/sbin/iptables", "-D", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_FW_RESTRICT", "-s", ip, "-j", "DROP"])
             logger.info(f"Regla de aislamiento eliminada de JSB_FW_RESTRICT para {ip}")
             _write_log(f"🔓 Regla de aislamiento eliminada de JSB_FW_RESTRICT para {ip}")
     
@@ -588,7 +588,7 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Verificar si ya existe regla de aislamiento en PREROUTING (NAT)
     cmd_check_prerouting = [
-        "/usr/sbin/iptables",
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
         "-t", "nat",
         "-C", "JSB_DMZ_ISOLATE",
         "-d", ip,
@@ -598,7 +598,7 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Verificar si ya existe regla de aislamiento en JSB_FW_RESTRICT (bloquea tráfico desde el host hacia el router)
     cmd_check_input_src = [
-        "/usr/sbin/iptables",
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
         "-C", "JSB_FW_RESTRICT",
         "-s", ip,
         "-j", "DROP"
@@ -616,7 +616,7 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     # RETURN hace que el paquete salga de esta cadena sin continuar, impidiendo el port forwarding
     if not already_isolated_prerouting:
         cmd_isolate_prerouting = [
-            "/usr/sbin/iptables",
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
             "-t", "nat",
             "-I", "JSB_DMZ_ISOLATE", "1",  # Posición 1 = máxima prioridad
             "-d", ip,
@@ -630,7 +630,7 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     # Insertar regla DROP en JSB_FW_RESTRICT (bloquear tráfico DESDE el host hacia el router)
     if not already_isolated_input:
         cmd_isolate_input = [
-            "/usr/sbin/iptables",
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
             "-I", "JSB_FW_RESTRICT", "1",  # Posición 1 = máxima prioridad
             "-s", ip,
             "-j", "DROP"
@@ -640,7 +640,7 @@ def isolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         if not success:
             # Intentar limpiar la regla de PREROUTING si JSB_FW_RESTRICT falla
             if not already_isolated_prerouting:
-                _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-D", "JSB_DMZ_ISOLATE", "-d", ip, "-j", "RETURN"])
             return False, f"Error al aislar host {ip} en JSB_FW_RESTRICT: {output}"
     
     # Guardar configuración con campo isolated
@@ -683,7 +683,7 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Verificar y eliminar regla de JSB_DMZ_ISOLATE (NAT)
     cmd_check_prerouting = [
-        "/usr/sbin/iptables",
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
         "-t", "nat",
         "-C", "JSB_DMZ_ISOLATE",
         "-d", ip,
@@ -693,7 +693,7 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Verificar y eliminar regla de JSB_FW_RESTRICT
     cmd_check_input = [
-        "/usr/sbin/iptables",
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
         "-C", "JSB_FW_RESTRICT",
         "-s", ip,
         "-j", "DROP"
@@ -710,7 +710,7 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     # Eliminar de JSB_DMZ_ISOLATE
     if prerouting_exists:
         cmd_remove_prerouting = [
-            "/usr/sbin/iptables",
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
             "-t", "nat",
             "-D", "JSB_DMZ_ISOLATE",
             "-d", ip,
@@ -723,7 +723,7 @@ def unisolate_dmz_host(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     # Eliminar de JSB_FW_RESTRICT
     if input_exists:
         cmd_remove_input = [
-            "/usr/sbin/iptables",
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}",
             "-D", "JSB_FW_RESTRICT",
             "-s", ip,
             "-j", "DROP"

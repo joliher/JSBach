@@ -129,8 +129,8 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # El hook de ISOLATE se hace dinámicamente por VLAN en add_vlan_interface_to_forward
     # Pero aseguramos que la cadena base existe
-    _run_cmd(["/usr/sbin/ebtables", "-N", "JSB_EBT_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-N", "JSB_EBT_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-N", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-N", "JSB_EBT_ISOLATE"], ignore_error=True)
 
     # Sincronizar: eliminar VLANs obsoletas de ebtables.json
     active_vlan_ids = {str(vlan.get("id")) for vlan in vlans if vlan.get("id") is not None}
@@ -290,8 +290,8 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     vlans = ebtables_cfg.get("vlans", {})
     
     # Limpiar jerarquía L2
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_EBT_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_ISOLATE", "-j", "JSB_EBT_ISOLATE"], ignore_error=True) # If it was hooked manually
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_GLOBAL_EBT_ISOLATE", "-j", "JSB_EBT_ISOLATE"], ignore_error=True) # If it was hooked manually
     
     # Eliminar todas las cadenas de VLANs
     for vlan_id_str in vlans.keys():
@@ -300,10 +300,10 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             _delete_vlan_chain(vlan_id)
         except: continue
     
-    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_EBT_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_EBT_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_EBT_ISOLATE"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_EBT_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-F", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-X", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-F", "JSB_EBT_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-X", "JSB_EBT_ISOLATE"], ignore_error=True)
     
     # Actualizar estado
     _update_status(0)
@@ -518,9 +518,9 @@ def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     # Actualizar configuración
     # Limpiar jerarquía L2
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_EBT_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_EBT_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-F", "JSB_EBT_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-X", "JSB_EBT_STATS"], ignore_error=True)
     if is_wifi:
         if "wifi" not in ebtables_cfg: ebtables_cfg["wifi"] = {}
         ebtables_cfg["wifi"]["isolated"] = True
@@ -636,7 +636,7 @@ def add_mac(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     # El hook de ISOLATE se hace dinámicamente por VLAN en add_vlan_interface_to_forward
     # Pero aseguramos que la cadena base existe
-    _run_cmd(["/usr/sbin/ebtables", "-N", "JSB_EBT_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-N", "JSB_EBT_ISOLATE"], ignore_error=True)
 
     # Configurar cada VLAN
     # Cargar configuración
@@ -945,7 +945,7 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "Parámetro 'status' debe ser 'on' u 'off'"
 
     action = "-I" if status_val == "on" else "-D"
-    cmd = ["/usr/sbin/ebtables", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
+    cmd = [f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
     success, msg = run_ebtables(cmd)
     if success:
         eb_cfg = load_ebtables_config()
@@ -962,7 +962,7 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "Parámetro 'status' debe ser 'on' u 'off'"
 
     action = "-I" if status_val == "on" else "-D"
-    cmd = ["/usr/sbin/ebtables", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
+    cmd = [f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
     success, msg = run_ebtables(cmd)
     if success:
         eb_cfg = load_ebtables_config()
@@ -979,7 +979,7 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "Parámetro 'status' debe ser 'on' u 'off'"
 
     action = "-I" if status_val == "on" else "-D"
-    cmd = ["/usr/sbin/ebtables", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
+    cmd = [f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", action, "FORWARD", "--log-prefix", "[JSB-EBT-FWD] ", "-j", "LOG"]
     success, msg = run_ebtables(cmd)
     if success:
         eb_cfg = load_ebtables_config()

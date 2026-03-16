@@ -333,7 +333,7 @@ def run_ebtables(args: List[str], timeout: int = 30) -> Tuple[bool, str]:
     """Ejecutar comando ebtables."""
     try:
         result = subprocess.run(
-            ["sudo", "/usr/sbin/ebtables"] + args,
+            ["sudo", f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}"] + args,
             capture_output=True,
             text=True,
             timeout=timeout

@@ -85,7 +85,7 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
     
     cmd = [
-        "/usr/sbin/hostapd", "-B", "-P", PID_FILE, HOSTAPD_CONF
+        f"{__import__('shutil').which('hostapd') or '/usr/sbin/hostapd'}", "-B", "-P", PID_FILE, HOSTAPD_CONF
     ]
     
     # Bypass hostapd for dummy interfaces used in testing

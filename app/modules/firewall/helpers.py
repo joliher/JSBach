@@ -80,18 +80,18 @@ def ensure_fw_chains():
     mh.ensure_global_chains()
     
     # 1. JSB_FW_STATS -> Hook to GLOBAL_STATS
-    if not _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_STATS", "-n"])[0]:
-        _run_command(["/usr/sbin/iptables", "-N", "JSB_FW_STATS"])
+    if not _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", "JSB_FW_STATS", "-n"])[0]:
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_FW_STATS"])
     mh.ensure_module_hook("filter", "JSB_GLOBAL_STATS", "JSB_FW_STATS")
 
     # 2. JSB_FW_ISOLATE -> Hook to GLOBAL_ISOLATE
-    if not _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_ISOLATE", "-n"])[0]:
-        _run_command(["/usr/sbin/iptables", "-N", "JSB_FW_ISOLATE"])
+    if not _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", "JSB_FW_ISOLATE", "-n"])[0]:
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_FW_ISOLATE"])
     mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_FW_ISOLATE")
 
     # 3. JSB_FW_RESTRICT -> Hook to GLOBAL_RESTRICT (on INPUT)
-    if not _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_RESTRICT", "-n"])[0]:
-        _run_command(["/usr/sbin/iptables", "-N", "JSB_FW_RESTRICT"])
+    if not _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", "JSB_FW_RESTRICT", "-n"])[0]:
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "JSB_FW_RESTRICT"])
     mh.ensure_module_hook("filter", "JSB_GLOBAL_RESTRICT", "JSB_FW_RESTRICT")
 
 
@@ -104,23 +104,23 @@ def setup_wan_protection():
     wan_interface = wan_cfg["interface"]
     
     # Limpiar cadena JSB_FW_RESTRICT
-    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_RESTRICT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_FW_RESTRICT"])
     
     # Permitir tráfico relacionado/establecido desde WAN
     _run_command([
-        "/usr/sbin/iptables", "-A", "JSB_FW_RESTRICT", "-i", wan_interface,
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_FW_RESTRICT", "-i", wan_interface,
         "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "RETURN"
     ])
    
     # Permitir ICMP desde WAN
     _run_command([
-        "/usr/sbin/iptables", "-A", "JSB_FW_RESTRICT", "-i", wan_interface,
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_FW_RESTRICT", "-i", wan_interface,
         "-p", "icmp", "-j", "RETURN"
     ])
    
     # Bloquear todo lo demás desde WAN
     _run_command([
-        "/usr/sbin/iptables", "-A", "JSB_FW_RESTRICT", "-i", wan_interface, "-j", "DROP"
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "JSB_FW_RESTRICT", "-i", wan_interface, "-j", "DROP"
     ])
     
     logger.info(f"Protección WAN configurada en {wan_interface}")
@@ -135,24 +135,24 @@ def create_input_vlan_chain(vlan_id: int, vlan_ip: str) -> bool:
     chain_name = f"INPUT_VLAN_{vlan_id}"
     
     # Crear cadena
-    success, output = _run_command(["/usr/sbin/iptables", "-N", chain_name])
+    success, output = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", chain_name])
     if not success and "already exists" not in output.lower():
         logger.error(f"Error creando {chain_name}: {output}")
         return False
     
     # Limpiar reglas existentes
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
     
     # Vincular desde INPUT (después de JSB_FW_RESTRICT)
     # Verificar si ya está vinculada
     success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", "INPUT", "-s", vlan_ip, "-j", chain_name
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "INPUT", "-s", vlan_ip, "-j", chain_name
     ])
     
     if not success:
         # No está vinculada, añadir después de JSB_FW_RESTRICT (posición 2)
         _run_command([
-            "/usr/sbin/iptables", "-I", "INPUT", "2", "-s", vlan_ip, "-j", chain_name
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "INPUT", "2", "-s", vlan_ip, "-j", chain_name
         ])
         logger.info(f"{chain_name} vinculada desde INPUT")
     
@@ -164,27 +164,27 @@ def create_forward_vlan_chain(vlan_id: int, vlan_ip: str) -> bool:
     chain_name = f"FORWARD_VLAN_{vlan_id}"
     
     # Crear cadena
-    success, output = _run_command(["/usr/sbin/iptables", "-N", chain_name])
+    success, output = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", chain_name])
     if not success and "already exists" not in output.lower():
         logger.error(f"Error creando {chain_name}: {output}")
         return False
     
     # Limpiar reglas existentes
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
     
     # Por defecto: RETURN (permitir que otros procedan)
-    _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "RETURN"])
    
     # Vincular desde FORWARD (después de JSB_FW_ISOLATE)
     # Verificar si ya está vinculada
     success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", "FORWARD", "-s", vlan_ip, "-j", chain_name
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "FORWARD", "-s", vlan_ip, "-j", chain_name
     ])
     
     if not success:
         # No está vinculada, añadir después de JSB_FW_ISOLATE (posición 2)
         _run_command([
-            "/usr/sbin/iptables", "-I", "FORWARD", "2", "-s", vlan_ip, "-j", chain_name
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "FORWARD", "2", "-s", vlan_ip, "-j", chain_name
         ])
         logger.info(f"{chain_name} vinculada desde FORWARD")
     
@@ -197,12 +197,12 @@ def remove_input_vlan_chain(vlan_id: int, vlan_ip: str):
     
     # Desvincular desde INPUT
     _run_command([
-        "/usr/sbin/iptables", "-D", "INPUT", "-s", vlan_ip, "-j", chain_name
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "INPUT", "-s", vlan_ip, "-j", chain_name
     ])
     
     # Limpiar y eliminar cadena
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
-    _run_command(["/usr/sbin/iptables", "-X", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", chain_name])
     
     logger.info(f"{chain_name} eliminada")
 
@@ -213,12 +213,12 @@ def remove_forward_vlan_chain(vlan_id: int, vlan_ip: str):
     
     # Desvincular desde FORWARD
     _run_command([
-        "/usr/sbin/iptables", "-D", "FORWARD", "-s", vlan_ip, "-j", chain_name
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "FORWARD", "-s", vlan_ip, "-j", chain_name
     ])
     
     # Limpiar y eliminar cadena
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
-    _run_command(["/usr/sbin/iptables", "-X", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", chain_name])
     
     logger.info(f"{chain_name} eliminada")
 
@@ -255,7 +255,7 @@ def apply_whitelist(vlan_id: int, whitelist: List[str]) -> Tuple[bool, str]:
     
     # Buscar reglas ACCEPT con IPs DMZ reales
     dmz_rules = []
-    success, output = _run_command(["/usr/sbin/iptables", "-L", chain_name, "-n", "--line-numbers"])
+    success, output = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", chain_name, "-n", "--line-numbers"])
     if success:
         for line in output.split('\n'):
             # Buscar reglas ACCEPT con destino específico usando regex
@@ -271,16 +271,16 @@ def apply_whitelist(vlan_id: int, whitelist: List[str]) -> Tuple[bool, str]:
                         logger.info(f"Preservando regla DMZ ACCEPT para {dest_ip}")
     
     # Limpiar cadena
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
     
     # Re-añadir reglas DMZ RETURN al inicio
     for dmz_ip in dmz_rules:
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-d", dmz_ip, "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-d", dmz_ip, "-j", "RETURN"])
         logger.info(f"Regla DMZ RETURN restaurada para {dmz_ip}")
    
     if not whitelist:
         # Sin reglas, DROP por defecto
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "DROP"])
         return True, "Whitelist vacía, todo bloqueado"
     
     for rule in whitelist:
@@ -290,7 +290,7 @@ def apply_whitelist(vlan_id: int, whitelist: List[str]) -> Tuple[bool, str]:
     
     # DROP final para bloquear todo lo no permitido
     # Nota: No verificamos si existe porque apply_whitelist siempre hace FLUSH antes
-    _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "DROP"])
     logger.debug(f"Regla DROP añadida al final de {chain_name}")
     
     return True, f"Whitelist aplicada con {len(whitelist)} reglas"
@@ -317,8 +317,8 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
         # Construir comandos para verificación y adición
         if port and protocol:
             # Caso: IP:puerto/proto o :puerto/proto
-            check_cmd = ["/usr/sbin/iptables", "-C", chain_name]
-            add_cmd = ["/usr/sbin/iptables", "-A", chain_name]
+            check_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", chain_name]
+            add_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name]
             
             if ip:
                 check_cmd.extend(["-d", ip])
@@ -340,8 +340,8 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
         elif port:
             # Caso: IP:puerto o :puerto (sin protocolo → TCP + UDP)
             for proto in ["tcp", "udp"]:
-                check_cmd = ["/usr/sbin/iptables", "-C", chain_name]
-                add_cmd = ["/usr/sbin/iptables", "-A", chain_name]
+                check_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", chain_name]
+                add_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name]
                 
                 if ip:
                     check_cmd.extend(["-d", ip])
@@ -356,8 +356,8 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
                     
         elif protocol and ip:
             # Caso: IP/proto (sin puerto)
-            check_cmd = ["/usr/sbin/iptables", "-C", chain_name, "-d", ip, "-p", protocol, "-j", "ACCEPT"]
-            add_cmd = ["/usr/sbin/iptables", "-A", chain_name, "-d", ip, "-p", protocol, "-j", "ACCEPT"]
+            check_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", chain_name, "-d", ip, "-p", protocol, "-j", "ACCEPT"]
+            add_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-d", ip, "-p", protocol, "-j", "ACCEPT"]
             
             success, _ = _run_command(check_cmd)
             if not success:
@@ -365,8 +365,8 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
 
         elif protocol and not ip:
             # Caso: /proto (sin IP ni puerto)
-            check_cmd = ["/usr/sbin/iptables", "-C", chain_name, "-p", protocol, "-j", "ACCEPT"]
-            add_cmd = ["/usr/sbin/iptables", "-A", chain_name, "-p", protocol, "-j", "ACCEPT"]
+            check_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", chain_name, "-p", protocol, "-j", "ACCEPT"]
+            add_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-p", protocol, "-j", "ACCEPT"]
 
             success, _ = _run_command(check_cmd)
             if not success:
@@ -374,8 +374,8 @@ def apply_single_whitelist_rule(chain_name: str, rule: str) -> bool:
                 
         elif ip:
             # Caso: solo IP (sin puerto ni protocolo)
-            check_cmd = ["/usr/sbin/iptables", "-C", chain_name, "-d", ip, "-j", "ACCEPT"]
-            add_cmd = ["/usr/sbin/iptables", "-A", chain_name, "-d", ip, "-j", "ACCEPT"]
+            check_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", chain_name, "-d", ip, "-j", "ACCEPT"]
+            add_cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-d", ip, "-j", "ACCEPT"]
             
             success, _ = _run_command(check_cmd)
             if not success:
@@ -403,73 +403,73 @@ def setup_wifi_portal(portal_enabled: bool, portal_port: int, authorized_macs: L
     
     # 1. Limpiar reglas previas del portal (NAT y FILTER)
     # Tabla NAT
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-F", "WIFI_PORTAL_REDIRECT"])
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-X", "WIFI_PORTAL_REDIRECT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-F", "WIFI_PORTAL_REDIRECT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-X", "WIFI_PORTAL_REDIRECT"])
     
     # Tabla FILTER
-    _run_command(["/usr/sbin/iptables", "-F", "WIFI_PORTAL_INPUT"])
-    _run_command(["/usr/sbin/iptables", "-X", "WIFI_PORTAL_INPUT"])
-    _run_command(["/usr/sbin/iptables", "-F", "WIFI_PORTAL_FORWARD"])
-    _run_command(["/usr/sbin/iptables", "-X", "WIFI_PORTAL_FORWARD"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "WIFI_PORTAL_INPUT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "WIFI_PORTAL_INPUT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "WIFI_PORTAL_FORWARD"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "WIFI_PORTAL_FORWARD"])
     
     if not portal_enabled:
         # Desvincular si existen
-        _run_command(["/usr/sbin/iptables", "-t", "nat", "-D", "PREROUTING", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
-        _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
-        _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-D", "PREROUTING", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "INPUT", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "FORWARD", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
         return True
 
     # 2. Crear Cadenas
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-N", "WIFI_PORTAL_REDIRECT"])
-    _run_command(["/usr/sbin/iptables", "-N", "WIFI_PORTAL_INPUT"])
-    _run_command(["/usr/sbin/iptables", "-N", "WIFI_PORTAL_FORWARD"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-N", "WIFI_PORTAL_REDIRECT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "WIFI_PORTAL_INPUT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "WIFI_PORTAL_FORWARD"])
 
     # 3. Reglas de Bypass para MACs autorizadas
     for mac in authorized_macs:
         # En NAT: No redirigir
-        _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
         # En FILTER: Saltar el bloqueo del portal
-        _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
-        _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_FORWARD", "-m", "mac", "--mac-source", mac, "-j", "RETURN"])
 
     # 4. Reglas de Restricción para el resto
     
     # --- NAT: Redirigir HTTP (80) al portal local ---
-    _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-p", "tcp", "--dport", "80", "-j", "DNAT", "--to-destination", f"{wifi_ip}:{portal_port}"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-A", "WIFI_PORTAL_REDIRECT", "-p", "tcp", "--dport", "80", "-j", "DNAT", "--to-destination", f"{wifi_ip}:{portal_port}"])
 
     # --- FILTER (INPUT): Acceso al Router ---
     # Permitir DHCP, DNS y Acceso al Portal (Usamos RETURN para permitir que JSB_FW_RESTRICT aplique DROP si es necesario)
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "67:68", "-j", "RETURN"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "53", "-j", "RETURN"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "tcp", "--dport", str(portal_port), "-j", "RETURN"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "icmp", "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "67:68", "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "53", "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-p", "tcp", "--dport", str(portal_port), "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-p", "icmp", "-j", "RETURN"])
     
     # Bloquear el resto hacia el router desde el portal
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "21027", "-j", "ACCEPT"])
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_INPUT", "-j", "DROP"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-p", "udp", "--dport", "21027", "-j", "ACCEPT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_INPUT", "-j", "DROP"])
 
     # --- FILTER (FORWARD): Acceso a Internet/Otras Redes ---
     # Permitir DNS hacia afuera (RETURN)
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "udp", "--dport", "53", "-j", "RETURN"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_FORWARD", "-p", "udp", "--dport", "53", "-j", "RETURN"])
     
     # REJECT HTTPS (443) y GCM (5228) para que el dispositivo no espere al timeout
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-p", "tcp", "--match", "multiport", "--dports", "443,5228", "-j", "REJECT", "--reject-with", "tcp-reset"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_FORWARD", "-p", "tcp", "--match", "multiport", "--dports", "443,5228", "-j", "REJECT", "--reject-with", "tcp-reset"])
     
     # Bloquear todo lo demás en FORWARD mientras no esté autorizado
-    _run_command(["/usr/sbin/iptables", "-A", "WIFI_PORTAL_FORWARD", "-j", "DROP"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "WIFI_PORTAL_FORWARD", "-j", "DROP"])
 
     # 5. Vincular Cadenas
     # NAT table
-    success_nat, _ = _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "PREROUTING", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
+    success_nat, _ = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-C", "PREROUTING", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
     if not success_nat:
-        _run_command(["/usr/sbin/iptables", "-t", "nat", "-I", "PREROUTING", "1", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-t", "nat", "-I", "PREROUTING", "1", "-i", wifi_iface, "-p", "tcp", "--dport", "80", "-j", "WIFI_PORTAL_REDIRECT"])
 
     # FILTER (INPUT): Posición 1 (antes de INPUT_WIFI y otras)
-    _run_command(["/usr/sbin/iptables", "-D", "INPUT", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
-    _run_command(["/usr/sbin/iptables", "-I", "INPUT", "1", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "INPUT", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "INPUT", "1", "-i", wifi_iface, "-j", "WIFI_PORTAL_INPUT"])
 
     # FILTER (FORWARD): Posición 1 (Prioridad máxima para interceptar conexiones establecidas)
-    _run_command(["/usr/sbin/iptables", "-D", "FORWARD", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
-    _run_command(["/usr/sbin/iptables", "-I", "FORWARD", "1", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "FORWARD", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "FORWARD", "1", "-i", wifi_iface, "-j", "WIFI_PORTAL_FORWARD"])
 
     return True

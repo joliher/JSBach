@@ -51,7 +51,7 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     
     # Ejecutar dnsmasq
     cmd = [
-        "sudo", "-n", "/usr/sbin/dnsmasq", 
+        "sudo", "-n", f"{__import__('shutil').which('dnsmasq') or '/usr/sbin/dnsmasq'}", 
         f"--conf-file={DNSMASQ_CONF}",
         f"--pid-file={PID_FILE}",
         f"--log-facility={LOG_FILE}"

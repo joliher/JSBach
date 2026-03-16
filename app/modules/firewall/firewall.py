@@ -175,30 +175,30 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             wifi_fw_cfg = fw_cfg.get("wifi", {"isolated": True, "restricted": True})
             
             # 1. INPUT_WIFI (Restricción y Acceso al Router)
-            _run_command(["/usr/sbin/iptables", "-N", "INPUT_WIFI"])
-            _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "INPUT_WIFI"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "INPUT_WIFI"])
             
             # Vincular Jerárquicamente: JSB_GLOBAL_RESTRICT -> INPUT_WIFI (solo para tráfico de la interfaz wifi)
             mh.ensure_module_hook("filter", "JSB_GLOBAL_RESTRICT", "INPUT_WIFI", extra_args=["-i", wifi_iface])
             
             # Permitir DHCP, DNS, ICMP (Usamos RETURN para permitir que otras reglas de JSB_GLOBAL_RESTRICT sigan)
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "67:68", "-j", "RETURN"])
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "53", "-j", "RETURN"])
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "tcp", "--dport", str(wifi_json_cfg.get("portal_port", 8500)), "-j", "RETURN"])
-            _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-p", "icmp", "-j", "RETURN"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "67:68", "-j", "RETURN"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-p", "udp", "--dport", "53", "-j", "RETURN"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-p", "tcp", "--dport", str(wifi_json_cfg.get("portal_port", 8500)), "-j", "RETURN"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-p", "icmp", "-j", "RETURN"])
             
             # Aplicar restricción si está habilitada (bloquear acceso al router)
             if wifi_fw_cfg.get("restricted", True):
-                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "LOG", "--log-prefix", "[JSB-WIFI-RESTRICT] "])
-                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "DROP"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-j", "LOG", "--log-prefix", "[JSB-WIFI-RESTRICT] "])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-j", "DROP"])
                 logger.info("Wi-Fi: Acceso al router RESTRINGIDO con Full Logging")
             else:
-                _run_command(["/usr/sbin/iptables", "-A", "INPUT_WIFI", "-j", "RETURN"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "INPUT_WIFI", "-j", "RETURN"])
                 logger.info("Wi-Fi: Acceso al router PERMITIDO (jerárquico)")
             
             # 2. FORWARD_WIFI (Aislamiento de Redes)
-            _run_command(["/usr/sbin/iptables", "-N", "FORWARD_WIFI"])
-            _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-N", "FORWARD_WIFI"])
+            _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "FORWARD_WIFI"])
             
             # Vincular Jerárquicamente: JSB_GLOBAL_ISOLATE -> FORWARD_WIFI
             mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "FORWARD_WIFI", extra_args=["-i", wifi_iface])
@@ -211,15 +211,15 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
             if wifi_fw_cfg.get("isolated", True):
                 if wan_iface:
                     # Permitir salida a WAN (RETURN para dejar que NAT módulo actúe si es necesario, aunque aquí ya solemos aceptar)
-                    _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-o", wan_iface, "-j", "RETURN"])
+                    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "FORWARD_WIFI", "-o", wan_iface, "-j", "RETURN"])
                     logger.info(f"Wi-Fi: AISLAMIENTO activado (permitiendo salida por {wan_iface})")
                 
                 # Bloquear todo lo que no sea WAN (VLANs, otras subredes locales) con Log
-                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "LOG", "--log-prefix", "[JSB-WIFI-ISOLATE] "])
-                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "DROP"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "FORWARD_WIFI", "-j", "LOG", "--log-prefix", "[JSB-WIFI-ISOLATE] "])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "FORWARD_WIFI", "-j", "DROP"])
             else:
                 # Permitir resto (Acceso libre jerárquico)
-                _run_command(["/usr/sbin/iptables", "-A", "FORWARD_WIFI", "-j", "RETURN"])
+                _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", "FORWARD_WIFI", "-j", "RETURN"])
                 logger.info("Wi-Fi: AISLAMIENTO desactivado (jerárquico)")
             
             # 3. Portal Cautivo Integration
@@ -339,29 +339,29 @@ def stop(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     wifi_cfg = mh.load_module_config(BASE_DIR, "wifi", {})
     wifi_iface = wifi_cfg.get("interface", "wlp3s0")
     if wifi_iface:
-        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_RESTRICT", "-i", wifi_iface, "-j", "INPUT_WIFI"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-F", "INPUT_WIFI"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-X", "INPUT_WIFI"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_RESTRICT", "-i", wifi_iface, "-j", "INPUT_WIFI"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "INPUT_WIFI"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "INPUT_WIFI"], ignore_error=True)
         
-        _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_ISOLATE", "-i", wifi_iface, "-j", "FORWARD_WIFI"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-F", "FORWARD_WIFI"], ignore_error=True)
-        _run_command(["/usr/sbin/iptables", "-X", "FORWARD_WIFI"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_ISOLATE", "-i", wifi_iface, "-j", "FORWARD_WIFI"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "FORWARD_WIFI"], ignore_error=True)
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "FORWARD_WIFI"], ignore_error=True)
     
     # FIX BUG #7: Eliminar vínculos y cadenas protegidas
     # Limpiar contenido
-    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_RESTRICT"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_ISOLATE"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-F", "JSB_FW_STATS"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_FW_RESTRICT"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_FW_ISOLATE"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", "JSB_FW_STATS"], ignore_error=True)
     
     # Desvincular desde cadenas Globales
-    _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_RESTRICT", "-j", "JSB_FW_RESTRICT"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_ISOLATE", "-j", "JSB_FW_ISOLATE"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-D", "JSB_GLOBAL_STATS", "-j", "JSB_FW_STATS"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_RESTRICT", "-j", "JSB_FW_RESTRICT"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_ISOLATE", "-j", "JSB_FW_ISOLATE"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_GLOBAL_STATS", "-j", "JSB_FW_STATS"], ignore_error=True)
     
     # Eliminar cadenas
-    _run_command(["/usr/sbin/iptables", "-X", "JSB_FW_RESTRICT"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-X", "JSB_FW_ISOLATE"], ignore_error=True)
-    _run_command(["/usr/sbin/iptables", "-X", "JSB_FW_STATS"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_FW_RESTRICT"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_FW_ISOLATE"], ignore_error=True)
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-X", "JSB_FW_STATS"], ignore_error=True)
     
     logger.info("Cadenas JSB_FW_RESTRICT y JSB_FW_ISOLATE eliminadas")
     
@@ -580,7 +580,7 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         # Verificar si ya está aislada (regla puede estar en cualquier posición)
         success, _ = _run_command([
-            "/usr/sbin/iptables", "-C", "JSB_FW_ISOLATE", "-d", ip_mask, "-m", "conntrack", 
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "JSB_FW_ISOLATE", "-d", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
         
@@ -590,11 +590,11 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         # Añadir Reglas de LOG y DROP
         _run_command([
-            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "1", "-d", ip_mask, "-m", "conntrack", 
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "JSB_FW_ISOLATE", "1", "-d", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "LOG", "--log-prefix", "[JSB-FW-ISOLATE] "
         ])
         success, output = _run_command([
-            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "2", "-d", ip_mask, "-m", "conntrack", 
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "JSB_FW_ISOLATE", "2", "-d", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
        
@@ -611,7 +611,7 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         # Verificar si ya está aislada
         success, _ = _run_command([
-            "/usr/sbin/iptables", "-C", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
         if success:
@@ -620,11 +620,11 @@ def isolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
         
         # Añadir Reglas de LOG y DROP
         _run_command([
-            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "1", "-s", ip_mask, "-m", "conntrack", 
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "JSB_FW_ISOLATE", "1", "-s", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "LOG", "--log-prefix", "[JSB-FW-ISOLATE] "
         ])
         success, output = _run_command([
-            "/usr/sbin/iptables", "-I", "JSB_FW_ISOLATE", "2", "-s", ip_mask, "-m", "conntrack", 
+            f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-I", "JSB_FW_ISOLATE", "2", "-s", ip_mask, "-m", "conntrack", 
             "--ctstate", "NEW", "-j", "DROP"
         ])
        
@@ -688,7 +688,7 @@ def unisolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Verificar si está aislada
     success, _ = _run_command([
-        "/usr/sbin/iptables", "-C", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-C", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
         "--ctstate", "NEW", "-j", "DROP"
     ])
     
@@ -700,13 +700,13 @@ def unisolate(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     
     # Eliminar regla de LOG (si existe)
     _run_command([
-        "/usr/sbin/iptables", "-D", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
         "--ctstate", "NEW", "-j", "LOG", "--log-prefix", "[JSB-FW-ISOLATE] "
     ])
     
     # Eliminar regla de DROP
     success, output = _run_command([
-        "/usr/sbin/iptables", "-D", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
+        f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-D", "JSB_FW_ISOLATE", "-s", ip_mask, "-m", "conntrack", 
         "--ctstate", "NEW", "-j", "DROP"
     ])
     
@@ -780,29 +780,29 @@ def restrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     chain_name = f"INPUT_VLAN_{vlan_id}"
     
     # Limpiar cadena
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
     
     # Aplicar política según VLAN
     if vlan_id in [1, 2]:
         # DROP total con LOG
         logger.info(f"VLAN {vlan_id}: aplicando DROP total")
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "LOG", "--log-prefix", "[JSB-FW-RESTRICT] "])
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "LOG", "--log-prefix", "[JSB-FW-RESTRICT] "])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "DROP"])
         msg = f"VLAN {vlan_id} restringida: bloqueado acceso total al router"
     else:
         # Permitir DHCP, DNS, ICMP (Usamos RETURN para Block Prevails)
         logger.info(f"VLAN {vlan_id}: permitiendo DHCP, DNS e ICMP (jerárquico); bloqueando resto")
         # DHCP (puertos 67 y 68 UDP)
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "67", "-j", "RETURN"])
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "68", "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-p", "udp", "--dport", "67", "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-p", "udp", "--dport", "68", "-j", "RETURN"])
         # DNS (puerto 53 UDP y TCP)
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "udp", "--dport", "53", "-j", "RETURN"])
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "tcp", "--dport", "53", "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-p", "udp", "--dport", "53", "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-p", "tcp", "--dport", "53", "-j", "RETURN"])
         # ICMP
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-p", "icmp", "-j", "RETURN"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-p", "icmp", "-j", "RETURN"])
         # DROP resto con LOG
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "LOG", "--log-prefix", "[JSB-FW-RESTRICT] "])
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "DROP"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "LOG", "--log-prefix", "[JSB-FW-RESTRICT] "])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "DROP"])
         msg = f"VLAN {vlan_id} restringida: solo DHCP, DNS e ICMP permitidos (RETURN) al router"
     
     # Marcar como restringida
@@ -857,8 +857,8 @@ def unrestrict(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     chain_name = f"INPUT_VLAN_{vlan_id}"
     
     # Limpiar cadena y permitir todo
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
-    _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "ACCEPT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "ACCEPT"])
     
     # Marcar como no restringida
     vlan_cfg["restricted"] = False
@@ -967,7 +967,7 @@ def disable_whitelist(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     # Buscar reglas ACCEPT con IPs DMZ reales en FORWARD_VLAN_X
     chain_name = f"FORWARD_VLAN_{vlan_id}"
     dmz_rules = []
-    success, output = _run_command(["/usr/sbin/iptables", "-L", chain_name, "-n", "--line-numbers"])
+    success, output = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", chain_name, "-n", "--line-numbers"])
     if success:
         for line in output.split('\n'):
             # Buscar reglas ACCEPT con destino específico usando regex
@@ -983,15 +983,15 @@ def disable_whitelist(params: Dict[str, Any] = None) -> Tuple[bool, str]:
                         logger.info(f"Preservando regla DMZ ACCEPT para {dest_ip}")
     
     # Restaurar ACCEPT por defecto en FORWARD_VLAN_X
-    _run_command(["/usr/sbin/iptables", "-F", chain_name])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-F", chain_name])
     
     # Re-añadir reglas DMZ ACCEPT
     for dmz_ip in dmz_rules:
-        _run_command(["/usr/sbin/iptables", "-A", chain_name, "-d", dmz_ip, "-j", "ACCEPT"])
+        _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-d", dmz_ip, "-j", "ACCEPT"])
         logger.info(f"Regla DMZ ACCEPT restaurada para {dmz_ip}")
     
     # ACCEPT incondicional final
-    _run_command(["/usr/sbin/iptables", "-A", chain_name, "-j", "ACCEPT"])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-A", chain_name, "-j", "ACCEPT"])
     
     msg = f"Whitelist deshabilitada en VLAN {vlan_id}"
     logger.info(f"=== FIN: disable_whitelist ===")
@@ -1239,16 +1239,16 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
     if not ip_mask: return False, f"VLAN {vlan_id} sin IP configurada"
     
     action = "-I" if status_val == "on" else "-D"
-    cmd = ["/usr/sbin/iptables", action, "JSB_FW_STATS", "1", "-s", ip_mask, "-j", "LOG", "--log-prefix", "[JSB-FW-LOG] "]
+    cmd = [f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", action, "JSB_FW_STATS", "1", "-s", ip_mask, "-j", "LOG", "--log-prefix", "[JSB-FW-LOG] "]
     success, msg = _run_command(cmd)
     if status_val == "on" and not success: return False, f"Error activando log: {msg}"
     
-    _run_command(["/usr/sbin/iptables", action, "JSB_FW_STATS", "1", "-d", ip_mask, "-j", "LOG", "--log-prefix", "[JSB-FW-LOG] "])
+    _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", action, "JSB_FW_STATS", "1", "-d", ip_mask, "-j", "LOG", "--log-prefix", "[JSB-FW-LOG] "])
     return True, f"Log de tráfico para VLAN {vlan_id}: {status_val}"
 
 
 def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    success, output = _run_command(["/usr/sbin/iptables", "-L", "JSB_FW_STATS", "-n", "-v", "-x"])
+    success, output = _run_command([f"{__import__('shutil').which('iptables') or '/usr/sbin/iptables'}", "-L", "JSB_FW_STATS", "-n", "-v", "-x"])
     if not success: return False, f"Error obteniendo estadísticas: {output}"
     
     res = "Consumo de Tráfico Firewall (L3 Stats):\n"

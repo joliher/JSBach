@@ -66,7 +66,7 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     
     # Solo tocar VLAN 1 si hay interfaces físicas
     if interfaces:
-        _run_cmd(["/usr/sbin/bridge", "vlan", "del", "dev", "br0", "vid", "1", "pvid", "untagged"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "del", "dev", "br0", "vid", "1", "pvid", "untagged"], ignore_error=True)
     
     # --- PREPARAR JERARQUÍA DE FIREWALL L2 (Search & Destroy) ---
     mh.ensure_ebtables_global_chains()
@@ -99,30 +99,30 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         iface_errors = []
         
         # Validar que la interfaz física existe
-        success, error = _run_cmd(["/usr/sbin/ip", "link", "show", name])
+        success, error = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "show", name])
         if not success:
             iface_errors.append(f"interfaz no existe: {error}")
             errors.append(f"  {name}: " + ", ".join(iface_errors))
             continue
         
         # Agregar interfaz al bridge
-        success, error = _run_cmd(["/usr/sbin/ip", "link", "set", name, "master", "br0"], ignore_error=True)
+        success, error = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", name, "master", "br0"], ignore_error=True)
         if not success:
             iface_errors.append(f"agregando al bridge: {error}")
         
-        success, error = _run_cmd(["/usr/sbin/ip", "link", "set", name, "up"])
+        success, error = _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", name, "up"])
         if not success:
             iface_errors.append(f"habilitando: {error}")
         
         # Eliminar VLAN 1 por defecto en la interfaz
-        _run_cmd(["/usr/sbin/bridge", "vlan", "del", "dev", name, "vid", "1", "pvid", "untagged"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "del", "dev", name, "vid", "1", "pvid", "untagged"], ignore_error=True)
         
         # VLAN UNTAG
         if vlan_untag:
-            success, error = _run_cmd(["/usr/sbin/bridge", "vlan", "add", "dev", name, "vid", str(vlan_untag), "pvid", "untagged"], ignore_error=True)
+            success, error = _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "add", "dev", name, "vid", str(vlan_untag), "pvid", "untagged"], ignore_error=True)
             if not success:
                 iface_errors.append(f"UNTAG VLAN {vlan_untag}: {error}")
-            success, error = _run_cmd(["/usr/sbin/bridge", "vlan", "add", "dev", "br0", "vid", str(vlan_untag), "self"], ignore_error=True)
+            success, error = _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "add", "dev", "br0", "vid", str(vlan_untag), "self"], ignore_error=True)
             if not success:
                 iface_errors.append(f"VLAN {vlan_untag} al bridge: {error}")
         
@@ -131,17 +131,17 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
             for vid in str(vlan_tag).split(","):
                 vid = vid.strip()
                 if vid:
-                    success, error = _run_cmd(["/usr/sbin/bridge", "vlan", "add", "dev", name, "vid", vid], ignore_error=True)
+                    success, error = _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "add", "dev", name, "vid", vid], ignore_error=True)
                     if not success:
                         iface_errors.append(f"TAG VLAN {vid}: {error}")
-                    success, error = _run_cmd(["/usr/sbin/bridge", "vlan", "add", "dev", "br0", "vid", vid, "self"], ignore_error=True)
+                    success, error = _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "add", "dev", "br0", "vid", vid, "self"], ignore_error=True)
                     if not success:
                         iface_errors.append(f"VLAN {vid} al bridge: {error}")
         
         # Agregar reglas de estadísticas L2 para esta interfaz física
-        _run_cmd(["/usr/sbin/ebtables", "-L", "JSB_TAG_STATS"], ignore_error=True) # Check if chain exists (already created above, but for safety)
-        _run_cmd(["/usr/sbin/ebtables", "-A", "JSB_TAG_STATS", "-i", name])
-        _run_cmd(["/usr/sbin/ebtables", "-A", "JSB_TAG_STATS", "-o", name])
+        _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-L", "JSB_TAG_STATS"], ignore_error=True) # Check if chain exists (already created above, but for safety)
+        _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-A", "JSB_TAG_STATS", "-i", name])
+        _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-A", "JSB_TAG_STATS", "-o", name])
         
         if iface_errors:
             errors.append(f"  {name}: " + ", ".join(iface_errors))
@@ -183,18 +183,18 @@ def stop(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
             continue
         
         # Remover del bridge
-        _run_cmd(["/usr/sbin/ip", "link", "set", name, "nomaster"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "link", "set", name, "nomaster"], ignore_error=True)
         
         # Limpiar configuración VLAN
-        _run_cmd(["/usr/sbin/bridge", "vlan", "del", "dev", name, "vid", "1-4094"], ignore_error=True)
+        _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "del", "dev", name, "vid", "1-4094"], ignore_error=True)
     
     # Limpiar jerarquía ebtables
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_ISOLATE", "-j", "JSB_TAG_ISOLATE"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_TAG_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_TAG_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_TAG_STATS"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-F", "JSB_TAG_ISOLATE"], ignore_error=True)
-    _run_cmd(["/usr/sbin/ebtables", "-X", "JSB_TAG_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_GLOBAL_EBT_ISOLATE", "-j", "JSB_TAG_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_GLOBAL_EBT_STATS", "-j", "JSB_TAG_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-F", "JSB_TAG_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-X", "JSB_TAG_STATS"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-F", "JSB_TAG_ISOLATE"], ignore_error=True)
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-X", "JSB_TAG_ISOLATE"], ignore_error=True)
     
     _update_status(0)
     return True, "Tagging detenido"
@@ -221,7 +221,7 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     if br0_exists:
         try:
             result = subprocess.run(
-                ["sudo", "/usr/sbin/ip", "a", "show", "br0"],
+                ["sudo", f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", "br0"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -254,7 +254,7 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
             # Verificar si la interfaz existe y está UP
             try:
                 result = subprocess.run(
-                    ["sudo", "/usr/sbin/ip", "a", "show", name],
+                    ["sudo", f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", name],
                     capture_output=True,
                     text=True,
                     check=True,
@@ -280,7 +280,7 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     
     try:
         result = subprocess.run(
-            ["sudo", "/usr/sbin/bridge", "vlan", "show"],
+            ["sudo", f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "show"],
             capture_output=True,
             text=True,
             check=True,
@@ -521,10 +521,10 @@ def isolate(params: Dict[str, Any]) -> Tuple[bool, str]:
     if not iface: return False, "Falta parámetro 'iface'"
     
     # Bloquear en la sub-cadena dedicada JSB_TAG_ISOLATE (L2)
-    cmd = ["/usr/sbin/ebtables", "-A", "JSB_TAG_ISOLATE", "-i", iface, "-j", "DROP"]
+    cmd = [f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-A", "JSB_TAG_ISOLATE", "-i", iface, "-j", "DROP"]
     success, msg = _run_cmd(cmd)
     if not success: return False, f"Error aislando puerto {iface}: {msg}"
-    _run_cmd(["/usr/sbin/ebtables", "-A", "JSB_TAG_ISOLATE", "-o", iface, "-j", "DROP"])
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-A", "JSB_TAG_ISOLATE", "-o", iface, "-j", "DROP"])
     return True, f"Puerto físico {iface} aislado (L2 Search & Destroy)"
 
 
@@ -532,8 +532,8 @@ def unisolate(params: Dict[str, Any]) -> Tuple[bool, str]:
     iface = params.get("iface")
     if not iface: return False, "Falta parámetro 'iface'"
     
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_TAG_ISOLATE", "-i", iface, "-j", "DROP"])
-    _run_cmd(["/usr/sbin/ebtables", "-D", "JSB_TAG_ISOLATE", "-o", iface, "-j", "DROP"])
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_TAG_ISOLATE", "-i", iface, "-j", "DROP"])
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-D", "JSB_TAG_ISOLATE", "-o", iface, "-j", "DROP"])
     return True, f"Puerto físico {iface} ya no está aislado"
 
 
@@ -544,16 +544,16 @@ def traffic_log(params: Dict[str, Any]) -> Tuple[bool, str]:
     
     action = "-I" if status_val == "on" else "-D"
     # En ebtables (nf_tables), el log puede ser un watcher. Usamos sintaxis simplificada.
-    cmd = ["/usr/sbin/ebtables", action, "JSB_TAG_STATS", "1", "-i", iface, "--log-prefix", "[JSB-TAG-OUT] ", "-j", "CONTINUE"]
+    cmd = [f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", action, "JSB_TAG_STATS", "1", "-i", iface, "--log-prefix", "[JSB-TAG-OUT] ", "-j", "CONTINUE"]
     success, msg = _run_cmd(cmd)
     if status_val == "on" and not success: return False, f"Error activando log en {iface}: {msg}"
     
-    _run_cmd(["/usr/sbin/ebtables", action, "JSB_TAG_STATS", "1", "-o", iface, "--log-prefix", "[JSB-TAG-OUT] ", "-j", "CONTINUE"])
+    _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", action, "JSB_TAG_STATS", "1", "-o", iface, "--log-prefix", "[JSB-TAG-OUT] ", "-j", "CONTINUE"])
     return True, f"Log de tráfico en puerto {iface}: {status_val}"
 
 
 def top(params: Dict[str, Any] = None) -> Tuple[bool, str]:
-    success, output = _run_cmd(["/usr/sbin/ebtables", "-L", "JSB_TAG_STATS", "--Lc"])
+    success, output = _run_cmd([f"{__import__('shutil').which('ebtables') or '/usr/sbin/ebtables'}", "-L", "JSB_TAG_STATS", "--Lc"])
     if not success: return False, f"Error obteniendo estadísticas L2: {output}"
     
     res = "Consumo de Tráfico por Puerto Físico (L2 Stats):\n"
@@ -631,7 +631,7 @@ def _parse_bridge_vlan_output(output: str) -> Dict[str, Dict[str, set]]:
 def _interface_in_bridge(interface: str) -> bool:
     try:
         result = subprocess.run(
-            ["/usr/sbin/ip", "a", "show", interface],
+            [f"{__import__('shutil').which('ip') or '/usr/sbin/ip'}", "a", "show", interface],
             capture_output=True,
             text=True,
             check=True,
@@ -646,7 +646,7 @@ def _tagging_already_started(interfaces: list) -> bool:
     if not interfaces:
         return False
 
-    success, output = _run_cmd(["/usr/sbin/bridge", "vlan", "show"])
+    success, output = _run_cmd([f"{__import__('shutil').which('bridge') or '/usr/sbin/bridge'}", "vlan", "show"])
     if not success:
         return False
 
