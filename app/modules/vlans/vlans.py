@@ -91,6 +91,8 @@ def start(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
             _run_cmd(["/usr/sbin/ip", "link", "add", "link", "br0", "name", iface_name, "type", "vlan", "id", vlan_id], ignore_error=True)
         
         _run_cmd(["/usr/sbin/ip", "link", "set", iface_name, "up"])
+        # Limpiar IPs antiguas para asegurar que solo la configurada esté presente
+        _run_cmd(["/usr/sbin/ip", "addr", "flush", "dev", iface_name], ignore_error=True)
         
         if vlan_ip_interface:
             _run_cmd(["/usr/sbin/ip", "addr", "add", vlan_ip_interface, "dev", iface_name], ignore_error=True)

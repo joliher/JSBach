@@ -92,8 +92,8 @@ async def verify_dhcp_assignment(iface: str, config_file: str, max_wait: int = 3
             saved = save_json_config(config_file, cfg)
             if not saved:
                 # Registrar el fallo y salir (no lanzar excepción)
-                ioh.log_action("wan", f"dhcp - WARNING: No se pudo guardar estado DHCP en {config_file}", "WARNING")
-            ioh.log_action("wan", f"dhcp - SUCCESS: IP obtenida en {iface}")
+                ioh.ioh.log_action("wan", f"dhcp - WARNING: No se pudo guardar estado DHCP en {config_file}", "WARNING")
+            ioh.ioh.log_action("wan", f"dhcp - SUCCESS: IP obtenida en {iface}")
             return  # IP asignada correctamente con todas las validaciones, terminar
 
     # Timeout alcanzado sin completar DHCP
@@ -102,5 +102,5 @@ async def verify_dhcp_assignment(iface: str, config_file: str, max_wait: int = 3
     cfg["dhcp_error"] = f"Timeout DHCP en {iface}"
     saved = save_json_config(config_file, cfg)
     if not saved:
-        log_action("wan", f"dhcp - WARNING: No se pudo guardar dhcp_error en {config_file}", "WARNING")
-    log_action("wan", f"dhcp - ERROR: Timeout DHCP en {iface}", "ERROR")
+        ioh.log_action("wan", f"dhcp - WARNING: No se pudo guardar dhcp_error en {config_file}", "WARNING")
+    ioh.log_action("wan", f"dhcp - ERROR: Timeout DHCP en {iface}", "ERROR")

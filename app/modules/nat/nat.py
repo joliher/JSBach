@@ -34,8 +34,9 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     if not config:
         return False, "Configuración NAT no encontrada"
 
-    if mh.get_module_status_by_name(BASE_DIR, "wan") != 1:
-        return False, "El módulo WAN debe estar activo para iniciar NAT"
+    wan_cfg = mh.load_module_config(BASE_DIR, "wan", {});
+    if not wan_cfg.get("interface"):
+        return False, "El módulo WAN debe estar configurado para iniciar NAT"
 
     interfaz = config.get("interface")
     if not interfaz:

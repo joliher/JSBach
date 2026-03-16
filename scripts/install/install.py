@@ -188,7 +188,7 @@ def install_dependencies():
     # - netcat-openbsd: conexión por red (nc)
     commands = [
         "apt update -qq",
-        "apt install -y python3 python3-pip python3-venv iptables iproute2 ebtables expect netcat-openbsd hostapd iw conntrack -qq"
+        "apt install -y python3 python3-pip python3-venv iptables iproute2 ebtables expect netcat-openbsd hostapd iw conntrack dnsmasq dhcpcd procps -qq"
     ]
     for c in commands:
         cmd(c)
@@ -532,6 +532,48 @@ if __name__ == "__main__":
     create_systemd_service(target_path, venv_path, port)
     create_cli_systemd_service(target_path, venv_path)
 
+    # --- CONFIGURACIÓN BASE INICIAL ---
+    print()
+    info("Configuración Base Inicial")
+    default_iface = "eth0"
+    try:
+        import subprocess
+        res = subprocess.run("ip -o link show | awk -F': ' '{print $2}'", shell=True, capture_output=True, text=True)
+        ifaces = [i for i in res.stdout.split() if i not in ("lo", "br0") and not i.startswith("br0.")]
+        if ifaces:
+            default_iface = ifaces[0]
+    except:
+        pass
+        
+    physical_iface = ask("Interfaz física para gestión (VLAN 1 Untagged)", default_iface)
+    
+    # Generar archivos de config base
+    config_dirs = [
+        os.path.join(target_path, "config", "vlans"),
+        os.path.join(target_path, "config", "tagging"),
+        os.path.join(target_path, "config", "dhcp"),
+        os.path.join(target_path, "config", "wifi"),
+        os.path.join(target_path, "config", "nat"),
+        os.path.join(target_path, "config", "dmz"),
+        os.path.join(target_path, "logs", "dhcp"),
+        os.path.join(target_path, "logs", "wifi"),
+        os.path.join(target_path, "logs", "wan")
+    ]
+    for d in config_dirs:
+        os.makedirs(d, exist_ok=True)
+    
+    vlans_cfg_dir = os.path.join(target_path, "config", "vlans")
+    tagging_cfg_dir = os.path.join(target_path, "config", "tagging")
+    
+    with open(os.path.join(vlans_cfg_dir, "vlans.json"), "w") as f:
+        import json
+        json.dump({"status": 1, "vlans": [{"id": 1, "name": "Management", "ip_interface": "192.168.1.1/24", "dhcp_enabled": True}]}, f, indent=4)
+        
+    with open(os.path.join(tagging_cfg_dir, "tagging.json"), "w") as f:
+        json.dump({"status": 1, "ports": {physical_iface: {"pvid": 1, "untagged": [1], "tagged": []}}}, f, indent=4)
+        
+    success(f"Configuración base creada: VLAN 1 Untagged en {physical_iface} (192.168.1.1/24)")
+
     # Definir los comandos permitidos en sudoers
     # Lista quirúrgica extraída del análisis del código fuente. Se permiten
     # banderas específicas (-A, -D, -F, etc.) pero se prohíbe la manipulación
@@ -558,10 +600,12 @@ if __name__ == "__main__":
         "/usr/sbin/ebtables -X *",
         "/usr/sbin/ebtables -t broute *",
         "/usr/sbin/ebtables -t nat *",
+        "/usr/sbin/ebtables -t filter *",
         
         # --- NETWORK & IP ---
         "/usr/sbin/ip a *",
         "/usr/sbin/ip addr *",
+        "/usr/sbin/ip addr flush *",
         "/usr/sbin/ip l *",
         "/usr/sbin/ip link *",
         "/usr/sbin/ip r *",
@@ -580,7 +624,8 @@ if __name__ == "__main__":
         "/usr/sbin/dhcpcd -k *",
         "/usr/sbin/dhcpcd -n *",
         "/usr/sbin/dhcpcd -x *",
-        "/usr/sbin/dnsmasq -C *",
+        "/usr/sbin/dnsmasq * --log-facility=*",
+        "/usr/sbin/dnsmasq --conf-file=*",
         "/usr/bin/resolvectl dns *",
         "/usr/bin/resolvectl revert *",
         
@@ -588,11 +633,15 @@ if __name__ == "__main__":
         "/usr/sbin/hostapd -B *",
         "/usr/sbin/hostapd_cli -i *",
         
-        # --- SYSTEM ---
+        # --- SYSTEM & SERVICES ---
         "/usr/sbin/sysctl -n *",
         "/usr/sbin/sysctl -w net.ipv4.ip_forward=*",
         "/usr/bin/ping -c *",
         "/usr/bin/stdbuf -oL *",
+        "/usr/bin/pkill -F /opt/JSBach/config/dhcp/dnsmasq.pid",
+        "/usr/bin/pkill -9 -F /opt/JSBach/config/dhcp/dnsmasq.pid",
+        "/usr/bin/pkill -F /opt/JSBach/config/wifi/hostapd.pid",
+        "/usr/bin/pkill -9 -F /opt/JSBach/config/wifi/hostapd.pid",
         
         # --- EXPECT (Strictly confined to modules) ---
         "/usr/bin/expect /opt/JSBach/app/modules/expect/scripts/*"
