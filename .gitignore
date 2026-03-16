@@ -1,85 +1,90 @@
-# Byte-compiled / optimized / DLL files
+# =============================================================================
+# Python
+# =============================================================================
 __pycache__/
-app/cli/__pycache__/
-app/core/__pycache__/
-app/models/__pycache__/
-app/schemas/__pycache__/
-app/services/__pycache__/
-app/utils/__pycache__/
-app/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 
 # Distribution / packaging
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
+.installed.cfg
 
-# PyInstaller
-*.manifest
-*.spec
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
+# Test / coverage
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
+htmlcov/
 nosetests.xml
 coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
 
-# Environments
+# =============================================================================
+# Entornos virtuales
+# =============================================================================
 .env
 .venv
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
 
-# IDEs
+# =============================================================================
+# IDEs y OS
+# =============================================================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Logs
+# =============================================================================
+# Logs del sistema (generados en runtime)
+# =============================================================================
 *.log
-logs/
 *.log.*
+logs/
 
-# Config files
-# Mantener archivos de configuración por defecto en el repo, pero ignorar secretos
-# Ignorar solo archivos de secretos o overrides locales
-config/secrets.env
-config/*.local
+# =============================================================================
+# Archivos de runtime de JSBach (generados dinámicamente, específicos por dispositivo)
+# =============================================================================
+
+# Trazas de ejecución/debug
+last_sync_commands.txt
+scenarios_*.txt
+
+# PID files (runtime)
+*.pid
+jsbach.pid
+
+# Scripts de prueba manuales / legacy (no son parte del sistema productivo)
+app/modules/expect/scripts/master_cli_test.exp
+app/modules/expect/scripts/wan.expect
+*.expect
+
+# =============================================================================
+# Configuración por dispositivo (generada en instalación/runtime)
+# No se clona: el instalador la genera a medida.
+# =============================================================================
+
+# Ignorar config por completo...
 config/
-!config/expect/profiles/
 
+# ...excepto los perfiles de hardware (son plantillas de código, no datos de dispositivo)
+# NOTA: Para que funcione el untrack de un subdirectorio ignorado,
+# los perfiles deben ser rastreados explícitamente:
+!config/
+!config/expect/
+!config/expect/profiles/
+!config/expect/profiles/*.json
+
+# =============================================================================
 # Archivos temporales
+# =============================================================================
 *.tmp
 *.bak
 *.backup
-config/secrets.env

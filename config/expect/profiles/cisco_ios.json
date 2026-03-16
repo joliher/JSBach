@@ -1,0 +1,61 @@
+{
+  "name": "Cisco IOS Standard",
+  "auth_type": "telnet",
+  "max_ports": 24,
+  "prompts": {
+    "login": "User:",
+    "password": "Password:",
+    "exec": ">",
+    "exec_priv": "#",
+    "config": "(config)#",
+    "interface": "(config-if)#"
+  },
+  "port_prefix": "ethernet ",
+  "reset_cmd": "default interface ethernet {port}",
+  "mac_table_cmd": "show mac address-table",
+  "mac_security_cmds": {
+    "layers": [
+      {
+        "id": "blacklist",
+        "name": "Blacklist (Global)",
+        "scope": "interface",
+        "target": "ports",
+        "primary_id": "100",
+        "shadow_id": "101",
+        "create_cmd": "mac access-list extended JSBACH_BLACKLIST_{acl_id}",
+        "apply_cmd": "interface {target}\n mac access-group JSBACH_BLACKLIST_{acl_id} in",
+        "remove_apply_cmd": "interface {target}\n no mac access-group JSBACH_BLACKLIST_{acl_id} in",
+        "rule_policy": "deny_isolated",
+        "final_rule": "permit_any"
+      }
+    ],
+    "deny_mac": "{rule_id} deny host {mac} any",
+    "permit_mac": "{rule_id} permit host {mac} any",
+    "permit_any": "2000 permit any any",
+    "deny_any": "2000 deny any any",
+    "remove_acl": "no mac access-list extended JSBACH_BLACKLIST_{acl_id}"
+  },
+  "parameters": {
+    "vlan": {
+      "cmd": "switchport access vlan {value}"
+    },
+    "mode": {
+      "cmd": "switchport mode {value}"
+    },
+    "tag": {
+      "cmd": "switchport trunk allowed vlan add {value}"
+    },
+    "untag": {
+      "cmd": "switchport trunk allowed vlan remove {value}"
+    },
+    "description": {
+      "cmd": "description {value}"
+    },
+    "hostname": {
+      "cmd": "hostname {value}"
+    },
+    "banner": {
+      "cmd": "banner motd {value}"
+    }
+  }
+}

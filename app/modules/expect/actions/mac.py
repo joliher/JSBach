@@ -52,13 +52,13 @@ async def run_mac_table(ip: str, profile: Dict[str, Any], _auth_required: bool, 
     except Exception as e:
         return False, f"Error ejecutando mac_table: {e}"
 
-async def run_mac_acl_isolate(ip: str, mac: str, _profile: Dict[str, Any], _auth_required: bool, _user: str, _password: str, _max_ports: int, _protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_mac_acl_isolate(ip: str, mac: str, _profile: Dict[str, Any], _auth_required: bool, _user: str, _password: str, _max_ports: int, protocol: Optional[str] = None) -> Tuple[bool, str]:
     # 1. Update local state ONLY
     mac_norm = normalize_mac(mac)
     state_manager.update_mac_block(ip, mac_norm, "0", "block", acl_name="JSBACH_SECURITY")
     return True, f"MAC {mac} marcada para AISLAR. Pulse SINCRONIZAR para aplicar."
 
-async def run_mac_acl_unisolate(ip: str, mac: str, _profile: Dict[str, Any], _auth_required: bool, _user: str, _password: str, _max_ports: int, _protocol: Optional[str] = None) -> Tuple[bool, str]:
+async def run_mac_acl_unisolate(ip: str, mac: str, _profile: Dict[str, Any], _auth_required: bool, _user: str, _password: str, _max_ports: int, protocol: Optional[str] = None) -> Tuple[bool, str]:
     # 1. Update local state ONLY
     mac_norm = normalize_mac(mac)
     state_manager.update_mac_block(ip, mac_norm, "", "unblock")

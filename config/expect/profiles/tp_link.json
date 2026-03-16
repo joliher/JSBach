@@ -1,0 +1,78 @@
+{
+    "name": "TP-LINK JetStream",
+    "auth_type": "telnet",
+    "max_ports": 8,
+    "range_support": true,
+    "prompts": {
+        "login": "User:",
+        "password": "Password:",
+        "exec": ">",
+        "exec_priv": "#",
+        "config": "(config)#",
+        "interface": "(config-if)#"
+    },
+    "enable_cmd": "enable",
+    "config_cmd": "configure",
+    "save_cmd": "copy running-config startup-config",
+    "mac_table_cmd": "show mac address-table",
+    "mac_acl_name_template": "{mac_id}",
+    "mac_acl_permit_rule": "9999",
+    "mac_format": "colons",
+    "mac_security_cmds": {
+        "layers": [
+            {
+                "id": "blacklist",
+                "name": "Blacklist (Global)",
+                "scope": "interface",
+                "target": "ports_excl_p1",
+                "primary_id": "100",
+                "shadow_id": "101",
+                "create_cmd": "access-list create {acl_id} name JSBACH_BLACKLIST_{acl_id}",
+                "apply_cmd": "access-list bind {acl_id} interface {target}",
+                "remove_apply_cmd": "no access-list bind {acl_id} interface {target}",
+                "rule_policy": "deny_isolated",
+                "final_rule": "permit_any"
+            },
+            {
+                "id": "whitelist",
+                "name": "Whitelist (VLAN 1)",
+                "scope": "vlan",
+                "target": "1",
+                "primary_id": "200",
+                "shadow_id": "201",
+                "create_cmd": "access-list create {acl_id} name JSBACH_WHITELIST_{acl_id}",
+                "apply_cmd": "access-list bind {acl_id} interface vlan {target}",
+                "remove_apply_cmd": "no access-list bind {acl_id} interface vlan {target}",
+                "rule_policy": "permit_whitelisted",
+                "adaptive_final": true
+            }
+        ],
+        "deny_mac": "access-list mac {acl_id} rule {rule_id} deny logging disable smac {mac} smask FF:FF:FF:FF:FF:FF",
+        "permit_mac": "access-list mac {acl_id} rule {rule_id} permit logging disable smac {mac} smask FF:FF:FF:FF:FF:FF",
+        "permit_any": "access-list mac {acl_id} rule 2000 permit logging disable",
+        "deny_any": "access-list mac {acl_id} rule 2000 deny logging disable",
+        "remove_acl": "no access-list create {acl_id}"
+    },
+    "port_prefix": "gigabitEthernet 1/0/",
+    "reset_cmd": "no switchport port-security,switchport mode access,switchport access vlan 1",
+    "parameters": {
+        "vlan": {
+            "cmd": "switchport general allowed vlan {value} untagged"
+        },
+        "mode": {
+            "cmd": "switchport mode {value}"
+        },
+        "tag": {
+            "cmd": "switchport general allowed vlan {value} tagged"
+        },
+        "untag": {
+            "cmd": "switchport general allowed vlan {value} untagged"
+        },
+        "description": {
+            "cmd": "description {value}"
+        },
+        "hostname": {
+            "cmd": "hostname {value}"
+        }
+    }
+}

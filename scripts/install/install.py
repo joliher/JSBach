@@ -2,7 +2,7 @@ def create_cli_systemd_service(target_path, venv_path):
     info("Creando servicio systemd para CLI")
     cli_path = os.path.join(target_path, "cli_server.py")
     service_content = f"""[Unit]
-Description=JSBach V4.4 CLI Service
+Description=JSBach CLI Service
 BindsTo=jsbach.service
 PartOf=jsbach.service
 After=jsbach.service
@@ -11,6 +11,7 @@ After=jsbach.service
 Type=simple
 User=jsbach
 Group=jsbach
+UMask=0027
 WorkingDirectory={target_path}
 Environment=\"PATH={venv_path}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"
 ExecStart={venv_path}/bin/python3 {cli_path}
@@ -85,10 +86,10 @@ def create_logs_directory(target_path):
         info(f"Creando directorio de logs en {log_dir}")
         os.makedirs(log_dir)
 
-    # Cambiar permisos a jsbach:jsbach con 755
-    info(f"Cambiando permisos de {log_dir} a 755 y propietario a jsbach:jsbach")
+    # 750: jsbach rw+x, grupo r-x, otros sin acceso
+    info(f"Cambiando permisos de {log_dir} a 750 y propietario a jsbach:jsbach")
     subprocess.run(f"chown jsbach:jsbach {log_dir}", shell=True)
-    subprocess.run(f"chmod 755 {log_dir}", shell=True)
+    subprocess.run(f"chmod 750 {log_dir}", shell=True)
     success(f"Directorio de logs creado y permisos establecidos en {log_dir}")
 
 ############
@@ -100,10 +101,10 @@ def create_config_directory(target_path):
         info(f"Creando directorio de config en {config_dir}")
         os.makedirs(config_dir)
 
-    # Cambiar permisos a jsbach:jsbach con 755
-    info(f"Cambiando permisos de {config_dir} a 755 y propietario a jsbach:jsbach")
+    # 700: acceso exclusivo para jsbach, otros sin acceso
+    info(f"Cambiando permisos de {config_dir} a 700 y propietario a jsbach:jsbach")
     subprocess.run(f"chown jsbach:jsbach {config_dir}", shell=True)
-    subprocess.run(f"chmod 755 {config_dir}", shell=True)
+    subprocess.run(f"chmod 700 {config_dir}", shell=True)
     success(f"Directorio de config creado y permisos establecidos en {config_dir}")
 
     # Copiar perfiles de Expect si existen
@@ -270,96 +271,94 @@ def create_venv(target_path):
 #   Servicio systemd
 ###############
 def set_directory_permissions(target_path):
-    """Establecer permisos adecuados para directorios y archivos del proyecto."""
-    info("Configurando permisos de directorios y archivos")
-    
-    # Cambiar owner de todo el proyecto a jsbach:jsbach
+    """Establecer permisos con mínimos privilegios. Otros (o=0) en todo el proyecto."""
+    info("Configurando permisos de directorios y archivos (principio de mínimo privilegio)")
+
+    # --- 1. Propietario: jsbach:jsbach en todo el árbol ---
     subprocess.run(f"chown -R jsbach:jsbach {target_path}", shell=True)
-    
-    # Config: Muy restrictivo (700) - Solo jsbach puede acceder
-    config_dir = os.path.join(target_path, "config")
-    if os.path.exists(config_dir):
-        info(f"  Config: 700 (rwx------) - Acceso exclusivo para jsbach")
-        subprocess.run(f"chmod -R 700 {config_dir}", shell=True)
-        # Archivos .json en config: 600 (rw-------)
-        subprocess.run(f"find {config_dir} -type f -exec chmod 600 {{}} \\;", shell=True)
-    
-    # Modules: solo lectura y ejecución para jsbach (r-x)
-    modules_dir = os.path.join(target_path, "app", "modules")
-    if os.path.exists(modules_dir):
-        info(f"  Modules: 550 (r-xr-x---)")
-        subprocess.run(f"chmod 550 {modules_dir}", shell=True)
-        # Archivos .py en modules: 440 (r--r-----)
-        subprocess.run(f"find {modules_dir} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
-        
-        # Scripts de Expect: Necesitan ser rwx para jsbach (700)
-        expect_scripts = os.path.join(modules_dir, "expect", "scripts")
-        if os.path.exists(expect_scripts):
-            info(f"  Expect Scripts: 700 (rwx------)")
-            subprocess.run(f"chmod 700 {expect_scripts}", shell=True)
-            subprocess.run(f"chmod 600 {expect_scripts}/*", shell=True)
-    
-    # App (otros directorios): lectura/ejecución
+
+    # --- 2. Directorio raíz del proyecto ---
+    # 750: jsbach entra, grupo puede listar, otros nada
+    subprocess.run(f"chmod 750 {target_path}", shell=True)
+
+    # --- 3. app/ y subdirectorios Python ---
     app_dir = os.path.join(target_path, "app")
     if os.path.exists(app_dir):
-        info(f"  App: 550 (r-xr-x---) para directorios")
-        for subdir in ["api", "cli", "utils"]:
-            subdir_path = os.path.join(app_dir, subdir)
-            if os.path.exists(subdir_path):
-                subprocess.run(f"chmod 550 {subdir_path}", shell=True)
-                subprocess.run(f"find {subdir_path} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
-                
-                # Crypto Helper: Reforzar permisos si existe
-                crypto_helper = os.path.join(subdir_path, "crypto_helper.py")
-                if os.path.exists(crypto_helper):
-                    subprocess.run(f"chmod 440 {crypto_helper}", shell=True)
-    
-    # Logs: jsbach escribe (740) - otros solo lectura (si tienen acceso al grupo)
-    logs_dir = os.path.join(target_path, "logs")
-    if os.path.exists(logs_dir):
-        info(f"  Logs: 740 (rwxr-----) - Solo lectura para el grupo")
-        subprocess.run(f"chmod -R 740 {logs_dir}", shell=True)
-        # Los archivos de log individuales: 640 (rw-r-----)
-        subprocess.run(f"find {logs_dir} -type f -exec chmod 640 {{}} \\;", shell=True)
-    
-    # Web: solo lectura
+        # Directorios: 550 (r-xr-x---)
+        subprocess.run(f"find {app_dir} -type d -exec chmod 550 {{}} \\;", shell=True)
+        # Archivos .py: 440 (r--r-----) — solo lectura, jsbach no necesita escribirlos
+        subprocess.run(f"find {app_dir} -type f -name '*.py' -exec chmod 440 {{}} \\;", shell=True)
+        # Archivos .md de ayuda CLI: solo lectura
+        subprocess.run(f"find {app_dir} -type f -name '*.md' -exec chmod 440 {{}} \\;", shell=True)
+
+        # Scripts Expect: jsbach necesita leerlos para pasarlos a /usr/bin/expect
+        # 500 directorio (r-x------), 400 archivos (r--------)
+        expect_scripts = os.path.join(app_dir, "modules", "expect", "scripts")
+        if os.path.exists(expect_scripts):
+            info(f"  Expect scripts: 500/400 (solo jsbach puede leer/ejecutar)")
+            subprocess.run(f"chmod 500 {expect_scripts}", shell=True)
+            subprocess.run(f"find {expect_scripts} -type f -exec chmod 400 {{}} \\;", shell=True)
+
+    # --- 4. web/ --- solo lectura para jsbach (FastAPI sirve estáticos)
     web_dir = os.path.join(target_path, "web")
     if os.path.exists(web_dir):
-        info(f"  Web: 550 (r-xr-x---) - solo lectura")
-        subprocess.run(f"chmod -R 550 {web_dir}", shell=True)
+        info(f"  Web: 550/440 — solo lectura")
+        subprocess.run(f"find {web_dir} -type d -exec chmod 550 {{}} \\;", shell=True)
         subprocess.run(f"find {web_dir} -type f -exec chmod 440 {{}} \\;", shell=True)
-    
-    # Main.py: solo lectura/ejecución
-    main_py = os.path.join(target_path, "main.py")
-    if os.path.exists(main_py):
-        info(f"  main.py: 550 (r-xr-x---)")
-        subprocess.run(f"chmod 550 {main_py}", shell=True)
 
-    # cli_server.py: solo lectura/ejecución
-    cli_server_py = os.path.join(target_path, "cli_server.py")
-    if os.path.exists(cli_server_py):
-        info(f"  cli_server.py: 550 (r-xr-x---)")
-        subprocess.run(f"chmod 550 {cli_server_py}", shell=True)
+    # --- 5. config/ --- acceso exclusivo jsbach (rw sin grupo)
+    config_dir = os.path.join(target_path, "config")
+    if os.path.exists(config_dir):
+        info(f"  Config: 700/600 — acceso exclusivo jsbach")
+        subprocess.run(f"find {config_dir} -type d -exec chmod 700 {{}} \\;", shell=True)
+        subprocess.run(f"find {config_dir} -type f -exec chmod 600 {{}} \\;", shell=True)
 
-    # Scripts dir: solo lectura
+    # --- 6. logs/ --- jsbach escribe; grupo solo lectura; otros nada
+    logs_dir = os.path.join(target_path, "logs")
+    if os.path.exists(logs_dir):
+        info(f"  Logs: 750/640 — jsbach escribe, grupo lee")
+        subprocess.run(f"chmod 750 {logs_dir}", shell=True)
+        subprocess.run(f"find {logs_dir} -type f -exec chmod 640 {{}} \\;", shell=True)
+
+    # --- 7. scripts/ --- solo lectura (instalador/tests)
     scripts_dir = os.path.join(target_path, "scripts")
     if os.path.exists(scripts_dir):
-        info(f"  Scripts: 550 (r-xr-x---) - solo lectura")
-        subprocess.run(f"chmod -R 550 {scripts_dir}", shell=True)
+        info(f"  Scripts: 550/440 — solo lectura")
+        subprocess.run(f"find {scripts_dir} -type d -exec chmod 550 {{}} \\;", shell=True)
         subprocess.run(f"find {scripts_dir} -type f -exec chmod 440 {{}} \\;", shell=True)
-    
-    success("Permisos configurados correctamente")
+
+    # --- 8. Archivos raíz ejecutables ---
+    for f in ["main.py", "cli_server.py"]:
+        fp = os.path.join(target_path, f)
+        if os.path.exists(fp):
+            subprocess.run(f"chmod 550 {fp}", shell=True)
+
+    # --- 9. venv/ --- jsbach necesita ejecutar binarios, grupo puede leer ---
+    venv_dir = os.path.join(target_path, "venv")
+    if os.path.exists(venv_dir):
+        info(f"  Venv: 750/640+550 — jsbach ejecuta, grupo lee")
+        subprocess.run(f"find {venv_dir} -type d -exec chmod 750 {{}} \\;", shell=True)
+        subprocess.run(f"find {venv_dir} -type f -exec chmod 640 {{}} \\;", shell=True)
+        # Binarios del venv necesitan ser ejecutables
+        subprocess.run(f"find {venv_dir}/bin -type f -exec chmod 750 {{}} \\;", shell=True)
+
+    # --- 10. BARRIDO FINAL: garantizar o=0 en absolutamente todo ---
+    info("  Barrido final: eliminando cualquier permiso residual para 'otros'...")
+    subprocess.run(f"chmod -R o-rwx {target_path}", shell=True)
+
+    success("Permisos configurados correctamente (o=0 garantizado en todo el proyecto)")
 
 def create_systemd_service(target_path, venv_path, port):
     info("Creando servicio systemd")
     service_content = f"""[Unit]
-Description=JSBach V4.4 Web Service
+Description=JSBach Web Service
 After=network.target
 
 [Service]
 Type=simple
 User=jsbach
 Group=jsbach
+UMask=0027
 WorkingDirectory={target_path}
 Environment="PATH={venv_path}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart={venv_path}/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port {port}
@@ -487,10 +486,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ensure_root()
-    info("Instalador JSBach V4.4")
+    info("Instalador JSBach")
 
     # Preguntar ruta de instalación
-    target_path = ask("Ruta de instalación del proyecto", "/opt/JSBach_V4.4")
+    target_path = ask("Ruta de instalación del proyecto", "/opt/JSBach")
     target_path = target_path.rstrip("/")
 
     if target_path == "/":
@@ -534,25 +533,69 @@ if __name__ == "__main__":
     create_cli_systemd_service(target_path, venv_path)
 
     # Definir los comandos permitidos en sudoers
-    # Lista restringida de comandos que JSBach podrá ejecutar vía sudo sin contraseña.
-    # Se prefieren subcomandos concretos en lugar de patrones demasiado amplios.
+    # Lista quirúrgica extraída del análisis del código fuente. Se permiten
+    # banderas específicas (-A, -D, -F, etc.) pero se prohíbe la manipulación
+    # arbitraria del binario.
     allowed_commands = [
-        "/usr/sbin/ip link *",
+        # --- IPTABLES ---
+        "/usr/sbin/iptables -A *",
+        "/usr/sbin/iptables -C *",
+        "/usr/sbin/iptables -D *",
+        "/usr/sbin/iptables -F *",
+        "/usr/sbin/iptables -I *",
+        "/usr/sbin/iptables -L *",
+        "/usr/sbin/iptables -N *",
+        "/usr/sbin/iptables -X *",
+        "/usr/sbin/iptables -t nat *",
+        "/usr/sbin/iptables -t mangle *",
+        
+        # --- EBTABLES ---
+        "/usr/sbin/ebtables -A *",
+        "/usr/sbin/ebtables -D *",
+        "/usr/sbin/ebtables -F *",
+        "/usr/sbin/ebtables -L *",
+        "/usr/sbin/ebtables -N *",
+        "/usr/sbin/ebtables -X *",
+        "/usr/sbin/ebtables -t broute *",
+        "/usr/sbin/ebtables -t nat *",
+        
+        # --- NETWORK & IP ---
+        "/usr/sbin/ip a *",
         "/usr/sbin/ip addr *",
+        "/usr/sbin/ip l *",
+        "/usr/sbin/ip link *",
+        "/usr/sbin/ip r *",
         "/usr/sbin/ip route *",
-        "/usr/sbin/dhcpcd *",
-        "/usr/bin/resolvectl *",
-        "/usr/sbin/iptables *",
-        "/usr/sbin/bridge *",
-        "/usr/sbin/ebtables *",
-        "/usr/bin/expect *",
-        "/usr/sbin/dnsmasq *",
-        "/usr/sbin/hostapd *",
-        "/usr/sbin/hostapd_cli *",
-        "/usr/sbin/conntrack *",
-        "/usr/sbin/sysctl -w net.ipv4.ip_forward=1",
-        "/usr/sbin/sysctl -w net.ipv4.ip_forward=0",
-        "/usr/sbin/sysctl -n net.ipv4.ip_forward"
+        "/usr/sbin/ip -4 *",
+        "/usr/sbin/bridge vlan *",
+        "/usr/sbin/bridge fdb *",
+        
+        # --- CONNTRACK ---
+        "/usr/sbin/conntrack -D *",
+        "/usr/sbin/conntrack -F",
+        "/usr/sbin/conntrack -L *",
+        
+        # --- DHCP & DNS ---
+        "/usr/sbin/dhcpcd -b *",
+        "/usr/sbin/dhcpcd -k *",
+        "/usr/sbin/dhcpcd -n *",
+        "/usr/sbin/dhcpcd -x *",
+        "/usr/sbin/dnsmasq -C *",
+        "/usr/bin/resolvectl dns *",
+        "/usr/bin/resolvectl revert *",
+        
+        # --- WIFI ---
+        "/usr/sbin/hostapd -B *",
+        "/usr/sbin/hostapd_cli -i *",
+        
+        # --- SYSTEM ---
+        "/usr/sbin/sysctl -n *",
+        "/usr/sbin/sysctl -w net.ipv4.ip_forward=*",
+        "/usr/bin/ping -c *",
+        "/usr/bin/stdbuf -oL *",
+        
+        # --- EXPECT (Strictly confined to modules) ---
+        "/usr/bin/expect /opt/JSBach/app/modules/expect/scripts/*"
     ]
 
     # Añadir sudoers
@@ -571,7 +614,7 @@ if __name__ == "__main__":
         info(f"Puede iniciar sesión con usuario '{username}' y contraseña vacía")
     
     print()
-    info("Para administrar el servicio JSBach V4.3, usa los siguientes comandos:")
+    info("Para administrar el servicio JSBach, usa los siguientes comandos:")
     print("  systemctl status jsbach      # Ver estado del servicio")
     print("  systemctl restart jsbach     # Reiniciar el servicio")
     print("  systemctl stop jsbach        # Detener el servicio")

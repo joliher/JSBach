@@ -224,11 +224,11 @@ if __name__ == "__main__":
     
     print(f"{RED}")
     print("=" * 60)
-    print("   DESINSTALADOR JSBach V4.4")
+    print("   DESINSTALADOR JSBach")
     print("=" * 60)
     print(f"{RESET}")
     
-    warn("Este script eliminará JSBach V4.4 del sistema")
+    warn("Este script eliminará JSBach del sistema")
     warn("Se eliminarán: servicio, archivos, configuraciones y logs")
     
     if ask_yes_no("¿Deseas continuar con la desinstalación?", "n") == "n":
