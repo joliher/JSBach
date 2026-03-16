@@ -653,7 +653,14 @@ if __name__ == "__main__":
         f"{__import__('shutil').which('pkill') or '/usr/bin/pkill'} /opt/JSBach/config/wifi/hostapd.pid",
         
         # --- EXPECT (Strictly confined to modules) ---
-        "/usr/bin/expect /opt/JSBach/app/modules/expect/scripts/*"
+        "/usr/bin/expect /opt/JSBach/app/modules/expect/scripts/*",
+        
+        # --- I/O CONTINGENCY FALLBACK (JSBach Config Only) ---
+        f"{__import__('shutil').which('chown') or '/usr/bin/chown'} jsbach:jsbach /opt/JSBach/config/*",
+        f"{__import__('shutil').which('chown') or '/usr/bin/chown'} jsbach:jsbach /opt/JSBach/config/*/*",
+        f"{__import__('shutil').which('mkdir') or '/usr/bin/mkdir'} -p /opt/JSBach/config/*",
+        f"{__import__('shutil').which('cp') or '/usr/bin/cp'} /tmp/* /opt/JSBach/config/*",
+        f"{__import__('shutil').which('cp') or '/usr/bin/cp'} /tmp/* /opt/JSBach/config/*/*"
     ]
 
     # Añadir sudoers
