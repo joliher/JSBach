@@ -1,5 +1,5 @@
 """
-Módulo de sanitización para JSBach V4.4.
+Módulo de sanitización para JSBach V4.7.
 Proporciona utilidades para escapar caracteres especiales de Tcl/Expect
 y filtrar comandos CLI potencialmente peligrosos.
 """

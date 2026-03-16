@@ -1,6 +1,6 @@
 # app/utils/helpers/__init__.py
 """
-Helper modules para funcionalidades comunes en JSBach V4.0
+Helper modules para funcionalidades comunes en JSBach V4.7
 """
 
 from .module_helpers import (

@@ -55,7 +55,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 ALLOWED_MODULES = ["wan", "nat", "firewall", "vlans", "tagging", "dmz", "ebtables", "expect", "dhcp", "wifi"]
 
-# Config directory for JSBach_V4.0
+# Config directory for JSBach_V4.7
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
 

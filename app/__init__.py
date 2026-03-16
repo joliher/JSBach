@@ -1,1 +1,1 @@
-"""App package for JSBach_V4.0"""
+"""App package for JSBach_V4.7"""

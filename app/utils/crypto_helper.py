@@ -1,5 +1,5 @@
 """
-Módulo de utilidades criptográficas para JSBach V4.4.
+Módulo de utilidades criptográficas para JSBach V4.7.
 Proporciona:
 - Cifrado simétrico autenticado (ChaCha20-Poly1305) para secretos de switches.
 - Hashing de contraseñas (Argon2) para usuarios de la CLI/Web.

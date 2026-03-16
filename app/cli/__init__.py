@@ -1,6 +1,6 @@
 
 """
-Módulo CLI para JSBach V4.0
+Módulo CLI para JSBach V4.7
 Proporciona una interfaz de línea de comandos TCP en el puerto 2200
 """
 

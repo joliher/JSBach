@@ -604,8 +604,7 @@ if __name__ == "__main__":
     # Crear archivo de autenticación
     create_auth_file(target_path, username, password)
 
-    success(f"Instalación completada. Accede a la web en http://localhost:{port}/")
-    success(f"Instalación completada. Accede a la web en http://<tu-ip>:{port}/\n")
+    success(f"Instalación completada. Accede a la web en http://localhost:{port}/\n")
 
     # Mostrar credenciales
     if password:

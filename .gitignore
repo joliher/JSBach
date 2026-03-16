@@ -71,15 +71,12 @@ app/modules/expect/scripts/wan.expect
 # No se clona: el instalador la genera a medida.
 # =============================================================================
 
-# Ignorar config por completo...
-config/
-
-# ...excepto los perfiles de hardware (son plantillas de código, no datos de dispositivo)
-# NOTA: Para que funcione el untrack de un subdirectorio ignorado,
-# los perfiles deben ser rastreados explícitamente:
-!config/
+# Ignorar todo el contenido de config excepto los perfiles
+config/*
 !config/expect/
+config/expect/*
 !config/expect/profiles/
+config/expect/profiles/*
 !config/expect/profiles/*.json
 
 # =============================================================================

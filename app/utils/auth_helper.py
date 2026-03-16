@@ -1,5 +1,5 @@
 """
-Funciones auxiliares de autenticación para JSBach V4.0
+Funciones auxiliares de autenticación para JSBach V4.7
 Usadas tanto por el login web como por la autenticación de la CLI
 """
 

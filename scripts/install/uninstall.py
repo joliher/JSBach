@@ -250,9 +250,9 @@ if __name__ == "__main__":
     remove_sudoers()
     
     # 5. Eliminar directorio del proyecto
-    target_path = input(f"{BLUE}[INFO]{RESET} Ruta del proyecto instalado [/opt/JSBach_V4.3]: ").strip()
+    target_path = input(f"{BLUE}[INFO]{RESET} Ruta del proyecto instalado [/opt/JSBach]: ").strip()
     if not target_path:
-        target_path = "/opt/JSBach_V4.3"
+        target_path = "/opt/JSBach"
     
     removed = remove_project_directory(target_path)
     

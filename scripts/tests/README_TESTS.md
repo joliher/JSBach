@@ -1,4 +1,4 @@
-# JSBach V4.2 — Test Suite
+# JSBach V4.7 — Test Suite
 
 ## Estructura
 
@@ -22,7 +22,7 @@ Llama directamente a las funciones Python de cada módulo (sin CLI).
 Verifica el ciclo completo: setup → start → isolate → restrict → stop → cleanup.
 
 ```bash
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/integration_general.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/integration_general.py
 ```
 
 ### `integration_cli.py` — Orquestación CLI Hardened (2 tests)
@@ -33,7 +33,7 @@ a través de la CLI interactiva (puerto 2200). Incluye:
 - Teardown sincronizado con verificación de limpieza
 
 ```bash
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/integration_cli.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/integration_cli.py
 ```
 
 ## Tests Unitarios por Módulo
@@ -42,12 +42,12 @@ Cada test verifica el ciclo de vida del módulo individual (config → start →
 Requieren `sudo` y se ejecutan sobre interfaces dummy.
 
 ```bash
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/wan_test.py
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/vlans_test.py
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/tagging_test.py
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/firewall_test.py
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/nat_test.py
-sudo /opt/JSBach_V4.2/venv/bin/python3 scripts/tests/wifi_test.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/wan_test.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/vlans_test.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/tagging_test.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/firewall_test.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/nat_test.py
+sudo /opt/JSBach/venv/bin/python3 scripts/tests/wifi_test.py
 ```
 
 ## Requisitos

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 =============================================================================
-JSBach V4.2 - Master CLI Integration Test (Hybrid: Python + Expect)
+JSBach V4.7 - Master CLI Integration Test (Hybrid: Python + Expect)
 =============================================================================
 Objetivo:
   Replicar los mismos tests de scripts_general.py pero orquestando TODOS los
@@ -28,7 +28,7 @@ Arquitectura:
      - Valida que cada operación devuelve ÉXITO
 
 Uso:
-  sudo /opt/JSBach_V4.2/venv/bin/python3 scripts_general_cli.py
+  sudo /opt/JSBach/venv/bin/python3 scripts_general_cli.py
 =============================================================================
 """
 
@@ -39,7 +39,7 @@ import json
 import time
 import unittest
 
-BASE_DIR = "/opt/JSBach_V4.2"
+BASE_DIR = "/opt/JSBach"
 EXP_SCRIPT = os.path.join(BASE_DIR, "app/modules/expect/scripts/master_cli_test.exp")
 sys.path.append(BASE_DIR)
 

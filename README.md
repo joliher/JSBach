@@ -1,4 +1,4 @@
-# JSBach V4.4
+# JSBach V4.7
 
 **Sistema de gestión y administración de router con interfaz web y CLI**
 
@@ -9,7 +9,7 @@
 
 ## 📋 Descripción
 
-JSBach V4.3 es un sistema completo de gestión de router que permite configurar y administrar servicios de red a través de dos interfaces:
+JSBach V4.7 es un sistema completo de gestión de router que permite configurar y administrar servicios de red a través de dos interfaces:
 
 - **🌐 Interfaz Web** (puerto 8100): Panel de administración con interfaz gráfica
 - **⌨️ Interfaz CLI** (puerto 2200): Terminal interactivo vía TCP
@@ -40,7 +40,7 @@ JSBach V4.3 es un sistema completo de gestión de router que permite configurar 
 1. **Clonar el repositorio**:
 ```bash
 git clone https://github.com/joliher/JSBach
-cd JSBach_V4.3
+cd JSBach
 ```
 
 2. **Ejecutar el instalador como root**:
@@ -49,7 +49,7 @@ sudo python3 scripts/install/install.py
 ```
 
 3. **Configurar durante la instalación**:
-   - Ruta de instalación (por defecto: `/opt/JSBach_V4.3`)
+   - Ruta de instalación (por defecto: `/opt/JSBach`)
    - Puerto web (por defecto: `8100`)
    - Usuario y contraseña de administración
 
@@ -57,7 +57,7 @@ sudo python3 scripts/install/install.py
 
 - ✅ Instala dependencias del sistema (python3, python3-pip, python3-venv)
 - ✅ Crea el usuario del sistema **jsbach**
-- ✅ Copia los archivos del proyecto a `/opt/JSBach_V4.3`
+- ✅ Copia los archivos del proyecto a `/opt/JSBach`
 - ✅ Crea un entorno virtual Python
 - ✅ Instala paquetes Python (FastAPI, uvicorn)
 - ✅ Configura permisos de archivos
@@ -151,7 +151,7 @@ Para información detallada sobre comandos y uso del sistema:
 Ejecuta el suite de pruebas para validar la estabilidad del sistema:
 
 ```bash
-cd /opt/JSBach_V4.3/scripts/tests
+cd /opt/JSBach/scripts/tests
 sudo ../../venv/bin/python test_comprehensive.py
 ```
 
@@ -166,10 +166,10 @@ Este script realiza pruebas exhaustivas de:
 
 ## 🗑️ Desinstalación
 
-Para desinstalar completamente JSBach V4.3:
+Para desinstalar completamente JSBach V4.7:
 
 ```bash
-cd /opt/JSBach_V4.3/scripts/install
+cd /opt/JSBach/scripts/install
 sudo python3 uninstall.py
 ```
 
@@ -191,7 +191,7 @@ El desinstalador te preguntará qué elementos deseas eliminar:
 ### Estructura del proyecto
 
 ```
-JSBach_V4.3/
+JSBach/
 ├── app/
 │   ├── cli/          # Interfaz CLI (Servidor, Parser, Sesiones)
 │   │   ├── help/     # Documentación de módulos (Markdown)
@@ -264,4 +264,4 @@ JSBach_V4.3/
 
 ---
 
-**JSBach V4.4** - Sistema profesional de gestión de router 🚀
+**JSBach V4.7** - Sistema profesional de gestión de router 🚀

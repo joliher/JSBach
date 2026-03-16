@@ -7,7 +7,7 @@ import subprocess
 from typing import Dict, Any, List
 
 # Add project root to sys.path
-BASE_DIR = "/opt/JSBach_V4.2"
+BASE_DIR = "/opt/JSBach"
 sys.path.append(BASE_DIR)
 
 import logging

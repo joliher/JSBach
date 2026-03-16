@@ -70,7 +70,7 @@ class CLISession:
     async def authenticate(self) -> bool:
         """Autentica al usuario"""
         await self.send("=" * 60)
-        await self.send("JSBach V4.0 - CLI Management Interface")
+        await self.send("JSBach V4.7 - CLI Management Interface")
         await self.send("=" * 60)
         await self.send("")
         

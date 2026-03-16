@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validadores centralizados para JSBach V4.0
+Validadores centralizados para JSBach V4.7
 Proporciona funciones de validación reutilizables para todos los módulos
 """
 
