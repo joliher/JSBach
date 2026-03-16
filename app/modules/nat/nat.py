@@ -63,8 +63,8 @@ def start(params: Dict[str, Any] = None) -> Tuple[bool, str]:
     mh.ensure_module_hook("filter", "JSB_GLOBAL_ISOLATE", "JSB_NAT_ISOLATE")
     
     # Hook into Global NAT (POSTROUTING)
-    if not _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_GLOBAL_NAT", "-j", "JSB_NAT_STATS"])[0]:
-        _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "JSB_GLOBAL_NAT", "-j", "JSB_NAT_STATS"])
+    if not _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_POSTROUTING", "-j", "JSB_NAT_STATS"])[0]:
+        _run_command(["/usr/sbin/iptables", "-t", "nat", "-A", "JSB_POSTROUTING", "-j", "JSB_NAT_STATS"])
     
     # Asegurar RETURN al final de la cadena de estadísticas
     if not _run_command(["/usr/sbin/iptables", "-t", "nat", "-C", "JSB_NAT_STATS", "-j", "RETURN"])[0]:
