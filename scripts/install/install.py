@@ -122,6 +122,8 @@ def create_config_directory(target_path):
             s = os.path.join(src_profiles, item)
             d = os.path.join(dst_profiles, item)
             if os.path.isfile(s):
+                if os.path.abspath(s) == os.path.abspath(d):
+                    continue
                 shutil.copy2(s, d)
         
         # Establecer permisos restrictivos para perfiles (jsbach:jsbach 700 para dirs, 600 para archivos)
