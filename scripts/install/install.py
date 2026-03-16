@@ -1,42 +1,3 @@
-def create_cli_systemd_service(target_path, venv_path):
-    info("Creando servicio systemd para CLI")
-    cli_path = os.path.join(target_path, "cli_server.py")
-    service_content = f"""[Unit]
-Description=JSBach CLI Service
-BindsTo=jsbach.service
-PartOf=jsbach.service
-After=jsbach.service
-
-[Service]
-Type=simple
-User=jsbach
-Group=jsbach
-UMask=0027
-WorkingDirectory={target_path}
-Environment=\"PATH={venv_path}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"
-ExecStart={venv_path}/bin/python3 {cli_path}
-Restart=always
-RestartSec=3
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-"""
-    service_path = "/etc/systemd/system/jsbach-cli.service"
-    with open(service_path, "w") as f:
-        f.write(service_content)
-
-    cmds = [
-        "systemctl daemon-reload",
-        "systemctl enable jsbach-cli",
-        "systemctl restart jsbach-cli"
-    ]
-    for c in cmds:
-        result = subprocess.run(c, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-        if result.returncode != 0:
-            error(f"Fallo al ejecutar: {c}\n{result.stderr.strip()}")
-    success("Servicio systemd CLI creado y en ejecución")
 #!/usr/bin/env python3
 
 import os
@@ -385,8 +346,48 @@ WantedBy=multi-user.target
     for c in cmds:
         result = subprocess.run(c, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:
-            error(f"Fallo al ejecutar: {c}\n{result.stderr.strip()}")
-    success("Servicio systemd creado y en ejecución")
+            warn(f"No se pudo ejecutar {c} (ignorado): {result.stderr.strip()}")
+    success("Servicio systemd creado (configurado)")
+
+def create_cli_systemd_service(target_path, venv_path):
+    info("Creando servicio systemd para CLI")
+    cli_path = os.path.join(target_path, "cli_server.py")
+    service_content = f"""[Unit]
+Description=JSBach CLI Service
+BindsTo=jsbach.service
+PartOf=jsbach.service
+After=jsbach.service
+
+[Service]
+Type=simple
+User=jsbach
+Group=jsbach
+UMask=0027
+WorkingDirectory={target_path}
+Environment=\"PATH={venv_path}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"
+ExecStart={venv_path}/bin/python3 {cli_path}
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+    service_path = "/etc/systemd/system/jsbach-cli.service"
+    with open(service_path, "w") as f:
+        f.write(service_content)
+
+    cmds = [
+        "systemctl daemon-reload",
+        "systemctl enable jsbach-cli",
+        "systemctl restart jsbach-cli"
+    ]
+    for c in cmds:
+        result = subprocess.run(c, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            warn(f"No se pudo ejecutar {c} (ignorado): {result.stderr.strip()}")
+    success("Servicio systemd CLI creado (configurado)")
 
 
 ###############
