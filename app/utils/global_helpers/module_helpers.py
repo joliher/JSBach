@@ -107,27 +107,30 @@ def ensure_global_chains():
     for table in ['filter', 'nat']:
         chains = ['JSB_GLOBAL_STATS', 'JSB_GLOBAL_ISOLATE'] if table == 'filter' else ['JSB_POSTROUTING']
         for chain in chains:
-            run_command(['iptables', '-t', table, '-N', chain], ignore_error=True)
+            run_command(['/usr/sbin/iptables', '-t', table, '-N', chain], ignore_error=True)
             parent = 'FORWARD' if table == 'filter' else 'POSTROUTING'
-            success, _ = run_command(['iptables', '-t', table, '-C', parent, '-j', chain], ignore_error=True)
+            success, _ = run_command(['/usr/sbin/iptables', '-t', table, '-C', parent, '-j', chain], ignore_error=True)
             if not success:
-                run_command(['iptables', '-t', table, '-I', parent, '1', '-j', chain], ignore_error=True)
+                run_command(['/usr/sbin/iptables', '-t', table, '-I', parent, '1', '-j', chain], ignore_error=True)
 
 def ensure_ebtables_global_chains():
     """Asegura cadenas globales en ebtables."""
     for chain in ['JSB_GLOBAL_EBT_STATS', 'JSB_GLOBAL_EBT_ISOLATE']:
-        run_command(['ebtables', '-t', 'filter', '-N', chain], ignore_error=True)
+        run_command(['/usr/sbin/ebtables', '-t', 'filter', '-N', chain], ignore_error=True)
         # ebtables (nf_tables) NO soporta -C para comprobar reglas de forma confiable
         # Patrón seguro: Borrar e Insertar
-        run_command(['ebtables', '-t', 'filter', '-D', 'FORWARD', '-j', chain], ignore_error=True)
-        run_command(['ebtables', '-t', 'filter', '-I', 'FORWARD', '1', '-j', chain], ignore_error=True)
+        run_command(['/usr/sbin/ebtables', '-t', 'filter', '-D', 'FORWARD', '-j', chain], ignore_error=True)
+        run_command(['/usr/sbin/ebtables', '-t', 'filter', '-I', 'FORWARD', '1', '-j', chain], ignore_error=True)
 
-def ensure_module_hook(table: str, parent_chain: str, module_chain: str, pos: int = 1, binary: str = 'iptables'):
+def ensure_module_hook(table: str, parent_chain: str, module_chain: str, pos: int = 1, binary: str = '/usr/sbin/iptables'):
     """Inserta un hook de iptables o ebtables dinámicamente."""
+    if binary == 'ebtables': binary = '/usr/sbin/ebtables'
+    elif binary == 'iptables': binary = '/usr/sbin/iptables'
+    
     cmd_base = [binary, '-t', table]
     run_command(cmd_base + ['-N', module_chain], ignore_error=True)
     
-    if binary == 'ebtables':
+    if 'ebtables' in binary:
         run_command(cmd_base + ['-D', parent_chain, '-j', module_chain], ignore_error=True)
         run_command(cmd_base + ['-I', parent_chain, str(pos), '-j', module_chain], ignore_error=True)
     else:

@@ -275,13 +275,12 @@ def status(params: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         status_lines.append("\n(Sin interfaces configuradas)")
     
     # Mostrar estado del bridge VLAN
-    status_lines.append("\n" + "=" * 50)
     status_lines.append("Estado de VLAN en bridge:")
     status_lines.append("-" * 50)
     
     try:
         result = subprocess.run(
-            ["sudo", "bridge", "vlan", "show"],
+            ["sudo", "/usr/sbin/bridge", "vlan", "show"],
             capture_output=True,
             text=True,
             check=True,

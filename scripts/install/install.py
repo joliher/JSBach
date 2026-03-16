@@ -570,7 +570,7 @@ if __name__ == "__main__":
         json.dump({"status": 1, "vlans": [{"id": 1, "name": "Management", "ip_interface": "192.168.1.1/24", "dhcp_enabled": True}]}, f, indent=4)
         
     with open(os.path.join(tagging_cfg_dir, "tagging.json"), "w") as f:
-        json.dump({"status": 1, "ports": {physical_iface: {"pvid": 1, "untagged": [1], "tagged": []}}}, f, indent=4)
+        json.dump({"status": 1, "interfaces": [{"name": physical_iface, "vlan_untag": "1", "vlan_tag": ""}]}, f, indent=4)
         
     success(f"Configuración base creada: VLAN 1 Untagged en {physical_iface} (192.168.1.1/24)")
 
@@ -608,6 +608,8 @@ if __name__ == "__main__":
         "/usr/sbin/ip addr flush *",
         "/usr/sbin/ip l *",
         "/usr/sbin/ip link *",
+        "/usr/sbin/ip link add *",
+        "/usr/sbin/ip link del *",
         "/usr/sbin/ip r *",
         "/usr/sbin/ip route *",
         "/usr/sbin/ip -4 *",
