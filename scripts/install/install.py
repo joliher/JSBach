@@ -324,6 +324,7 @@ Group=jsbach
 UMask=0027
 WorkingDirectory={target_path}
 Environment="PATH={venv_path}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStartPre=+/bin/sh -c "chown -R jsbach:jsbach {target_path}/config {target_path}/logs || true"
 ExecStart={venv_path}/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port {port}
 Restart=always
 RestartSec=3
@@ -365,6 +366,7 @@ Group=jsbach
 UMask=0027
 WorkingDirectory={target_path}
 Environment=\"PATH={venv_path}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"
+ExecStartPre=+/bin/sh -c "chown -R jsbach:jsbach {target_path}/config {target_path}/logs || true"
 ExecStart={venv_path}/bin/python3 {cli_path}
 Restart=always
 RestartSec=3
